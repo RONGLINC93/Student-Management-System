@@ -1,0 +1,42 @@
+[
+  {
+    "id": "cls_mtl9fhaurntb",
+    "name": "高一1班",
+    "grade": "高一",
+    "headTeacher": "",
+    "capacity": 50,
+    "students": []
+  },
+  {
+    "id": "cls_mtl9fq3gi3go",
+    "name": "高一2班",
+    "grade": "高一",
+    "headTeacher": "",
+    "capacity": 50,
+    "students": []
+  },
+  {
+    "id": "cls_mtla04r1euu6",
+    "name": "高二2班",
+    "grade": "高二",
+    "headTeacher": "",
+    "capacity": 50,
+    "students": []
+  },
+  {
+    "id": "cls_mtla09gze4x7",
+    "name": "高二1班",
+    "grade": "高二",
+    "headTeacher": "",
+    "capacity": 50,
+    "students": []
+  },
+  {
+    "id": "cls_mtla0ezvl44k",
+    "name": "高三1班",
+    "grade": "高三",
+    "headTeacher": "",
+    "capacity": 50,
+    "students": []
+  }
+]

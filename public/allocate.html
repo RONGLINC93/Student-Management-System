@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能分班 - 卡牌洗牌发牌</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="allocate-body">
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="16" rx="2"/><path d="M7 1h12a2 2 0 0 1 2 2v14"/></svg>
+        <div>
+          <h1>智能分班</h1>
+          <p class="subtitle">卡牌洗牌 · 发牌 · 均衡分班</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/index.html" class="nav-item">学生列表</a>
+        <a href="/classes.html" class="nav-item">班级管理</a>
+        <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/allocate.html" class="nav-item active">智能分班</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container allocate-container">
+    <!-- 控制面板 -->
+    <section class="control-panel">
+      <div class="control-left">
+        <div class="control-item">
+          <select id="gradeFilter">
+            <option value="">请选择年级</option>
+          </select>
+        </div>
+        <div class="control-item">
+          <label>目标班级</label>
+          <span class="badge" id="classCount">0</span> 个
+        </div>
+        <div class="control-item">
+          <label>参与学生</label>
+          <span class="badge" id="totalStu">0</span> 人
+        </div>
+      </div>
+      <div class="control-right">
+        <button class="btn btn-primary" id="btnShuffle"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> 开始洗牌</button>
+        <button class="btn btn-success" id="btnDeal" disabled><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> 发牌分班</button>
+        <button class="btn btn-default" id="btnReset"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> 重置</button>
+             <button class="btn btn-default" id="btnSettings" title="发牌设置"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 设置</button>
+ </div>
+    </section>
+
+    <!-- 卡牌舞台 -->
+    <section class="stage" id="stage">
+      <div class="stage-tip" id="stageTip">
+        <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="16" rx="2"/><path d="M7 1h12a2 2 0 0 1 2 2v14"/></svg>
+        <p>点击「开始洗牌」启动卡牌分班</p>
+        <small>每位学生将变成卡牌，洗牌后发牌至各班</small>
+      </div>
+      <!-- 舞台中央年级水印大字（展示用，位于卡牌下层） -->
+      <div class="stage-grade-watermark" id="stageGradeWatermark"></div>
+      <div class="deck-area" id="deckArea">
+        <!-- 牌堆/洗牌区 -->
+      </div>
+      <!-- 悬浮按钮（卡牌桌面上，洗牌/分班两种模式） -->
+      <button class="float-shuffle" id="floatShuffle" title="开始洗牌">
+        <svg class="btn-icon icon-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+        <svg class="btn-icon icon-deal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        <span id="floatShuffleText">开始洗牌</span>
+      </button>
+    </section>
+
+    <!-- 分班结果 -->
+    <section class="result-section" id="resultSection" style="display:none">
+      <div class="result-header">
+        <h2 id="resultTitle">班级列表</h2>
+        <div class="result-stats" id="resultStats"></div>
+      </div>
+      <div class="classes-grid" id="classesGrid"></div>
+    </section>
+  </main>
+
+  <!-- 设置模态框 -->
+  <div class="modal-mask" id="settingsMask">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3>发牌设置</h3>
+        <button class="modal-close" id="settingsClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label class="form-label">分班策略</label>
+          <select id="strategy">
+            <option value="snake">S型蛇形分班（按总分均衡）</option>
+            <option value="balance">综合均衡（成绩+性别+特长）</option>
+            <option value="random">随机分班</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">发牌速度 <span class="badge" id="dealSpeedVal">3</span></label>
+          <input type="range" class="range-input" id="dealSpeed" min="1" max="5" step="1" value="3" />
+          <div class="range-hints"><span>慢</span><span>快</span></div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">展示大小 <span class="badge" id="showScaleVal">1.6</span></label>
+          <input type="range" class="range-input" id="showScale" min="1.1" max="2.5" step="0.1" value="1.6" />
+          <div class="range-hints"><span>小</span><span>大</span></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="settingsDone">完成</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/js/allocate.js"></script>
+</body>
+</html>

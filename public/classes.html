@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能分班系统 - 班级管理</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/></svg>
+        <div>
+          <h1>班级管理</h1>
+          <p class="subtitle">班级创建 · 编辑 · 学生花名册</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/index.html" class="nav-item">学生列表</a>
+        <a href="/classes.html" class="nav-item active">班级管理</a>
+        <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/allocate.html" class="nav-item">智能分班</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- 统计 -->
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-num" id="statClasses">0</div>
+        <div class="stat-label">班级总数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statAssigned">0</div>
+        <div class="stat-label">已分班学生</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statPool">0</div>
+        <div class="stat-label">学生池剩余</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statCapacity">0</div>
+        <div class="stat-label">总容量</div>
+      </div>
+    </section>
+
+    <!-- 工具栏 -->
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <input type="text" id="searchInput" class="search-input" placeholder="搜索班级名/班主任..." />
+        <select id="gradeFilter" class="grade-filter">
+          <option value="">全部年级</option>
+        </select>
+        <span style="font-size: 13px; color: #94a3b8;">拖拽卡片可调整顺序</span>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-primary" id="btnAdd"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加班级</button>
+        <a href="/allocate.html" class="btn btn-success"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 去分班</a>
+        <button class="btn btn-danger" id="btnClearAll"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 清空班级</button>
+      </div>
+    </section>
+
+    <!-- 班级卡片网格 -->
+    <section class="classes-grid" id="classesGrid">
+      <div class="empty-tip-card" id="emptyTip">
+        <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+        <p>暂无班级</p>
+        <small>点击「添加班级」创建班级，或前往「智能分班」一键分班</small>
+      </div>
+    </section>
+  </main>
+
+  <!-- 班级编辑弹窗 -->
+  <div class="modal-mask" id="modalMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">添加班级</h3>
+        <button class="modal-close" id="modalClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="modal-body" id="clsForm">
+        <input type="hidden" id="fId" />
+        <div class="form-row">
+          <label class="form-label">班级名称 <span class="req">*</span></label>
+          <input type="text" id="fName" required placeholder="如：高三1班" />
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label">年级 <span class="req">*</span></label>
+            <select id="fGrade" required>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">班主任</label>
+            <input type="text" id="fHeadTeacher" placeholder="选填" />
+          </div>
+          <div class="form-row form-row-full">
+            <label class="form-label">容量上限</label>
+            <input type="number" id="fCapacity" min="1" max="200" value="50" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="modalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 学生花名册弹窗 -->
+  <div class="modal-mask" id="rosterMask">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="rosterTitle">班级花名册</h3>
+        <button class="modal-close" id="rosterClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div id="rosterInfo" class="roster-info"></div>
+        <div style="text-align:right;margin-bottom:10px">
+          <button class="btn btn-primary btn-sm" id="btnExportRoster"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 导出表格</button>
+        </div>
+        <div class="table-wrap">
+          <table class="student-table">
+            <thead>
+              <tr>
+                <th style="width:50px">照片</th>
+                <th>学号</th>
+                <th>姓名</th>
+                <th>性别</th>
+                <th>总分</th>
+                <th>特长</th>
+                <th style="width:100px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="rosterTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/js/classes.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "students:grade": "",
+  "students:status": "unallocated",
+  "students:search": "",
+  "classes:grade": "",
+  "classes:search": "",
+  "allocate:grade": "高一",
+  "allocate:strategy": "random",
+  "allocate:dealSpeed": "2",
+  "allocate:showScale": "1.7",
+  "students:pageSize": "10"
+}

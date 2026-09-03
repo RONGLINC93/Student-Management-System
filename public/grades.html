@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能分班系统 - 年级管理</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg>
+        <div>
+          <h1>智能分班系统</h1>
+          <p class="subtitle">年级管理</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/index.html" class="nav-item">学生列表</a>
+        <a href="/classes.html" class="nav-item">班级管理</a>
+        <a href="/grades.html" class="nav-item active">年级管理</a>
+        <a href="/allocate.html" class="nav-item">智能分班</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- 统计卡片 -->
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-label">年级总数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statStudents">0</div>
+        <div class="stat-label">学生总数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statUnallocated">0</div>
+        <div class="stat-label">未分班学生</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statAllocated">0</div>
+        <div class="stat-label">已分班学生</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statClasses">0</div>
+        <div class="stat-label">班级总数</div>
+      </div>
+    </section>
+
+    <!-- 操作工具栏 -->
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <h2 style="font-size: 18px; font-weight: 600;">年级列表</h2>
+        <span style="font-size: 13px; color: #94a3b8;">拖拽卡片可调整顺序</span>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-primary" id="btnAdd"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加年级</button>
+      </div>
+    </section>
+
+    <!-- 年级列表 -->
+    <section class="classes-grid" id="gradesGrid">
+      <div class="empty-tip-card" id="emptyTip">
+        <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg>
+        <p>暂无年级</p>
+        <small>点击右上角「添加年级」创建年级</small>
+      </div>
+    </section>
+  </main>
+
+  <!-- 年级编辑弹窗 -->
+  <div class="modal-mask" id="modalMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">添加年级</h3>
+        <button class="modal-close" id="modalClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="modal-body" id="gradeForm">
+        <input type="hidden" id="fOldName" />
+        <div class="form-row">
+          <label class="form-label">年级名称 <span class="req">*</span></label>
+          <input type="text" id="fName" required placeholder="请输入年级名称" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="modalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast 提示 -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/grades.js"></script>
+</body>
+</html>
