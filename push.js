@@ -57,6 +57,8 @@ if (status) {
 console.log(`正在推送 ${branch} 分支到 GitHub...`);
 try {
   execFileSync('git', ['push', authUrl, branch], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  // 刷新远程跟踪引用，保证 git status 的领先/落后显示准确
+  execFileSync('git', ['fetch', 'origin'], { cwd: ROOT, stdio: 'ignore' });
   console.log('推送成功');
 } catch (e) {
   const out = ((e.stdout || '') + (e.stderr || '')).toString();
