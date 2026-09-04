@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>智能分班 - 卡牌洗牌发牌</title>
+  <title>智能分班 - 均衡排班</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body class="allocate-body">
@@ -13,7 +13,7 @@
         <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="16" rx="2"/><path d="M7 1h12a2 2 0 0 1 2 2v14"/></svg>
         <div>
           <h1>智能分班</h1>
-          <p class="subtitle">卡牌洗牌 · 发牌 · 均衡分班</p>
+          <p class="subtitle">随机排位 · 均衡编班</p>
         </div>
       </div>
       <nav class="nav">
@@ -44,30 +44,31 @@
         </div>
       </div>
       <div class="control-right">
-        <button class="btn btn-primary" id="btnShuffle"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> 开始洗牌</button>
-        <button class="btn btn-success" id="btnDeal" disabled><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> 发牌分班</button>
+        <button class="btn btn-primary" id="btnShuffle"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> 随机排位</button>
+        <button class="btn btn-success" id="btnDeal" disabled><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> 开始分班</button>
         <button class="btn btn-default" id="btnReset"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> 重置</button>
-             <button class="btn btn-default" id="btnSettings" title="发牌设置"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 设置</button>
+        <a class="link-btn" href="/result.html" id="boardLink" target="_blank" title="在另一块屏幕投屏查看实时分班结果"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> 投屏查看结果</a>
+             <button class="btn btn-default" id="btnSettings" title="分班设置"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 设置</button>
  </div>
     </section>
 
-    <!-- 卡牌舞台 -->
+    <!-- 排位舞台 -->
     <section class="stage" id="stage">
       <div class="stage-tip" id="stageTip">
         <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="16" rx="2"/><path d="M7 1h12a2 2 0 0 1 2 2v14"/></svg>
-        <p>点击「开始洗牌」启动卡牌分班</p>
-        <small>每位学生将变成卡牌，洗牌后发牌至各班</small>
+        <p>点击「随机排位」启动分班流程</p>
+        <small>学生将随机排位，再依次分入各班，实现均衡编班</small>
       </div>
-      <!-- 舞台中央年级水印大字（展示用，位于卡牌下层） -->
+      <!-- 舞台中央年级水印大字（展示用，位于卡片下层） -->
       <div class="stage-grade-watermark" id="stageGradeWatermark"></div>
       <div class="deck-area" id="deckArea">
-        <!-- 牌堆/洗牌区 -->
+        <!-- 学生卡片摆放区 -->
       </div>
-      <!-- 悬浮按钮（卡牌桌面上，洗牌/分班两种模式） -->
-      <button class="float-shuffle" id="floatShuffle" title="开始洗牌">
+      <!-- 悬浮按钮（分班流程中，排位/分班两种模式） -->
+      <button class="float-shuffle" id="floatShuffle" title="随机排位">
         <svg class="btn-icon icon-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
         <svg class="btn-icon icon-deal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-        <span id="floatShuffleText">开始洗牌</span>
+        <span id="floatShuffleText">随机排位</span>
       </button>
     </section>
 
@@ -85,7 +86,7 @@
   <div class="modal-mask" id="settingsMask">
     <div class="modal modal-sm">
       <div class="modal-header">
-        <h3>发牌设置</h3>
+        <h3>分班设置</h3>
         <button class="modal-close" id="settingsClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="modal-body">
@@ -98,7 +99,7 @@
           </select>
         </div>
         <div class="form-row">
-          <label class="form-label">发牌速度 <span class="badge" id="dealSpeedVal">3</span></label>
+          <label class="form-label">演示速度 <span class="badge" id="dealSpeedVal">3</span></label>
           <input type="range" class="range-input" id="dealSpeed" min="1" max="5" step="1" value="3" />
           <div class="range-hints"><span>慢</span><span>快</span></div>
         </div>
@@ -114,6 +115,11 @@
     </div>
   </div>
 
+  <!-- 开始分班前 3-2-1 倒计时（居中大字，覆盖全屏防止误操作） -->
+  <div class="countdown-mask" id="cdMask">
+    <div class="countdown-digit" id="cdDigit">3</div>
+    <div class="countdown-sub">即将开始分班</div>
+  </div>
   <div class="toast" id="toast"></div>
   <script src="/js/dialog.js"></script>
   <script src="/js/allocate.js"></script>

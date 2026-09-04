@@ -1,16 +1,19 @@
-// 智能分班 - 卡牌洗牌发牌逻辑
+// 智能分班 - 随机排位 · 均衡编班逻辑
 const API = '/api/students';
 const CLS_API = '/api/classes';
 const GRADES_API = '/api/grades';
 const FILTERS_API = '/api/filters';
+const LIVE_API = '/api/live';
+const BOARD_GRADE_API = '/api/board/grade'; // 广播当前所选年级，供大屏「跟播」实时同步
 let allStudents = []; // 所有学生
 let allClasses = []; // 所有班级
 let students = []; // 当前年级筛选后的学生
 let classData = []; // 当前年级筛选后的班级
-let cardEls = []; // 卡牌DOM引用
+let cardEls = []; // 学生卡片DOM引用
 let allocationResult = null; // 分班结果
 let isShuffling = false;
 let isDealing = false;
+let cdValue = 0;      // 分班倒计时当前数字：0=未倒计时 / 3·2·1
 let gradesList = []; // 年级列表
 
 const $ = (s) => document.querySelector(s);
@@ -32,19 +35,19 @@ function setShuffleDisabled(v) {
   if (fb) fb.classList.toggle('hidden', v);
 }
 
-// 悬浮按钮模式：shuffle=开始洗牌（紫色），deal=开始分班（绿色）
+// 悬浮按钮模式：shuffle=随机排位（紫色），deal=开始分班（绿色）
 let floatMode = 'shuffle';
 function setFloatMode(mode) {
   floatMode = mode;
   const fb = $('#floatShuffle');
   if (!fb) return;
-  const text = mode === 'deal' ? '开始分班' : '开始洗牌';
+  const text = mode === 'deal' ? '开始分班' : '随机排位';
   $('#floatShuffleText').textContent = text;
   fb.title = text;
   fb.classList.toggle('deal', mode === 'deal');
 }
 
-// 发牌速度换算：档位 1-5 → 时间倍率（越小越快）
+// 演示速度换算：档位 1-5 → 时间倍率（越小越快）
 function dealPause(base) {
   const spd = Number($('#dealSpeed')?.value || 3);
   const factor = [2.2, 1.6, 1, 0.6, 0.35][spd - 1] || 1;
@@ -148,7 +151,7 @@ async function loadStudents() {
   }
 }
 
-// 应用年级筛选（必须选择年级才能洗牌分班）
+// 应用年级筛选（必须选择年级才能开始分班）
 function applyGradeFilter() {
   const grade = $('#gradeFilter')?.value || '';
   if (grade) {
@@ -160,7 +163,7 @@ function applyGradeFilter() {
     classData = [];
   }
 
-  // 清除牌堆区域的卡牌
+  // 清空摆放区中的学生卡片
   const deckArea = $('#deckArea');
   if (deckArea) {
     deckArea.innerHTML = '';
@@ -185,7 +188,7 @@ function applyGradeFilter() {
     $('#stageTip').innerHTML = `
       <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 7l9-4 9 4M5 7v6c0 4 14 4 14 0V7"/></svg>
       <p>请先选择年级</p>
-      <small>选择年级后才能开始洗牌分班</small>`;
+      <small>选择年级后才能开始随机排位分班</small>`;
     setShuffleDisabled(true);
   } else if (!classData.length) {
     // 无班级
@@ -296,7 +299,7 @@ function layoutGrid() {
   });
 }
 
-// 创建卡牌
+// 创建学生卡片
 function createCardElement(stu, idx) {
   const card = document.createElement('div');
   card.className = `stu-card ${stu.gender === '男' ? 'male' : 'female'}`;
@@ -313,7 +316,6 @@ function createCardElement(stu, idx) {
     </div>
     <div class="card-gender">${stu.gender === '男' ? '♂' : '♀'}</div>
     <div class="card-total">${totalScore(stu)}</div>
-    <div class="card-back-pattern"></div>
   `;
   return card;
 }
@@ -324,39 +326,7 @@ function getStageSize() {
   return { w: stage.clientWidth, h: stage.clientHeight };
 }
 
-// 在舞台中布局卡牌（初始牌堆）
-function layoutDeck(centerSpread = false) {
-  const { w, h } = getStageSize();
-  const cardW = 110, cardH = 150;
-  const cx = w / 2 - cardW / 2;
-  const cy = h / 2 - cardH / 2;
-  cardEls.forEach((card, i) => {
-    if (centerSpread) {
-      // 散开成扇形
-      const n = cardEls.length;
-      const angleRange = Math.min(160, n * 12);
-      const step = n > 1 ? angleRange / (n - 1) : 0;
-      const angle = -angleRange / 2 + step * i;
-      const rad = (angle * Math.PI) / 180;
-      const r = 160;
-      const x = cx + Math.sin(rad) * r;
-      const y = cy + Math.cos(rad) * r * 0.4 - 20;
-      card.style.left = x + 'px';
-      card.style.top = y + 'px';
-      card.style.transform = `rotate(${angle * 0.6}deg)`;
-      card.style.zIndex = i;
-    } else {
-      // 堆叠成牌堆（轻微错位）
-      const offset = i * 0.6;
-      card.style.left = (cx + offset - cardEls.length * 0.3) + 'px';
-      card.style.top = (cy + offset - cardEls.length * 0.3) + 'px';
-      card.style.transform = `rotate(${(i - cardEls.length / 2) * 0.5}deg)`;
-      card.style.zIndex = i;
-    }
-  });
-}
-
-// 开始洗牌
+// 随机排位：学生卡片保持正面朝上，在舞台网格中随机位移几次
 async function startShuffle() {
   if (!students.length || isShuffling || isDealing) return;
   if (!$('#gradeFilter')?.value) {
@@ -368,45 +338,42 @@ async function startShuffle() {
   $('#btnDeal').disabled = true;
   $('#btnReset').disabled = true;
 
-  // 如果卡牌尚未渲染（理论上不会发生），先渲染
+  // 同步推送到大屏：提示观众「正在随机排位」，并与本页年级对齐
+  liveGrade = $('#gradeFilter')?.value || '';
+  phaseState = 'shuffle';
+  startPhasePump();
+  pushLiveBoard();
+
+  // 如果卡片尚未渲染（理论上不会发生），先渲染
   if (!cardEls.length) {
     renderStudentCards();
   }
 
-  // 先收拢成牌堆（正面朝下）
-  cardEls.forEach(card => card.classList.add('face-down'));
-  await sleep(200);
-  layoutDeck(false);
-  await sleep(500);
+  showStatus('正在随机排位...'); // 动画进行中提示：不阻断排位动画
 
-  // 散开成扇形
-  layoutDeck(true);
-  await sleep(500);
-
-  // 洗牌动画：所有卡牌开始shuffling
-  cardEls.forEach((card, i) => {
-    card.style.animationDelay = (i * 0.04) + 's';
-    card.classList.add('shuffling');
-  });
-
-  showStatus('正在洗牌...'); // 动画进行中提示：不阻断洗牌动画
-  await sleep(2600);
-
-  // 停止洗牌，保持背面朝上，散开成扇形
-  cardEls.forEach(card => {
-    card.classList.remove('shuffling');
-    // 保持 face-down，发牌时才翻回正面
-    card.style.animationDelay = '';
-  });
-  layoutDeck(true);
-  await sleep(500);
+  // 多次随机换位：每次打乱卡片顺序后按网格重新平铺，
+  // 卡片借助 CSS 的 left/top 过渡平滑位移，最终顺序即排位结果
+  const rounds = 3;
+  for (let r = 0; r < rounds; r++) {
+    // Fisher-Yates 随机打乱卡片顺序
+    for (let i = cardEls.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cardEls[i], cardEls[j]] = [cardEls[j], cardEls[i]];
+    }
+    layoutGrid();
+    await sleep(r === rounds - 1 ? 700 : 850);
+  }
 
   isShuffling = false;
   setShuffleDisabled(false);
   setFloatMode('deal');
   $('#btnDeal').disabled = false;
   $('#btnReset').disabled = false;
-  toast('洗牌完成，可以发牌分班', 'success');
+
+  // 同步推送到大屏：随机排位已完成，等待点击「开始分班」进入分班直播
+  phaseState = 'ready';
+  pushLiveBoard();
+  toast('随机排位完成，可以开始分班', 'success');
 }
 
 // ===== 分班算法 =====
@@ -468,7 +435,7 @@ function computeAllocation(strategy, classCount) {
   return classes;
 }
 
-// 发牌分班
+// 依次分班：按策略结果将学生依次放入各班
 async function startDeal() {
   if (!cardEls.length || isShuffling || isDealing) return;
   if (!$('#gradeFilter')?.value) {
@@ -487,19 +454,28 @@ async function startDeal() {
   const strategy = $('#strategy').value;
   const showScale = Number($('#showScale')?.value || 1.6);
   isDealing = true;
+  stopPhasePump(); // 排位提示帧让位：倒计时帧由 runDealCountdown 逐秒接管，随后每入班一人的实时帧自带 deal 阶段
   setShuffleDisabled(true);
   $('#btnDeal').disabled = true;
   $('#btnReset').disabled = true;
 
+  // 初始化大屏实时快照状态（每个班以班级块中已展示的学生为起点）
+  liveGrade = $('#gradeFilter')?.value || '';
+  liveClassStudents = classData.map(c => (c.students || []).slice());
+
+  // 3-2-1 居中大字倒计时（分班页本地 + 实时帧同步到大屏），倒计时结束才正式开始分班
+  await runDealCountdown();
+
   // 计算结果
   allocationResult = computeAllocation(strategy, classCount);
+  pushLiveBoard(); // 分班首帧：让大屏从倒计时切换到「分班进行中」
 
   // 显示结果区域（使用真实班级名，保留已分班学生）
   $('#resultSection').style.display = 'block';
   $('#resultTitle').textContent = `${$('#gradeFilter')?.value || ''} · 分班结果`;
   $('#classesGrid').innerHTML = classData.map((c, i) => renderClassBlock(c, i)).join('');
 
-  // 构建发牌顺序：按结果中各班轮流发，每轮发到所有班
+  // 构建入班顺序：按结果中各班轮流取人，每轮覆盖所有班
   const dealOrder = [];
   const maxLen = Math.max(...allocationResult.map(c => c.length));
   for (let r = 0; r < maxLen; r++) {
@@ -508,15 +484,13 @@ async function startDeal() {
     }
   }
 
-  showStatus('开始发牌...'); // 动画进行中提示：不阻断发牌动画
-  // 逐张发牌
+  showStatus('正在依次分班...'); // 动画进行中提示：不阻断分班动画
+  // 逐人分入班级
   for (let i = 0; i < dealOrder.length; i++) {
     const { stu, classIdx } = dealOrder[i];
     const card = cardEls.find(c => c.dataset.id === stu.id);
     if (!card) continue;
 
-    // 翻牌（正面朝上）
-    card.classList.remove('face-down');
     card.classList.add('dealing');
 
     // 先放大展示：移到舞台中央并放大（大小/速度可调），同时显示目标班级
@@ -573,11 +547,19 @@ async function startDeal() {
     const meta = document.querySelector(`[data-class="${classIdx}"] .class-meta`);
     if (meta) meta.textContent = `${targetClass.children.length} 人`;
 
+    // 实时同步到大屏看板：该生已入班
+    liveClassStudents[classIdx] = liveClassStudents[classIdx] || [];
+    liveClassStudents[classIdx].push(stu);
+    pushLiveBoard();
+
     await sleep(dealPause(120));
   }
 
-  // 持久化分班结果：学生从池移入班级
+  // 动画结束前强制发出最后一帧，再持久化
+  await sendLiveNow();
   await persistAllocation();
+  // 持久化完成：清除实时快照，看板回落显示 classes.json
+  clearLiveBoard();
 
   isDealing = false;
   setShuffleDisabled(false);
@@ -588,6 +570,113 @@ async function startDeal() {
   // 刷新学生池显示（移除已分配的学生），班级列表由 applyGradeFilter 重新渲染
   await loadStudents();
   allocationResult = null;
+}
+
+// ===== 开始分班前 3-2-1 倒计时（分班页居中大字 + 实时帧同步大屏） =====
+const CD_STEP_MS = 1000; // 每个数字停留时长（> 大屏轮询 0.8s，保证倒计时每帧都能被捕捉）
+
+// 切换分班页倒计时遮罩（v=0 隐藏）
+function showCdOverlay(v) {
+  const mask = $('#cdMask');
+  const digit = $('#cdDigit');
+  if (!mask || !digit) return;
+  if (v > 0) {
+    digit.textContent = v;
+    digit.classList.remove('pop');
+    void digit.offsetWidth; // 强制重启动画
+    digit.classList.add('pop');
+    mask.classList.add('show');
+  } else {
+    mask.classList.remove('show');
+  }
+}
+
+// 播放 3-2-1 倒计时：逐秒更新本地大字，并把携带当前数字的 countdown 帧推送给大屏
+async function runDealCountdown() {
+  for (let v = 3; v >= 1; v--) {
+    cdValue = v; // livePayload 据此将阶段设为 countdown
+    showCdOverlay(v);
+    pushLiveBoard();
+    await sleep(CD_STEP_MS);
+  }
+  cdValue = 0;
+  showCdOverlay(0);
+}
+
+// ===== 大屏看板实时推送 =====
+// 分班动画每入班一人即刷新内存快照，大屏 /result.html 通过 /api/board 轮询可看到逐步入班的过程
+let livePending = false;
+let liveTimer = null;
+let liveGrade = '';
+let liveClassStudents = []; // 与 classData 同序，记录每班当前应显示的学生
+let phaseState = '';        // 分班直播的阶段：shuffle=正在随机排位 / ready=排位完成待开始分班；分班中实时帧由 isDealing 判断
+let phaseTimer = null;      // 排位阶段心跳定时器：维持大屏提示帧不超过其 6s 有效期
+
+// 大屏快照：分班中每入班一人刷新一帧（phase=deal）；
+// 随机排位阶段发送提示帧（shuffle/ready），班级名单与大屏已展示的持久化数据保持一致（无实时增量变化）
+function livePayload() {
+  // 倒计时阶段：点击「开始分班」后先广播携带当前数字的 countdown 帧；随后分班中的实时帧为 deal 阶段
+  const phase = cdValue > 0 ? 'countdown' : (isDealing ? 'deal' : phaseState);
+  return {
+    grade: liveGrade,
+    phase,
+    cd: cdValue, // 当前倒计时数字（3/2/1，非倒计时为 0）
+    classes: classData.map((c, i) => ({
+      id: c.id,
+      name: c.name,
+      grade: c.grade,
+      headTeacher: c.headTeacher || '',
+      capacity: c.capacity,
+      students: (isDealing ? (liveClassStudents[i] || []) : (c.students || [])).map(s => ({ ...s }))
+    }))
+  };
+}
+
+// 立即发送一帧（动画结束/切换前强制发出最终状态）
+async function sendLiveNow() {
+  if (liveTimer) { clearTimeout(liveTimer); liveTimer = null; }
+  if (!livePending) return;
+  livePending = false;
+  try {
+    await fetch(LIVE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(livePayload())
+    });
+  } catch (e) {
+    console.error('推送实时快照失败:', e);
+  }
+}
+
+// 节流推送（≤200ms 一帧）
+function pushLiveBoard() {
+  livePending = true;
+  if (liveTimer) return;
+  liveTimer = setTimeout(() => { liveTimer = null; sendLiveNow(); }, 200);
+}
+
+// 排位阶段心跳：shuffle 动画约 3s，排位完成后可能等待较久才开始分班，
+// 大屏提示帧 6s 即失效，故每 3s 补推一帧维持提示（真正分班开始后自动停止）
+function startPhasePump() {
+  if (phaseTimer) clearInterval(phaseTimer);
+  phaseTimer = setInterval(() => {
+    if (isDealing || !phaseState) return;
+    pushLiveBoard();
+  }, 3000);
+}
+
+function stopPhasePump() {
+  if (phaseTimer) { clearInterval(phaseTimer); phaseTimer = null; }
+}
+
+// 清除实时快照（分班结束 / 重置后，大屏回落显示持久化 classes.json）
+function clearLiveBoard() {
+  if (liveTimer) { clearTimeout(liveTimer); liveTimer = null; }
+  livePending = false;
+  liveClassStudents = [];
+  phaseState = '';
+  stopPhasePump();
+  fetch(LIVE_API, { method: 'DELETE' }).catch(() => {});
 }
 
 // 持久化分班到后端
@@ -635,9 +724,29 @@ function reset(silent = false) {
   allocationResult = null;
   $('#resultSection').style.display = 'none';
   $('#btnDeal').disabled = true;
+  // 重置时同步清除大屏实时快照
+  clearLiveBoard();
   // 重新加载数据（学生可能已被分入班级）
   loadStudents();
   if (!silent) toast('已重置', 'success');
+}
+
+// 投屏链接同步携带当前所选年级，打开大屏即与该年级对齐
+function syncBoardLink() {
+  const a = $('#boardLink');
+  if (!a) return;
+  const g = $('#gradeFilter')?.value || '';
+  a.href = '/result.html' + (g ? '?grade=' + encodeURIComponent(g) : '');
+}
+
+// 广播当前所选年级到大屏：大屏开启「跟播」时，无需直播也会立即切到该年级
+function syncBoardGrade() {
+  const g = $('#gradeFilter')?.value || '';
+  fetch(BOARD_GRADE_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grade: g })
+  }).catch(() => {});
 }
 
 // 事件绑定
@@ -650,9 +759,14 @@ function bindEvents() {
   $('#gradeFilter').onchange = () => {
     applyGradeFilter();
     saveFilters(); // 保存筛选
-    // 如果正在洗牌或发牌，先重置（程序自动重置，不弹提示）
+    syncBoardLink(); // 投屏链接同步携带当前年级
+    syncBoardGrade(); // 实时广播到大屏，让大屏「跟播」立即切到该年级
+    // 如果正在排位或分班中，先重置（程序自动重置，不弹提示）
     if (isShuffling || isDealing) {
       reset(true);
+    } else if (phaseState) {
+      // 取消上一轮「排位完成待开始分班」的提示，避免残留到切换后的年级
+      clearLiveBoard();
     }
   };
   $('#strategy').onchange = () => {
@@ -677,6 +791,17 @@ function bindEvents() {
 }
 
 bindEvents();
+// 分班页关闭/刷新时清空年级广播，大屏不再强绑本页年级
+window.addEventListener('pagehide', () => {
+  fetch(BOARD_GRADE_API, {
+    method: 'POST',
+    keepalive: true,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grade: '' })
+  }).catch(() => {});
+});
 Promise.all([loadGradeOptions(), loadFilters()]).then(() => {
   loadStudents();
+  syncBoardLink(); // 恢复筛选后同步投屏链接的年级参数
+  syncBoardGrade(); // 恢复筛选后广播当前年级，让已打开的大屏同步对齐
 });

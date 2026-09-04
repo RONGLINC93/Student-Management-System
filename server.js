@@ -91,6 +91,12 @@ function writeFilters(filters) {
   fs.writeFileSync(FILTERS_FILE, JSON.stringify(filters, null, 2), 'utf-8');
 }
 
+// 实时分班快照（内存态，供大屏看板在分班动画过程中实时展示）
+// phase: deal=分班进行中 / shuffle=正在随机排位 / ready=排位完成待分班 / ''=无阶段
+let liveBoard = null; // { ts, grade, phase, classes: [{ id, name, grade, capacity, students: [] }] }
+// 分班页当前筛选年级（内存态，分班页切换年级时实时广播，大屏开「跟播」据此同步，不依赖直播）
+let boardGrade = '';
+
 function genId() {
   return 'cls_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
@@ -441,6 +447,54 @@ const server = http.createServer(async (req, res) => {
     writeClasses(classes);
     writeStudents(remaining);
     return sendJson(res, 200, { code: 0, msg: '分班完成', assigned: assignedIds.size, remaining: remaining.length });
+  }
+
+  // 清除实时快照
+  if (pathname === '/api/live' && req.method === 'DELETE') {
+    liveBoard = null;
+    return sendJson(res, 200, { code: 0, msg: '已清除实时快照' });
+  }
+
+  // 推送实时分班快照（分班动画过程中每入班一人调用一次，body: { grade, classes }）
+  if (pathname === '/api/live' && req.method === 'POST') {
+    const body = await readBody(req);
+    const classes = Array.isArray(body.classes) ? body.classes : [];
+    liveBoard = {
+      ts: Date.now(),
+      grade: String(body.grade || ''),
+      phase: String(body.phase || ''),
+      cd: Number(body.cd) || 0, // 分班前倒计时当前数字（countdown 阶段 3/2/1）
+      classes: classes.map(c => ({
+        id: c.id,
+        name: c.name || '',
+        grade: c.grade || body.grade || '',
+        headTeacher: c.headTeacher || '',
+        capacity: Number(c.capacity) || 50,
+        students: Array.isArray(c.students) ? c.students.map(s => ({ ...s })) : []
+      }))
+    };
+    return sendJson(res, 200, { code: 0, msg: '已更新实时快照' });
+  }
+
+  // 分班页广播当前所选年级（大屏开启「跟播」时据此实时同步年级）
+  if (pathname === '/api/board/grade' && req.method === 'POST') {
+    const body = await readBody(req);
+    boardGrade = String(body.grade || '');
+    return sendJson(res, 200, { code: 0, msg: '已更新' });
+  }
+
+  // 看板聚合数据：持久化班级 + 学生池 + 年级 + 实时快照 + 分班页当前年级，一次拉齐供大屏轮询
+  if (pathname === '/api/board' && req.method === 'GET') {
+    return sendJson(res, 200, {
+      code: 0,
+      data: {
+        classes: readClasses(),
+        students: readStudents(),
+        grades: readGrades(),
+        live: liveBoard,
+        grade: boardGrade
+      }
+    });
   }
 
   // ===== 筛选设置 API =====

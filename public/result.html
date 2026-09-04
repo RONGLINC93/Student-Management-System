@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能分班 - 实时结果大屏</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="allocate-body board-body">
+  <header class="app-header">
+    <div class="header-inner board-header">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <div>
+          <h1>分班结果大屏</h1>
+          <p class="subtitle">实时看板 · 点击班级查看花名册</p>
+        </div>
+      </div>
+      <div class="board-current" id="boardCurrent">
+        <span class="board-current-label" id="currentGradeLabel">等待年级同步</span>
+        <span class="board-current-grade" id="currentGradeText">待同步</span>
+      </div>
+      <div class="board-head-right">
+        <span class="live-badge" id="liveBadge"><span class="live-dot"></span><span id="liveText">连接中…</span></span>
+        <a href="/allocate.html" class="board-back-link">去分班 &gt;</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container allocate-container board-container">
+    <!-- 概览统计 -->
+    <section class="board-stats">
+      <div class="board-stat">
+        <div class="board-stat-num" id="statClasses">0</div>
+        <div class="board-stat-label">班级总数</div>
+      </div>
+      <div class="board-stat">
+        <div class="board-stat-num" id="statAssigned">0</div>
+        <div class="board-stat-label">已分班学生</div>
+      </div>
+      <div class="board-stat">
+        <div class="board-stat-num" id="statPool">0</div>
+        <div class="board-stat-label">学生池剩余</div>
+      </div>
+      <div class="board-stat">
+        <div class="board-stat-num" id="statCapacity">0</div>
+        <div class="board-stat-label">总容量</div>
+      </div>
+    </section>
+
+    <!-- 控制条 -->
+    <section class="control-panel board-control">
+      <div class="control-left">
+        <div class="control-item">
+          <select id="gradeFilter">
+            <option value="">自动 · 跟随分班</option>
+          </select>
+          <button type="button" class="board-follow on" id="followBtn" title="空闲时跟随分班页所选年级，直播中自动切到直播年级">跟播中</button>
+        </div>
+        <div class="control-item">
+          <label>自动刷新</label>
+          <span class="badge" id="refreshVal">0.8s</span>
+        </div>
+      </div>
+      <div class="board-control-center" id="phaseCenter"></div>
+      <div class="control-right">
+        <span class="board-clock" id="clock"></span>
+      </div>
+    </section>
+
+    <!-- 班级网格 -->
+    <section class="board-grid-wrap" id="boardWrap">
+      <div class="classes-grid board-grid" id="classesGrid"></div>
+      <div class="empty-tip-card board-empty" id="emptyTip" style="display:none">
+        <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="16" rx="2"/><path d="M7 1h12a2 2 0 0 1 2 2v14"/></svg>
+        <p>暂无数据</p>
+        <small>请先到 <a href="/classes.html">班级管理</a> 创建班级，再到 <a href="/allocate.html">智能分班</a> 开始分班</small>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <!-- 分班前 3-2-1 倒计时遮罩（居中大字） -->
+  <div class="countdown-mask" id="cdOverlay">
+    <div class="countdown-digit" id="cdDigit">3</div>
+    <div class="countdown-sub">即将开始分班</div>
+  </div>
+  <!-- 直播飞行落座动画层（固定定位，不拦截点击） -->
+  <div id="flyLayer"></div>
+  <script src="/js/dialog.js"></script>
+  <script src="/js/result.js"></script>
+</body>
+</html>

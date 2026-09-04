@@ -450,7 +450,7 @@ body {
 .page-ellipsis { padding: 0 2px; color: var(--text-light); }
 
 /* =============================================== */
-/* ============ 智能分班 - 卡牌舞台 =============== */
+/* ============ 智能分班 - 排位舞台 =============== */
 /* =============================================== */
 .allocate-body { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); }
 .allocate-body .app-header {
@@ -487,7 +487,7 @@ body {
 }
 .control-item input:focus, .control-item select:focus { border-color: #fff; }
 .control-item select option { color: #1f2937; }
-/* 滑块控件（发牌速度 / 展示大小，用于设置模态框） */
+/* 滑块控件（演示速度 / 展示大小，用于设置模态框） */
 .range-input {
   -webkit-appearance: none;
   appearance: none;
@@ -567,7 +567,7 @@ body {
   font-weight: 500;
 }
 
-/* 舞台中央年级水印大字（展示用，位于卡牌下层） */
+/* 舞台中央年级水印大字（展示用，位于卡片下层） */
 .stage-grade-watermark {
   position: absolute;
   left: 50%;
@@ -619,7 +619,7 @@ body {
   inset: 0;
 }
 
-/* ===== 悬浮洗牌按钮（卡牌桌面中央） ===== */
+/* ===== 悬浮操作按钮（排位舞台中央） ===== */
 .float-shuffle {
   position: absolute;
   left: 50%;
@@ -662,7 +662,7 @@ body {
 .float-shuffle.deal .icon-shuffle { display: none; }
 .float-shuffle.deal .icon-deal { display: inline-flex; }
 
-/* ===== 卡牌 ===== */
+/* ===== 学生卡片 ===== */
 .stu-card.showcase {
   box-shadow: 0 0 0 4px rgba(255,255,255,.4), 0 0 35px rgba(165,180,252,.65), 0 12px 35px rgba(0,0,0,.5);
 }
@@ -762,56 +762,7 @@ body {
 .stu-card.male .card-photo { background: linear-gradient(135deg, #60a5fa, #2563eb); }
 .stu-card.female .card-photo { background: linear-gradient(135deg, #f472b6, #db2777); }
 
-/* 卡牌背面（洗牌时） */
-.stu-card.face-down {
-  background:
-    radial-gradient(circle at 50% 50%, #6366f1 0%, #4338ca 60%, #312e81 100%);
-  color: transparent;
-}
-.stu-card.face-down .card-photo,
-.stu-card.face-down .card-body,
-.stu-card.face-down .card-total,
-.stu-card.face-down .card-gender { display: none; }
-.stu-card.face-down::after {
-  content: "🎓";
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
-  font-size: 38px;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,.3));
-  z-index: 2;
-}
-.stu-card.face-down .card-back-pattern {
-  position: absolute;
-  inset: 8px;
-  border: 2px solid rgba(255,255,255,.3);
-  border-radius: 8px;
-  background:
-    repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 6px, transparent 6px 12px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.08) 0 6px, transparent 6px 12px);
-}
-.stu-card.face-down .card-back-pattern::before {
-  content: "";
-  position: absolute;
-  inset: 12px;
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 6px;
-}
-
-/* 洗牌动画 */
-@keyframes shuffle1 {
-  0% { transform: translate(0,0) rotate(0); }
-  25% { transform: translate(-120px,-30px) rotate(-15deg); }
-  50% { transform: translate(120px,30px) rotate(20deg); }
-  75% { transform: translate(-60px,40px) rotate(-10deg); }
-  100% { transform: translate(0,0) rotate(0); }
-}
-.stu-card.shuffling {
-  animation: shuffle1 .7s ease-in-out infinite;
-  z-index: 10;
-}
-
-/* 发牌动画 */
+/* 分班动画 */
 .stu-card.dealing {
   transition: all .6s cubic-bezier(.4,0,.2,1);
 }
@@ -1224,3 +1175,745 @@ tr.data-row.dragging { box-shadow: inset 0 0 0 2px var(--primary); }
 }
 .dialog-btns { display: flex; justify-content: center; gap: 12px; margin-top: 26px; }
 .dialog-btns .btn { min-width: 100px; }
+
+/* ========== 实时结果大屏（result.html 投屏看板） ========== */
+.board-header {
+  position: relative;
+  max-width: 1720px;
+  width: 100%;
+}
+/* 给大屏头部留出足够高度，容纳居中的醒目年级大字 */
+.board-body .header-inner { padding-top: 24px; padding-bottom: 24px; }
+.board-head-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+/* 居中大字：当前分班年级 */
+.board-current {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 36px 10px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.28);
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+  transition: background .3s, border-color .3s, box-shadow .3s;
+  z-index: 5;
+}
+.board-current-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: rgba(255,255,255,.78);
+}
+.board-current-grade {
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: 2px;
+  background: linear-gradient(120deg, #fff 0%, #ddd6fe 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+/* 等待年级同步（未锁定具体年级）时的弱化态 */
+.board-current.idle {
+  background: rgba(255,255,255,.05);
+  border-style: dashed;
+  border-color: rgba(255,255,255,.22);
+  box-shadow: none;
+}
+.board-current.idle .board-current-grade {
+  background: none;
+  -webkit-text-fill-color: initial;
+  color: rgba(255,255,255,.5);
+  font-size: 30px;
+  font-weight: 800;
+}
+/* 直播分班进行中 → 高亮脉冲强调 */
+.board-current.hot {
+  background: rgba(248,113,113,.22);
+  border-color: rgba(248,113,113,.6);
+  animation: gradePulse 1.5s ease-in-out infinite;
+}
+.board-current.hot .board-current-label { color: #fecaca; }
+.board-current.hot .board-current-grade {
+  background-image: linear-gradient(120deg, #fff 0%, #fecaca 100%);
+}
+@keyframes gradePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,.45), 0 8px 24px rgba(0,0,0,.15); }
+  50% { box-shadow: 0 0 0 14px rgba(248,113,113,0), 0 8px 24px rgba(0,0,0,.15); }
+}
+@media (max-width: 1180px) {
+  .board-current { position: static; transform: none; }
+  .board-body .header-inner { justify-content: center; }
+  .board-current-grade { font-size: 34px; }
+}
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.25);
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255,255,255,.85);
+  white-space: nowrap;
+  transition: all .3s;
+}
+.live-badge .live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f87171;
+  box-shadow: 0 0 0 0 rgba(248,113,113,.5);
+}
+.live-badge.on {
+  border-color: rgba(74,222,128,.6);
+  background: rgba(74,222,128,.15);
+  color: #fff;
+}
+.live-badge.on .live-dot {
+  background: #4ade80;
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,.55); }
+  50% { box-shadow: 0 0 0 7px rgba(74,222,128,0); }
+}
+.board-back-link {
+  color: rgba(255,255,255,.7);
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 999px;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.board-back-link:hover { color: #fff; border-color: #fff; background: rgba(255,255,255,.1); }
+
+.board-container { max-width: 1720px; padding: 26px 28px 40px; }
+
+/* 概览大卡 */
+.board-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.board-stat {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 18px;
+  padding: 22px 18px 18px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  transition: transform .25s, border-color .25s;
+}
+.board-stat:hover { transform: translateY(-3px); border-color: rgba(255,255,255,.3); }
+.board-stat-num {
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1.05;
+  background: linear-gradient(135deg, #fff, #c7d2fe);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.board-stat-label { font-size: 14px; color: rgba(255,255,255,.6); margin-top: 6px; letter-spacing: 1px; }
+
+/* 控制条 */
+.board-control { margin-bottom: 18px; }
+.board-control .control-item select { min-width: 150px; padding: 8px 14px; }
+.board-follow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.2);
+  color: rgba(255,255,255,.75);
+  transition: all .25s;
+}
+.board-follow:hover { background: rgba(255,255,255,.14); color: #fff; }
+.board-follow::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f87171;
+  box-shadow: 0 0 6px rgba(248,113,113,.6);
+}
+.board-follow.on {
+  background: rgba(74,222,128,.16);
+  border-color: rgba(74,222,128,.5);
+  color: #fff;
+}
+.board-follow.on::before {
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74,222,128,.8);
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+.board-clock {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255,255,255,.9);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+/* 控制条中部：随机排位阶段的提示胶囊（与分班页动作实时同步） */
+.board-control-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+.board-control-center:empty { display: none; }
+.board-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 7px 18px 7px 13px;
+  border-radius: 999px;
+  font-size: 14px;
+  white-space: nowrap;
+  animation: boardIn .3s ease;
+}
+.board-phase b { font-weight: 700; color: #fff; letter-spacing: .5px; }
+.board-phase small { font-size: 12px; font-weight: 400; color: rgba(255,255,255,.72); }
+.board-phase::before {
+  content: '';
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  animation: livePulse 1.3s ease-in-out infinite;
+}
+.board-phase.shuffle {
+  border: 1px solid rgba(167,139,250,.65);
+  background: linear-gradient(90deg, rgba(139,92,246,.3), rgba(124,58,237,.14));
+  box-shadow: 0 6px 18px rgba(0,0,0,.3);
+}
+.board-phase.shuffle::before { background: #a78bfa; box-shadow: 0 0 8px rgba(167,139,250,.8); }
+.board-phase.ready {
+  border: 1px solid rgba(74,222,128,.6);
+  background: linear-gradient(90deg, rgba(74,222,128,.24), rgba(34,197,94,.12));
+  box-shadow: 0 6px 18px rgba(0,0,0,.28);
+}
+.board-phase.ready::before { background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,.8); }
+
+/* 班级卡片网格（大屏更宽） */
+.board-grid-wrap { display: block; }
+.board-grid {
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+}
+.board-class {
+  position: relative;
+  background: linear-gradient(160deg, rgba(255,255,255,.09), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 18px;
+  padding: 18px 20px 16px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform .25s, border-color .25s, box-shadow .25s;
+  animation: boardIn .45s ease backwards;
+}
+@keyframes boardIn {
+  from { opacity: 0; transform: translateY(16px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.board-class:hover { transform: translateY(-3px); border-color: rgba(255,255,255,.35); box-shadow: 0 14px 34px rgba(0,0,0,.25); }
+.board-class.is-live {
+  border-color: rgba(74,222,128,.65);
+  box-shadow: inset 0 0 30px rgba(74,222,128,.07), 0 10px 30px rgba(0,0,0,.22);
+}
+.board-class.is-live::before {
+  content: 'LIVE';
+  position: absolute;
+  top: 14px; right: -34px;
+  transform: rotate(38deg);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  padding: 4px 40px;
+  box-shadow: 0 2px 10px rgba(34,197,94,.4);
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+.board-class-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.board-class-name {
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 1px;
+}
+.board-class-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.board-class-meta { font-size: 13px; color: rgba(255,255,255,.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board-class-cap {
+  flex-shrink: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #c7d2fe;
+  font-variant-numeric: tabular-nums;
+}
+.board-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255,255,255,.12);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.board-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #4f6df5, #8b5cf6, #22c55e);
+  background-size: 200% 100%;
+  transition: width .6s ease, background .3s;
+}
+.board-bar-fill.full { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.board-class-body {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.board-big {
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  min-width: 108px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 4px 18px rgba(99,102,241,.5);
+}
+.board-sub-stats { display: flex; flex-direction: column; gap: 7px; flex: 1; }
+.board-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 8px;
+  color: #fff;
+  width: fit-content;
+}
+.b-male { background: rgba(59,130,246,.3); color: #bfdbfe; }
+.b-female { background: rgba(236,72,153,.3); color: #fbcfe8; }
+.b-avg { background: rgba(139,92,246,.3); color: #ddd6fe; }
+
+/* 班级花名册（展开区） */
+.board-roster {
+  margin-top: 14px;
+  border-top: 1px dashed rgba(255,255,255,.2);
+  padding-top: 12px;
+  animation: boardIn .3s ease;
+}
+.roster-header {
+  font-size: 13px;
+  color: rgba(255,255,255,.6);
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+.roster-empty {
+  text-align: center;
+  color: rgba(255,255,255,.45);
+  padding: 18px;
+  font-size: 13px;
+}
+.board-roster-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.board-roster-list::-webkit-scrollbar { width: 6px; }
+.board-roster-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 3px; }
+.board-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  padding: 7px 10px;
+  min-width: 0;
+}
+.board-roster-avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+.board-roster-avatar.m { background-color: #2563eb; }
+.board-roster-avatar.f { background-color: #db2777; }
+.board-roster-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.board-roster-info {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: rgba(255,255,255,.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.board-roster-total {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #a5b4fc;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-empty { grid-column: 1 / -1; color: rgba(255,255,255,.6); }
+.board-empty a { color: #a5b4fc; }
+
+/* ===== 大屏「真人直播」：班级卡内直接展示入座学生 ===== */
+.board-mini-row {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.board-mini-row .board-mini { padding: 3px 9px; font-size: 12px; }
+/* 入座区：只展示最近 MAX_SHOWN 位，旧学生被顶出（可点卡展开看完整名册） */
+.board-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  min-height: 32px;
+  max-height: 134px;
+  overflow: hidden;
+}
+.board-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: 5px 8px;
+}
+.board-chip.in { animation: chipPop .5s cubic-bezier(.2, 1.25, .4, 1); }
+.board-chip.seat-ghost { visibility: hidden; }
+.board-chip-ava {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.board-chip-ava.m { background-color: #2563eb; }
+.board-chip-ava.f { background-color: #db2777; }
+.board-chip-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.board-members-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,.4);
+}
+@keyframes chipPop {
+  0% { transform: scale(.35); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+/* 展开名册时隐藏入座区，避免内容重复 */
+.board-class.expanded .board-members { display: none; }
+/* 飞行落座卡层 */
+#flyLayer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 1200;
+}
+.fly-card {
+  position: absolute;
+  width: 106px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  box-sizing: border-box;
+  padding: 10px 8px 8px;
+  background: linear-gradient(165deg, rgba(30,41,59,.96), rgba(15,23,42,.96));
+  border: 1px solid rgba(129,140,248,.6);
+  border-radius: 16px;
+  box-shadow: 0 10px 34px rgba(0,0,0,.4), 0 0 20px rgba(99,102,241,.3);
+}
+.fly-ava {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  border: 2px solid rgba(255,255,255,.4);
+}
+.fly-ava.m { background-color: #2563eb; }
+.fly-ava.f { background-color: #db2777; }
+.fly-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  max-width: 92px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 中央展示台：学生入场前先在此展示具体信息 */
+.stage-detail {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 22px 14px;
+  background: linear-gradient(150deg, rgba(30,41,59,.97), rgba(15,23,42,.97));
+  border: 2px solid rgba(165,180,252,.75);
+  border-radius: 22px;
+  box-shadow: 0 0 0 7px rgba(99,102,241,.16), 0 18px 60px rgba(0,0,0,.5), 0 0 30px rgba(129,140,248,.25);
+  opacity: 0;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+.stage-detail.sd-in { animation: sdIn .32s cubic-bezier(.2,1.15,.3,1) forwards; }
+.stage-detail.sd-out { animation: sdOut .24s ease-in forwards; }
+@keyframes sdIn {
+  from { transform: scale(.55) translateY(8px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes sdOut {
+  from { opacity: 1; }
+  to { opacity: 0; transform: scale(.88); }
+}
+.sd-avatar {
+  flex-shrink: 0;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 900;
+  color: #fff;
+  border: 3px solid rgba(255,255,255,.5);
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+.sd-avatar.m { background-color: #2563eb; }
+.sd-avatar.f { background-color: #db2777; }
+.sd-main .sd-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 32px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.15;
+}
+.sd-g {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(129,140,248,.25);
+  border: 1px solid rgba(165,180,252,.5);
+  color: #c7d2fe;
+}
+.sd-id {
+  margin-top: 2px;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255,255,255,.68);
+}
+.sd-scores {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+}
+.sd-score { text-align: center; }
+.sd-score b {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,.5);
+}
+.sd-score span {
+  font-size: 21px;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.sd-right {
+  margin-left: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.sd-total {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(99,102,241,.45), rgba(129,140,248,.12));
+  border: 1px solid rgba(165,180,252,.5);
+}
+.sd-total b { font-size: 14px; font-weight: 700; color: rgba(255,255,255,.75); }
+.sd-total span { font-size: 26px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.sd-go {
+  font-size: 17px;
+  font-weight: 800;
+  color: #c7d2fe;
+  background: rgba(129,140,248,.2);
+  border: 1px solid rgba(165,180,252,.55);
+  padding: 7px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+  text-align: center;
+}
+/* 班级卡人数：突出当前数，斜杠容量弱化 */
+.board-class-cap .cap-num {
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+.board-class-cap .cap-max {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255,255,255,.55);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .board-stats { grid-template-columns: repeat(2, 1fr); }
+  .board-grid { grid-template-columns: 1fr; }
+  .board-class-name { font-size: 20px; }
+  .board-big { font-size: 52px; min-width: 90px; }
+  .board-roster-list { grid-template-columns: 1fr; }
+  .live-badge { font-size: 12px; padding: 6px 12px; }
+  .board-phase { font-size: 12px; padding: 6px 12px 6px 10px; }
+  .board-phase small { display: none; }
+}
+
+/* ===== 开始分班前 3-2-1 倒计时遮罩（分班页 / 大屏通用） ===== */
+.countdown-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  background: radial-gradient(ellipse at center, rgba(2,6,23,.55) 0%, rgba(2,6,23,.88) 100%);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.countdown-mask.show { display: flex; animation: cdMaskIn .25s ease; }
+@keyframes cdMaskIn { from { opacity: 0; } to { opacity: 1; } }
+.countdown-digit {
+  font-size: clamp(140px, 32vmin, 320px);
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 24px rgba(129,140,248,.95),
+    0 0 90px rgba(99,102,241,.55);
+}
+.countdown-digit.pop { animation: cdPop .5s cubic-bezier(.22,1.4,.36,1) both; }
+@keyframes cdPop {
+  from { transform: scale(1.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.countdown-sub {
+  font-size: clamp(16px, 2.8vmin, 26px);
+  font-weight: 600;
+  letter-spacing: 10px;
+  text-indent: 10px; /* 抵消末字字距，保持视觉居中 */
+  color: rgba(255,255,255,.82);
+}
