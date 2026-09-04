@@ -217,7 +217,13 @@ body {
   color: var(--text-light);
   font-weight: 600;
   border-bottom: 2px solid var(--border);
+  cursor: default;
+  white-space: nowrap;
 }
+.student-table th.sortable { cursor: pointer; user-select: none; }
+.student-table th.sortable:hover { color: var(--primary); }
+.student-table th.sortable.sorted-asc::after { content: '↑'; margin-left: 6px; color: var(--primary); }
+.student-table th.sortable.sorted-desc::after { content: '↓'; margin-left: 6px; color: var(--primary); }
 .student-table td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
@@ -1049,6 +1055,76 @@ body {
   padding: 3px 10px;
   flex-shrink: 0;
 }
+
+/* 班级名称列截断 + 所属年级标签列 */
+.class-table { width: 100%; table-layout: fixed; }
+.class-table .tb-name { min-width: 0; }
+.class-table .tb-name-main {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tb-grade {
+  text-align: center;
+  white-space: nowrap;
+}
+.tb-grade .roster-tag {
+  font-size: 12px;
+  padding: 3px 12px;
+}
+/* 班主任、男/女 内容居中（配合表格对齐表头） */
+.class-table td:nth-child(3),
+.class-table td:nth-child(5) { text-align: center; }
+
+/* 年级表：未分班 / 已分班 徽标居中 */
+.grade-table { width: 100%; table-layout: fixed; }
+.grade-table td:nth-child(3),
+.grade-table td:nth-child(4) { text-align: center; }
+
+/* 年级分班进度（吸收多余宽度，与班级容量进度条一致） */
+.gp-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 170px;
+}
+.gp-wrap .gp-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+.gp-wrap .gp-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #6366f1, #818cf8);
+}
+.gp-wrap .gp-text {
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+/* 操作列：按钮紧凑显示，多余宽度由容量进度条自动吸收 */
+.class-table td:last-child .row-actions { justify-content: flex-start; }
+
+/* 列表行首图标（班级 = 教学楼蓝，年级 = 学士帽紫） */
+.tb-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(99,102,241,.35);
+}
+.tb-icon svg { width: 16px; height: 16px; }
+.tb-icon-grade { background: linear-gradient(135deg, #8b5cf6, #a78bfa); box-shadow: 0 2px 6px rgba(139,92,246,.35); }
 .tb-teacher { color: var(--text-light); }
 .dim-text { color: var(--text-light); }
 

@@ -141,7 +141,7 @@ function renderClasses() {
   if (!list.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="empty-tip">
+        <td colspan="8" class="empty-tip">
           <p style="margin:0 0 4px;font-size:15px;font-weight:600;">暂无班级</p>
           <small>点击右上角「添加班级」创建班级，或前往「智能分班」一键分班</small>
         </td>
@@ -159,10 +159,11 @@ function renderClasses() {
       <tr class="data-row" data-id="${c.id}" draggable="true" title="拖拽行可调整顺序">
         <td>
           <div class="tb-name">
-            <span class="tb-name-main">${escapeHtml(c.name)}</span>
-            <span class="roster-tag">${escapeHtml(c.grade || '未分年级')}</span>
+            <span class="tb-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/></svg></span>
+            <span class="tb-name-main" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
           </div>
         </td>
+        <td class="tb-grade">${c.grade ? `<span class="roster-tag">${escapeHtml(c.grade)}</span>` : '<span class="dim-text">未分年级</span>'}</td>
         <td class="tb-teacher">${c.headTeacher ? escapeHtml(c.headTeacher) : '<span class="dim-text">未设置</span>'}</td>
         <td class="tb-num">${count}</td>
         <td>

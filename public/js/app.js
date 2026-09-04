@@ -12,11 +12,37 @@ let savedFilters = {}; // 保存的筛选设置
 let pageSize = 10;
 let currentPage = 1;
 
+// 排序状态（点击表头设置）
+let sortKey = 'studentId'; // 当前排序列对应的 data-sort，默认按学号
+let sortDir = 1;    // 1 升序 / -1 降序
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
 function totalScore(s) {
   return Number(s.chinese) + Number(s.math) + Number(s.english) + Number(s.science);
+}
+
+// 数字列（按数值比较）与文本列（按中文/数字排序）
+const NUMERIC_COLS = new Set(['chinese', 'math', 'english', 'science', 'total', 'allocated']);
+function sortValue(s, key) {
+  if (key === 'total') return totalScore(s);
+  if (key === 'allocated') return s.allocated ? 1 : 0;
+  return s[key] == null ? '' : String(s[key]);
+}
+function compareSort(a, b) {
+  const av = sortValue(a, sortKey);
+  const bv = sortValue(b, sortKey);
+  let r;
+  if (NUMERIC_COLS.has(sortKey)) {
+    r = (Number(av) || 0) - (Number(bv) || 0);
+  } else {
+    if (av === '' && bv === '') r = 0;
+    else if (av === '') r = 1;      // 空值排最后
+    else if (bv === '') r = -1;
+    else r = av.localeCompare(bv, 'zh-Hans-CN', { numeric: true });
+  }
+  return r * sortDir;
 }
 
 function photoHtml(s) {
@@ -138,8 +164,10 @@ function renderTable() {
   } else if (statusFilter === 'unallocated') {
     list = list.filter(s => s.allocated === false);
   }
+  // 点击表头排序后应用
+  if (sortKey) list.sort(compareSort);
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="13" class="empty-tip">暂无学生数据，点击右上角「添加学生」开始</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14" class="empty-tip">暂无学生数据，点击右上角「添加学生」开始</td></tr>`;
     pagination.innerHTML = '';
     updateStats();
     return;
@@ -155,19 +183,20 @@ function renderTable() {
 
   tbody.innerHTML = pageList.map(s => {
     const statusTag = s.allocated
-      ? `<span class="status-tag status-allocated">已分班</span><br/><small>${escapeHtml(s.className || '')}</small>`
+      ? `<span class="status-tag status-allocated">已分班</span>`
       : `<span class="status-tag status-unallocated">未分班</span>`;
     const actions = s.allocated
       ? `<span style="color:#999;font-size:12px">已分入班级</span>`
       : `<div class="row-actions">
-          <button class="btn-sm btn-edit" data-act="edit"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg> 编辑</button>
-          <button class="btn-sm btn-del" data-act="del"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 删除</button>
+          <button class="btn-sm btn-edit" data-act="edit">编辑</button>
+          <button class="btn-sm btn-del" data-act="del">删除</button>
         </div>`;
     return `
     <tr data-id="${s.id}">
       <td><div class="avatar">${photoHtml(s)}</div></td>
       <td class="stu-id">${escapeHtml(s.studentId || '—')}</td>
-      <td><span class="grade-tag">${escapeHtml(s.grade || '—')}</span></td>
+      <td>${escapeHtml(s.grade || '—')}</td>
+      <td>${escapeHtml(s.className || '—')}</td>
       <td><strong>${escapeHtml(s.name)}</strong></td>
       <td><span class="gender-tag ${s.gender === '男' ? 'gender-male' : 'gender-female'}">${s.gender}</span></td>
       <td class="score">${s.chinese}</td>
@@ -212,6 +241,17 @@ function renderPaginationHtml(total, totalPages) {
         : btn(p, p, p === currentPage ? 'active' : '')).join('')}
       ${btn(currentPage + 1, '›', 'page-nav', currentPage === totalPages)}
     </div>`;
+}
+
+// 高亮当前排序列的表头箭头
+function updateSortHeader() {
+  const ths = document.querySelectorAll('.student-table thead th.sortable');
+  ths.forEach(th => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (sortKey && th.dataset.sort === sortKey) {
+      th.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+    }
+  });
 }
 
 function updateStats() {
@@ -535,6 +575,23 @@ function bindEvents() {
     if (btn.dataset.act === 'edit') openModal(stu);
     if (btn.dataset.act === 'del') deleteStudent(id);
   };
+
+  // 表头点击排序（可排序列带 .sortable 与 data-sort）
+  document.querySelector('.student-table thead').addEventListener('click', (e) => {
+    const th = e.target.closest('th.sortable');
+    if (!th) return;
+    const key = th.dataset.sort;
+    if (sortKey === key) {
+      sortDir = -sortDir;         // 同列再次点击切换升降序
+    } else {
+      sortKey = key;
+      sortDir = 1;
+    }
+    currentPage = 1;
+    updateSortHeader();
+    renderTable();
+  });
+  updateSortHeader();
 }
 
 // 初始化

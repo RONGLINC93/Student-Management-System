@@ -82,22 +82,23 @@
         <thead>
           <tr>
             <th style="width:60px">照片</th>
-            <th>学号</th>
-            <th>年级</th>
-            <th>姓名</th>
-            <th>性别</th>
-            <th>语文</th>
-            <th>数学</th>
-            <th>英语</th>
-            <th>理综</th>
-            <th>总分</th>
-            <th>特长</th>
-            <th>分班状态</th>
+            <th class="sortable" data-sort="studentId">学号</th>
+            <th class="sortable" data-sort="grade">年级</th>
+            <th class="sortable" data-sort="className">班级</th>
+            <th class="sortable" data-sort="name">姓名</th>
+            <th class="sortable" data-sort="gender">性别</th>
+            <th class="sortable" data-sort="chinese">语文</th>
+            <th class="sortable" data-sort="math">数学</th>
+            <th class="sortable" data-sort="english">英语</th>
+            <th class="sortable" data-sort="science">理综</th>
+            <th class="sortable" data-sort="total">总分</th>
+            <th class="sortable" data-sort="specialty">特长</th>
+            <th class="sortable" data-sort="allocated">分班状态</th>
             <th style="width:140px">操作</th>
           </tr>
         </thead>
         <tbody id="studentTbody">
-          <tr><td colspan="13" class="empty-tip">加载中...</td></tr>
+          <tr><td colspan="14" class="empty-tip">加载中...</td></tr>
         </tbody>
       </table>
     </section>

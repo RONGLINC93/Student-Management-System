@@ -65,7 +65,7 @@ function renderGrades() {
   if (!grades.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="empty-tip">
+        <td colspan="7" class="empty-tip">
           <p style="margin:0 0 4px;font-size:15px;font-weight:600;">暂无年级</p>
           <small>点击右上角「添加年级」创建年级</small>
         </td>
@@ -79,18 +79,26 @@ function renderGrades() {
     const allocated = allClasses.filter(c => c.grade === g).reduce((sum, c) => sum + (c.students || []).length, 0);
     const total = unallocated + allocated;
     const classCount = allClasses.filter(c => c.grade === g).length;
+    const pct = total ? Math.min(100, Math.round(allocated / total * 100)) : 0;
 
     return `
       <tr class="data-row" data-grade="${escapeHtml(g)}" draggable="true" title="拖拽行可调整顺序">
         <td>
           <div class="tb-name">
-            <span class="tb-name-main">${escapeHtml(g)}</span>
+            <span class="tb-icon tb-icon-grade" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg></span>
+            <span class="tb-name-main" title="${escapeHtml(g)}">${escapeHtml(g)}</span>
           </div>
         </td>
         <td class="tb-num">${total}</td>
         <td><span class="st-tag st-unalloc">${unallocated}</span></td>
         <td><span class="st-tag st-alloc">${allocated}</span></td>
         <td class="tb-cls">${classCount}</td>
+        <td>
+          <div class="gp-wrap">
+            <div class="gp-bar"><div class="gp-bar-fill" style="width:${pct}%"></div></div>
+            <span class="gp-text">${allocated}/${total}</span>
+          </div>
+        </td>
         <td>
           <div class="row-actions">
             <button class="btn-sm btn-edit" data-act="edit">编辑</button>
