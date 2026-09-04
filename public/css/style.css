@@ -1029,23 +1029,7 @@ body {
 .grade-table td {
   vertical-align: middle;
 }
-.th-drag { width: 40px; }
 .th-center { text-align: center; }
-
-/* 拖拽手柄 */
-.drag-cell {
-  width: 40px;
-  text-align: center;
-  color: #cbd5e1;
-  cursor: grab;
-  user-select: none;
-}
-.drag-cell:hover { color: var(--primary); }
-.drag-cell svg {
-  width: 16px;
-  height: 16px;
-  vertical-align: middle;
-}
 
 /* 名称列 */
 .tb-name {
@@ -1121,11 +1105,13 @@ body {
 }
 .btn-view:hover { background: #c7d2fe; }
 
-/* 整行拖拽 */
+/* 整行拖拽（无手柄图标：整行即可拖） */
 .student-table tr.data-row[draggable="true"] { cursor: grab; }
 .student-table tr.data-row[draggable="true"]:active { cursor: grabbing; }
+/* 悬停轻微高亮，提示该行可拖拽调整顺序 */
+.student-table tr.data-row[draggable="true"]:hover td { background: #eef2ff; }
 tr.data-row.dragging { opacity: 0.55; }
-tr.data-row.dragging td { background: #eef2ff !important; }
+tr.data-row.dragging td { background: #e0e7ff !important; }
 tr.data-row.dragging { box-shadow: inset 0 0 0 2px var(--primary); }
 
 /* ========== 统一对话框（提示 / 确认） ========== */

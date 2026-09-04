@@ -13,9 +13,7 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-// 拖拽排序手柄图标
-const GRIP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="19" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg>';
-
+// 拖拽排序：无手柄图标，整行即可拖拽调整顺序
 function totalScore(s) {
   return Number(s.chinese) + Number(s.math) + Number(s.english) + Number(s.science);
 }
@@ -143,7 +141,7 @@ function renderClasses() {
   if (!list.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-tip">
+        <td colspan="7" class="empty-tip">
           <p style="margin:0 0 4px;font-size:15px;font-weight:600;">暂无班级</p>
           <small>点击右上角「添加班级」创建班级，或前往「智能分班」一键分班</small>
         </td>
@@ -159,7 +157,6 @@ function renderClasses() {
     const avg = count ? (c.students.reduce((a, s) => a + totalScore(s), 0) / count).toFixed(1) : '—';
     return `
       <tr class="data-row" data-id="${c.id}" draggable="true" title="拖拽行可调整顺序">
-        <td class="drag-cell">${GRIP_ICON}</td>
         <td>
           <div class="tb-name">
             <span class="tb-name-main">${escapeHtml(c.name)}</span>
