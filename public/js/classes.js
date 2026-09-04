@@ -9,17 +9,12 @@ let gradesList = [];
 
 const $ = (s) => document.querySelector(s);
 
-function toast(msg, type = '') {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.className = 'toast show ' + type;
-  clearTimeout(t._tm);
-  t._tm = setTimeout(() => t.classList.remove('show'), 2200);
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+
+// 拖拽排序手柄图标
+const GRIP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="19" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg>';
 
 function totalScore(s) {
   return Number(s.chinese) + Number(s.math) + Number(s.english) + Number(s.science);
@@ -144,17 +139,18 @@ function renderClasses() {
       (c.headTeacher || '').toLowerCase().includes(kw)
     );
   }
-  const grid = $('#classesGrid');
+  const tbody = $('#classesTbody');
   if (!list.length) {
-    grid.innerHTML = `
-      <div class="empty-tip-card">
-        <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
-        <p>暂无班级</p>
-        <small>点击「添加班级」创建班级，或前往「智能分班」一键分班</small>
-      </div>`;
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" class="empty-tip">
+          <p style="margin:0 0 4px;font-size:15px;font-weight:600;">暂无班级</p>
+          <small>点击右上角「添加班级」创建班级，或前往「智能分班」一键分班</small>
+        </td>
+      </tr>`;
     return;
   }
-  grid.innerHTML = list.map(c => {
+  tbody.innerHTML = list.map(c => {
     const count = c.students?.length || 0;
     const cap = Number(c.capacity) || 50;
     const pct = cap ? Math.min(100, Math.round(count / cap * 100)) : 0;
@@ -162,32 +158,35 @@ function renderClasses() {
     const female = count - male;
     const avg = count ? (c.students.reduce((a, s) => a + totalScore(s), 0) / count).toFixed(1) : '—';
     return `
-      <div class="class-card" data-id="${c.id}" draggable="true" title="拖拽调整顺序">
-        <div class="class-card-header">
-          <div>
-            <h3 class="class-card-name">${escapeHtml(c.name)} <span class="grade-tag">${escapeHtml(c.grade || '—')}</span></h3>
-            <span class="class-card-meta">班主任：${c.headTeacher ? escapeHtml(c.headTeacher) : '未设置'}</span>
+      <tr class="data-row" data-id="${c.id}" draggable="true" title="拖拽行可调整顺序">
+        <td class="drag-cell">${GRIP_ICON}</td>
+        <td>
+          <div class="tb-name">
+            <span class="tb-name-main">${escapeHtml(c.name)}</span>
+            <span class="roster-tag">${escapeHtml(c.grade || '未分年级')}</span>
           </div>
-          <div class="class-card-actions">
-            <button class="btn-sm btn-edit" data-act="edit" title="编辑"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
-            <button class="btn-sm btn-del" data-act="del" title="删除"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+        </td>
+        <td class="tb-teacher">${c.headTeacher ? escapeHtml(c.headTeacher) : '<span class="dim-text">未设置</span>'}</td>
+        <td class="tb-num">${count}</td>
+        <td>
+          <span class="g-tag g-male">男 ${male}</span>
+          <span class="g-tag g-female">女 ${female}</span>
+        </td>
+        <td class="tb-score">${avg}</td>
+        <td>
+          <div class="cap-wrap">
+            <div class="cc-bar"><div class="cc-bar-fill" style="width:${pct}%"></div></div>
+            <span class="cc-cap-text">${count}/${cap}</span>
           </div>
-        </div>
-        <div class="class-card-stats">
-          <div class="cc-stat"><span class="cc-num">${count}</span><span class="cc-label">人数</span></div>
-          <div class="cc-stat"><span class="cc-num">${male}</span><span class="cc-label">男生</span></div>
-          <div class="cc-stat"><span class="cc-num">${female}</span><span class="cc-label">女生</span></div>
-          <div class="cc-stat"><span class="cc-num">${avg}</span><span class="cc-label">均分</span></div>
-        </div>
-        <div class="class-card-progress">
-          <div class="cc-bar"><div class="cc-bar-fill" style="width:${pct}%"></div></div>
-          <span class="cc-cap-text">${count}/${cap}</span>
-        </div>
-        <button class="btn btn-default class-view-btn" data-act="view">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          查看花名册
-        </button>
-      </div>
+        </td>
+        <td>
+          <div class="row-actions">
+            <button class="btn-sm btn-view" data-act="view">花名册</button>
+            <button class="btn-sm btn-edit" data-act="edit">编辑</button>
+            <button class="btn-sm btn-del" data-act="del">删除</button>
+          </div>
+        </td>
+      </tr>
     `;
   }).join('');
 }
@@ -234,7 +233,8 @@ async function saveClass(e) {
 async function deleteClass(id) {
   const cls = classes.find(c => c.id === id);
   const cnt = cls?.students?.length || 0;
-  if (!confirm(`确定删除班级「${cls?.name}」？${cnt ? `其中 ${cnt} 名学生将退回学生池。` : ''}`)) return;
+  const tip = `确定删除班级「${cls?.name || ''}」？${cnt ? `\n其中 ${cnt} 名学生将退回学生池。` : ''}`;
+  if (!(await confirmDlg(tip, { title: '删除班级', okText: '删除', danger: true }))) return;
   try {
     await fetch(`${API}/${id}`, { method: 'DELETE' });
     toast('已删除', 'success');
@@ -245,7 +245,7 @@ async function deleteClass(id) {
 }
 
 async function clearAll() {
-  if (!confirm('确定清空所有班级？所有学生将退回学生池。')) return;
+  if (!(await confirmDlg('确定清空所有班级？\n所有学生将退回学生池。', { title: '清空班级', okText: '清空', danger: true }))) return;
   try {
     await fetch(API, { method: 'DELETE' });
     toast('已清空所有班级', 'success');
@@ -348,38 +348,38 @@ async function removeStudentFromClass(classId, stuId) {
 let dragEl = null;
 
 function bindDragSort() {
-  const grid = $('#classesGrid');
+  const tbody = $('#classesTbody');
 
-  grid.addEventListener('dragstart', (e) => {
-    const card = e.target.closest('.class-card');
-    if (!card) return;
+  tbody.addEventListener('dragstart', (e) => {
+    const row = e.target.closest('tr.data-row');
+    if (!row) return;
     // 有筛选/搜索时只展示了部分班级，禁止拖拽排序
     if (($('#searchInput').value || '').trim() || $('#gradeFilter')?.value) {
       toast('请先清除筛选/搜索条件，再拖拽排序', 'error');
       e.preventDefault();
       return;
     }
-    dragEl = card;
-    card.classList.add('dragging');
+    dragEl = row;
+    row.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', card.dataset.id); } catch (_) {}
+    try { e.dataTransfer.setData('text/plain', row.dataset.id); } catch (_) {}
   });
 
-  grid.addEventListener('dragover', (e) => {
+  tbody.addEventListener('dragover', (e) => {
     if (!dragEl) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    const card = e.target.closest('.class-card');
-    if (!card || card === dragEl) return;
-    // 网格布局：以鼠标相对卡片中点的水平位置判断插入到前方还是后方
-    const rect = card.getBoundingClientRect();
-    const before = (e.clientX - rect.left) < rect.width / 2;
-    grid.insertBefore(dragEl, before ? card : card.nextSibling);
+    const row = e.target.closest('tr.data-row');
+    if (!row || row === dragEl) return;
+    // 表格布局：以鼠标相对行纵向位置判断插入到上方还是下方
+    const rect = row.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    tbody.insertBefore(dragEl, before ? row : row.nextSibling);
   });
 
-  grid.addEventListener('drop', (e) => e.preventDefault());
+  tbody.addEventListener('drop', (e) => e.preventDefault());
 
-  grid.addEventListener('dragend', () => {
+  tbody.addEventListener('dragend', () => {
     if (!dragEl) return;
     dragEl.classList.remove('dragging');
     dragEl = null;
@@ -389,8 +389,8 @@ function bindDragSort() {
 
 // 保存排序到服务端（顺序有变化才请求）
 async function persistClassOrder() {
-  const grid = $('#classesGrid');
-  const ids = [...grid.querySelectorAll('.class-card')].map(c => c.dataset.id);
+  const tbody = $('#classesTbody');
+  const ids = [...tbody.querySelectorAll('tr.data-row')].map(r => r.dataset.id);
   if (ids.join('|') === classes.map(c => c.id).join('|')) return;
   classes = ids.map(id => classes.find(c => c.id === id)).filter(Boolean);
   try {
@@ -426,11 +426,12 @@ function bindEvents() {
   $('#rosterMask').onclick = (e) => { if (e.target.id === 'rosterMask') closeRoster(); };
   $('#btnExportRoster').onclick = exportRoster;
 
-  $('#classesGrid').onclick = (e) => {
+  $('#classesTbody').onclick = (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
-    const card = btn.closest('.class-card');
-    const id = card.dataset.id;
+    const row = btn.closest('tr.data-row');
+    if (!row) return;
+    const id = row.dataset.id;
     const cls = classes.find(c => c.id === id);
     const act = btn.dataset.act;
     if (act === 'edit') openModal(cls);
@@ -443,7 +444,6 @@ function bindEvents() {
     if (!btn) return;
     const tr = btn.closest('tr');
     const stuId = tr.dataset.id;
-    const card = document.querySelector('.class-card');
     // 找到当前花名册对应的班级
     const title = $('#rosterTitle').textContent;
     const cls = classes.find(c => title.startsWith(c.name));

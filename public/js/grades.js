@@ -10,17 +10,12 @@ let allStudentsWithAllocated = []; // 包含已分班学生的完整列表
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
-function toast(msg, type = '') {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.className = 'toast show ' + type;
-  clearTimeout(t._tm);
-  t._tm = setTimeout(() => t.classList.remove('show'), 2200);
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+
+// 拖拽排序手柄图标
+const GRIP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="19" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg>';
 
 // 加载数据
 async function loadData() {
@@ -66,43 +61,45 @@ function updateStats() {
 
 // 渲染年级列表
 function renderGrades() {
-  const grid = $('#gradesGrid');
+  const tbody = $('#gradesTbody');
 
   if (!grades.length) {
-    grid.innerHTML = `
-      <div class="empty-tip-card" id="emptyTip">
-        <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg>
-        <p>暂无年级</p>
-        <small>点击右上角「添加年级」创建年级</small>
-      </div>
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty-tip">
+          <p style="margin:0 0 4px;font-size:15px;font-weight:600;">暂无年级</p>
+          <small>点击右上角「添加年级」创建年级</small>
+        </td>
+      </tr>
     `;
     return;
   }
 
-  grid.innerHTML = grades.map(g => {
+  tbody.innerHTML = grades.map(g => {
     const unallocated = allStudents.filter(s => s.grade === g).length;
     const allocated = allClasses.filter(c => c.grade === g).reduce((sum, c) => sum + (c.students || []).length, 0);
     const total = unallocated + allocated;
     const classCount = allClasses.filter(c => c.grade === g).length;
 
     return `
-      <div class="class-card" data-grade="${escapeHtml(g)}" draggable="true" title="拖拽调整顺序">
-        <div class="class-card-header">
-          <div>
-            <h3 class="class-card-name">${escapeHtml(g)}</h3>
-            <span class="class-card-meta">${total} 名学生 · ${classCount} 个班级</span>
+      <tr class="data-row" data-grade="${escapeHtml(g)}" draggable="true" title="拖拽行可调整顺序">
+        <td class="drag-cell">${GRIP_ICON}</td>
+        <td>
+          <div class="tb-name">
+            <span class="tb-name-main">${escapeHtml(g)}</span>
           </div>
-          <div class="class-card-actions">
-            <button class="btn-sm btn-edit" data-act="edit" title="编辑"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
-            <button class="btn-sm btn-del" data-act="del" title="删除"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+        </td>
+        <td class="tb-num">${total}</td>
+        <td><span class="st-tag st-unalloc">${unallocated}</span></td>
+        <td><span class="st-tag st-alloc">${allocated}</span></td>
+        <td class="tb-cls">${classCount}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn-sm btn-edit" data-act="edit">编辑</button>
+            <button class="btn-sm btn-del" data-act="del">删除</button>
           </div>
-        </div>
-        <div class="class-card-stats">
-          <div class="cc-stat"><span class="cc-num">${unallocated}</span><span class="cc-label">未分班</span></div>
-          <div class="cc-stat"><span class="cc-num">${allocated}</span><span class="cc-label">已分班</span></div>
-          <div class="cc-stat"><span class="cc-num">${classCount}</span><span class="cc-label">班级</span></div>
-        </div>
-      </div>
+        </td>
+      </tr>
     `;
   }).join('');
 }
@@ -167,7 +164,7 @@ async function deleteGrade(name) {
     msg += `\n该年级下有 ${studentCount} 名学生（${unallocated} 名未分班，${allocated} 名已分班）和 ${classCount} 个班级，删除后他们的年级信息将被清空。`;
   }
 
-  if (!confirm(msg)) return;
+  if (!(await confirmDlg(msg, { title: '删除年级', okText: '删除', danger: true }))) return;
 
   try {
     const res = await fetch(`${API}/${encodeURIComponent(name)}`, {
@@ -189,32 +186,32 @@ async function deleteGrade(name) {
 let dragEl = null;
 
 function bindDragSort() {
-  const grid = $('#gradesGrid');
+  const tbody = $('#gradesTbody');
 
-  grid.addEventListener('dragstart', (e) => {
-    const card = e.target.closest('.class-card');
-    if (!card) return;
-    dragEl = card;
-    card.classList.add('dragging');
+  tbody.addEventListener('dragstart', (e) => {
+    const row = e.target.closest('tr.data-row');
+    if (!row) return;
+    dragEl = row;
+    row.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', card.dataset.grade); } catch (_) {}
+    try { e.dataTransfer.setData('text/plain', row.dataset.grade); } catch (_) {}
   });
 
-  grid.addEventListener('dragover', (e) => {
+  tbody.addEventListener('dragover', (e) => {
     if (!dragEl) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    const card = e.target.closest('.class-card');
-    if (!card || card === dragEl) return;
-    // 网格布局：以鼠标相对卡片中点的水平位置判断插入到前方还是后方
-    const rect = card.getBoundingClientRect();
-    const before = (e.clientX - rect.left) < rect.width / 2;
-    grid.insertBefore(dragEl, before ? card : card.nextSibling);
+    const row = e.target.closest('tr.data-row');
+    if (!row || row === dragEl) return;
+    // 表格布局：以鼠标相对行纵向位置判断插入到上方还是下方
+    const rect = row.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    tbody.insertBefore(dragEl, before ? row : row.nextSibling);
   });
 
-  grid.addEventListener('drop', (e) => e.preventDefault());
+  tbody.addEventListener('drop', (e) => e.preventDefault());
 
-  grid.addEventListener('dragend', () => {
+  tbody.addEventListener('dragend', () => {
     if (!dragEl) return;
     dragEl.classList.remove('dragging');
     dragEl = null;
@@ -224,8 +221,8 @@ function bindDragSort() {
 
 // 保存排序到服务端（顺序有变化才请求）
 async function persistGradeOrder() {
-  const grid = $('#gradesGrid');
-  const order = [...grid.querySelectorAll('.class-card')].map(c => c.dataset.grade);
+  const tbody = $('#gradesTbody');
+  const order = [...tbody.querySelectorAll('tr.data-row')].map(r => r.dataset.grade);
   if (order.join('|') === grades.join('|')) return;
   grades = order;
   try {
@@ -255,11 +252,12 @@ function bindEvents() {
   $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') closeModal(); };
   $('#gradeForm').onsubmit = saveGrade;
 
-  $('#gradesGrid').onclick = (e) => {
+  $('#gradesTbody').onclick = (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
-    const card = btn.closest('.class-card');
-    const gradeName = card.dataset.grade;
+    const row = btn.closest('tr.data-row');
+    if (!row) return;
+    const gradeName = row.dataset.grade;
     const act = btn.dataset.act;
     if (act === 'edit') openModal(gradeName);
     if (act === 'del') deleteGrade(gradeName);

@@ -373,6 +373,10 @@ body {
   opacity: 0;
   transition: all .3s;
   pointer-events: none;
+  max-width: min(560px, calc(100vw - 48px));
+  line-height: 1.5;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
 .toast.show {
   transform: translateX(-50%) translateY(0);
@@ -1019,3 +1023,142 @@ body {
   border-radius: 20px;
   font-size: 13px;
 }
+
+/* ========== 班级 / 年级 表格 ========== */
+.class-table td,
+.grade-table td {
+  vertical-align: middle;
+}
+.th-drag { width: 40px; }
+.th-center { text-align: center; }
+
+/* 拖拽手柄 */
+.drag-cell {
+  width: 40px;
+  text-align: center;
+  color: #cbd5e1;
+  cursor: grab;
+  user-select: none;
+}
+.drag-cell:hover { color: var(--primary); }
+.drag-cell svg {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+
+/* 名称列 */
+.tb-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 26px;
+}
+.tb-name-main {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.tb-name .roster-tag {
+  font-size: 12px;
+  padding: 3px 10px;
+  flex-shrink: 0;
+}
+.tb-teacher { color: var(--text-light); }
+.dim-text { color: var(--text-light); }
+
+/* 数值列 */
+.tb-num { text-align: center; font-weight: 700; }
+.tb-score {
+  text-align: center;
+  font-weight: 700;
+  color: var(--primary);
+}
+.tb-cls { text-align: center; font-weight: 700; }
+
+/* 性别徽标 */
+.g-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.g-tag + .g-tag { margin-left: 6px; }
+.g-male { background: #dbeafe; color: #1e40af; }
+.g-female { background: #fce7f3; color: #9d174d; }
+
+/* 容量进度条 */
+.cap-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 170px;
+}
+.cap-wrap .cc-bar { flex: 1; }
+.cap-wrap .cc-cap-text { white-space: nowrap; }
+
+/* 年级状态徽标 */
+.st-tag {
+  display: inline-flex;
+  min-width: 52px;
+  justify-content: center;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.st-unalloc { background: #fee2e2; color: #991b1b; }
+.st-alloc { background: #dcfce7; color: #166534; }
+
+/* 行内操作按钮 */
+.row-actions { display: flex; gap: 6px; }
+.btn-view {
+  background: #e0e7ff;
+  color: var(--primary-dark);
+}
+.btn-view:hover { background: #c7d2fe; }
+
+/* 整行拖拽 */
+.student-table tr.data-row[draggable="true"] { cursor: grab; }
+.student-table tr.data-row[draggable="true"]:active { cursor: grabbing; }
+tr.data-row.dragging { opacity: 0.55; }
+tr.data-row.dragging td { background: #eef2ff !important; }
+tr.data-row.dragging { box-shadow: inset 0 0 0 2px var(--primary); }
+
+/* ========== 统一对话框（提示 / 确认） ========== */
+.dialog-panel {
+  max-width: 420px;
+  padding: 34px 30px 28px;
+  text-align: center;
+}
+.dialog-icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  color: var(--primary);
+  background: #e0e7ff;
+}
+.dialog-icon-circle svg { width: 30px; height: 30px; }
+.dialog-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+.dialog-msg {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-light);
+  margin: 0;
+  white-space: pre-line;
+  word-break: break-word;
+}
+.dialog-btns { display: flex; justify-content: center; gap: 12px; margin-top: 26px; }
+.dialog-btns .btn { min-width: 100px; }

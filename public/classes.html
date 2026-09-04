@@ -53,7 +53,7 @@
         <select id="gradeFilter" class="grade-filter">
           <option value="">全部年级</option>
         </select>
-        <span style="font-size: 13px; color: #94a3b8;">拖拽卡片可调整顺序</span>
+        <span style="font-size: 13px; color: #94a3b8;">拖拽行可调整顺序</span>
       </div>
       <div class="toolbar-right">
         <button class="btn btn-primary" id="btnAdd"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加班级</button>
@@ -62,13 +62,25 @@
       </div>
     </section>
 
-    <!-- 班级卡片网格 -->
-    <section class="classes-grid" id="classesGrid">
-      <div class="empty-tip-card" id="emptyTip">
-        <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
-        <p>暂无班级</p>
-        <small>点击「添加班级」创建班级，或前往「智能分班」一键分班</small>
-      </div>
+    <!-- 班级表格 -->
+    <section class="table-wrap">
+      <table class="student-table class-table">
+        <thead>
+          <tr>
+            <th class="th-drag"></th>
+            <th>班级名称</th>
+            <th>班主任</th>
+            <th class="th-center" style="width: 70px;">人数</th>
+            <th class="th-center" style="width: 140px;">男 / 女</th>
+            <th class="th-center" style="width: 80px;">平均分</th>
+            <th class="th-center" style="width: 210px;">容量占用</th>
+            <th style="width: 190px;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="classesTbody">
+          <tr><td colspan="8" class="empty-tip">加载中...</td></tr>
+        </tbody>
+      </table>
     </section>
   </main>
 
@@ -141,6 +153,7 @@
   </div>
 
   <div class="toast" id="toast"></div>
+  <script src="/js/dialog.js"></script>
   <script src="/js/classes.js"></script>
 </body>
 </html>

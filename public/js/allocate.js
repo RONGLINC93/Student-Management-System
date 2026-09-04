@@ -15,14 +15,6 @@ let gradesList = []; // 年级列表
 
 const $ = (s) => document.querySelector(s);
 
-function toast(msg, type = '') {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.className = 'toast show ' + type;
-  clearTimeout(t._tm);
-  t._tm = setTimeout(() => t.classList.remove('show'), 2200);
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
@@ -397,7 +389,7 @@ async function startShuffle() {
     card.classList.add('shuffling');
   });
 
-  toast('正在洗牌...', '');
+  showStatus('正在洗牌...'); // 动画进行中提示：不阻断洗牌动画
   await sleep(2600);
 
   // 停止洗牌，保持背面朝上，散开成扇形
@@ -516,7 +508,7 @@ async function startDeal() {
     }
   }
 
-  toast('开始发牌...', '');
+  showStatus('开始发牌...'); // 动画进行中提示：不阻断发牌动画
   // 逐张发牌
   for (let i = 0; i < dealOrder.length; i++) {
     const { stu, classIdx } = dealOrder[i];
@@ -635,8 +627,8 @@ function renderResultStats() {
   `;
 }
 
-// 重置
-function reset() {
+// 重置（silent=true：程序内部触发的自动重置不弹提示）
+function reset(silent = false) {
   if (isShuffling || isDealing) return;
   cardEls.forEach(c => c.remove());
   cardEls = [];
@@ -645,7 +637,7 @@ function reset() {
   $('#btnDeal').disabled = true;
   // 重新加载数据（学生可能已被分入班级）
   loadStudents();
-  toast('已重置', '');
+  if (!silent) toast('已重置', 'success');
 }
 
 // 事件绑定
@@ -654,13 +646,13 @@ function bindEvents() {
   const fb = $('#floatShuffle');
   if (fb) fb.onclick = () => (floatMode === 'deal' ? startDeal() : startShuffle());
   $('#btnDeal').onclick = startDeal;
-  $('#btnReset').onclick = reset;
+  $('#btnReset').onclick = () => reset();
   $('#gradeFilter').onchange = () => {
     applyGradeFilter();
     saveFilters(); // 保存筛选
-    // 如果正在洗牌或发牌，先重置
+    // 如果正在洗牌或发牌，先重置（程序自动重置，不弹提示）
     if (isShuffling || isDealing) {
-      reset();
+      reset(true);
     }
   };
   $('#strategy').onchange = () => {

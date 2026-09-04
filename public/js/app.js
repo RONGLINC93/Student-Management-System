@@ -15,14 +15,6 @@ let currentPage = 1;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
-function toast(msg, type = '') {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.className = 'toast show ' + type;
-  clearTimeout(t._tm);
-  t._tm = setTimeout(() => t.classList.remove('show'), 2200);
-}
-
 function totalScore(s) {
   return Number(s.chinese) + Number(s.math) + Number(s.english) + Number(s.science);
 }
@@ -299,7 +291,7 @@ async function saveStudent(e) {
 }
 
 async function deleteStudent(id) {
-  if (!confirm('确定删除该学生？')) return;
+  if (!(await confirmDlg('确定删除该学生？', { title: '删除学生', okText: '删除', danger: true }))) return;
   try {
     await fetch(`${API}/${id}`, { method: 'DELETE' });
     toast('已删除', 'success');
@@ -310,7 +302,7 @@ async function deleteStudent(id) {
 }
 
 async function clearAll() {
-  if (!confirm('确定清空所有学生数据？此操作不可恢复！')) return;
+  if (!(await confirmDlg('确定清空所有学生数据？\n此操作不可恢复！', { title: '清空学生', okText: '清空', danger: true }))) return;
   try {
     await fetch(API, { method: 'DELETE' });
     toast('已清空', 'success');
