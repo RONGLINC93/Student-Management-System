@@ -1436,7 +1436,7 @@ tr.data-row.dragging { box-shadow: inset 0 0 0 2px var(--primary); }
   border: 1px solid rgba(255,255,255,.16);
   border-radius: 18px;
   padding: 18px 20px 16px;
-  cursor: pointer;
+  cursor: default; /* 仅右上角按钮控制花名册展开/收起 */
   overflow: hidden;
   transition: transform .25s, border-color .25s, box-shadow .25s;
   animation: boardIn .45s ease backwards;
@@ -1470,6 +1470,33 @@ tr.data-row.dragging { box-shadow: inset 0 0 0 2px var(--primary); }
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+}
+.board-class-head-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+/* 展开/收起花名册按钮（点击花名册内容区不会收起，需用此按钮控制） */
+.board-roster-btn {
+  appearance: none;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.22);
+  color: rgba(255,255,255,.85);
+  transition: all .2s;
+}
+.board-roster-btn:hover { background: rgba(255,255,255,.16); color: #fff; }
+.board-class.expanded .board-roster-btn {
+  background: rgba(99,102,241,.28);
+  border-color: rgba(129,140,248,.65);
+  color: #fff;
 }
 .board-class-name {
   font-size: 24px;
@@ -1686,8 +1713,21 @@ tr.data-row.dragging { box-shadow: inset 0 0 0 2px var(--primary); }
   60% { transform: scale(1.15); }
   100% { transform: scale(1); opacity: 1; }
 }
-/* 展开名册时隐藏入座区，避免内容重复 */
+/* 展开名册时只展示完整名单，隐藏入座小卡区，避免同一批学生重复出现
+   （动画不丢：新人仍逐人上台，最后一段改为飞入名册对应行并高亮） */
 .board-class.expanded .board-members { display: none; }
+/* 名册中刚入座的行高亮（飞入落点提示） */
+.board-roster-row.fresh {
+  animation: rosterFresh .55s cubic-bezier(.2, 1.25, .4, 1);
+  border-color: rgba(74, 222, 128, .9);
+  background: linear-gradient(90deg, rgba(74, 222, 128, .3), rgba(34, 197, 94, .12));
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, .5), 0 0 18px rgba(74, 222, 128, .35);
+}
+@keyframes rosterFresh {
+  0% { transform: scale(.55); opacity: 0; }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); opacity: 1; }
+}
 /* 飞行落座卡层 */
 #flyLayer {
   position: fixed;

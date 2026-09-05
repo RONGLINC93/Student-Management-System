@@ -20,7 +20,22 @@ let boardData = { classes: [], students: [], grades: [], live: null, grade: '' }
 let gradeFilter = new URLSearchParams(location.search).get('grade') || '';
 let autoGrade = true; // 自动跟播：直播或分班页切换年级时自动同步年级
 let gradeListSig = ''; // 年级下拉内容签名（避免每帧重建）
-let expandedIds = new Set(); // 当前展开花名册的班级 id（一次最多一个）
+let expandedIds = new Set(); // 当前展开花名册的班级 id（可同时展开多个班）
+const lastToggleAt = {};     // 防双击连点：同一班级按钮 350ms 内再次点击忽略（不同班互不影响）
+
+// 展开状态持久化（sessionStorage）：大屏页面意外刷新/被浏览器重载后自动恢复上次展开的名册，
+// 避免“什么都没点名册却收起来了”
+function persistExpanded() {
+  try { sessionStorage.setItem('boardExpanded', JSON.stringify([...expandedIds])); } catch (e) {}
+}
+function restoreExpanded(classes) {
+  if (expandedIds.size || !classes.length) return;
+  let arr = [];
+  try { arr = JSON.parse(sessionStorage.getItem('boardExpanded') || '[]') || []; } catch (e) {}
+  const ids = new Set(classes.map(c => c.id));
+  arr.forEach(id => { if (ids.has(id)) expandedIds.add(id); });
+  if (expandedIds.size) persistExpanded();
+}
 let lastLiveTs = 0;    // 已应用到界面/飞行队列的 live 时间戳
 let lastCdDigit = 0;   // 倒计时遮罩上次显示的数字（仅数字变化时重触发弹入动画）
 let wasLive = false;   // 上一轮数据是否处于有效直播帧
@@ -93,7 +108,10 @@ function buildCard(c) {
       <span class="board-class-name"></span>
       <span class="board-class-meta"></span>
     </div>
-    <div class="board-class-cap"></div>
+    <div class="board-class-head-right">
+      <button type="button" class="board-roster-btn" title="展开/收起班级花名册"></button>
+      <div class="board-class-cap"></div>
+    </div>
   </div>
   <div class="board-bar"><div class="board-bar-fill"></div></div>
   <div class="board-mini-row"></div>
@@ -106,6 +124,13 @@ function updateCard(cardEl, cls, opts) {
   cardEl.classList.toggle('is-live', isAllocMode());
   const exp = expandedIds.has(cls.id);
   cardEl.classList.toggle('expanded', exp);
+
+  // 头部「花名册」开关按钮文案随展开状态变化
+  const rosterBtn = cardEl.querySelector('.board-roster-btn');
+  if (rosterBtn) {
+    rosterBtn.textContent = exp ? '收起花名册' : '查看花名册';
+    rosterBtn.title = exp ? '收起该班级花名册' : '展开该班级花名册（查看完整名单）';
+  }
 
   const stu = cls.students || [];
   const count = stu.length;
@@ -129,10 +154,15 @@ function updateCard(cardEl, cls, opts) {
 
   syncMembers(cardEl, cls, opts);
 
+  // 展开名册：轮询刷新时保留列表滚动位置，避免看着看着跳回顶部
   const roster = cardEl.querySelector('.board-roster');
   if (exp) {
+    const listEl = roster.querySelector('.board-roster-list');
+    const prevTop = listEl ? listEl.scrollTop : 0;
     roster.style.display = 'block';
     roster.innerHTML = rosterHtml(cls);
+    const newList = roster.querySelector('.board-roster-list');
+    if (newList) newList.scrollTop = prevTop;
   } else {
     roster.style.display = 'none';
   }
@@ -156,13 +186,15 @@ function appendChip(box, s, ghost) {
   return el;
 }
 
-// 同步某班级卡的「入座区」：只保留最新 MAX_SHOWN 位，新学生动画入座或直接落座
+// 同步某班级卡的「入座区」：只保留最新 MAX_SHOWN 位，新学生动画入座或直接落座。
+// 展开名册时该区被 CSS 隐藏（避免与名单重复），小卡仅作「已入座」标记：新学生仍照常入队播报，
+// 由 runShowcase 选择飞入名册对应行高亮；收起名册后小卡立即还原。
 function syncMembers(cardEl, cls, opts) {
   const box = cardEl.querySelector('.board-members');
   if (!box) return;
   const S = cls.students || [];
   const W = S.slice(-MAX_SHOWN);
-  const win = new Set(W.map(s => s.id));
+  const win = new Set(W.map(s => String(s.id)));
 
   // 移除被挤出窗口的旧学生小卡
   [...box.querySelectorAll('.board-chip')].forEach(ch => {
@@ -182,14 +214,13 @@ function syncMembers(cardEl, cls, opts) {
   }
   if (emptyTip) emptyTip.remove();
 
-  const seated = new Set([...box.querySelectorAll('.board-chip')].map(c => c.dataset.id));
-  const expanded = cardEl.classList.contains('expanded');
+  const seated = new Set([...box.querySelectorAll('.board-chip')].map(c => String(c.dataset.id)));
   W.forEach(s => {
-    if (seated.has(s.id)) return;
-    if (opts.anim && cardEl.isConnected && !expanded && s.id && s.name) {
-      enqueueSeat(cardEl, s);   // 逐人上台展示后飞入
+    if (seated.has(String(s.id))) return;
+    if (opts.anim && cardEl.isConnected && s.id && s.name) {
+      enqueueSeat(cardEl, s);   // 逐人上台展示后飞入座位
     } else {
-      // 直接落座（首帧/回落/展开名册时入座区隐藏/页面中途打开）；若该生已在展示队列则跳过
+      // 直接落座（首帧/回落/页面中途打开）；若该生已在展示队列则跳过
       const key = cardEl.dataset.id + '\u0001' + s.id;
       if (!flyQueuedKeys.has(key)) seatNow(box, s);
     }
@@ -276,20 +307,23 @@ function flushFlyQueue() {
 async function runShowcase(item, backlog) {
   const cardEl = item.cardEl;
   const s = item.student;
+  const cardId = cardEl.dataset.id;
   const box = cardEl.querySelector('.board-members');
   if (!box) return;
+  const exp = expandedIds.has(cardId);
 
   // 直播已结束且该生未落盘（中途重置/中止）：不再播放，避免出现幽灵座位
-  if (!liveFresh() && !seatInPersisted(cardEl.dataset.id, s.id)) return;
+  if (!liveFresh() && !seatInPersisted(cardId, s.id)) return;
 
-  // 该生若已被更多新同学挤出「最新入座」展示窗口，就无需再补动画
-  // （否则会出现飞入后随即被新帧挤掉的闪烁；窗口只展示最新 MAX_SHOWN 位）
-  const cur = viewClassById(cardEl.dataset.id);
-  if (!cur || !(cur.students || []).slice(-MAX_SHOWN).some(x => x.id === s.id)) return;
+  if (!exp) {
+    // 收起状态：该生若已被更多新同学挤出「最新入座」展示窗口，就无需再补动画
+    // （否则会出现飞入后随即被新帧挤掉的闪烁；窗口只展示最新 MAX_SHOWN 位）
+    const cur = viewClassById(cardId);
+    if (!cur || !(cur.students || []).slice(-MAX_SHOWN).some(x => x.id === s.id)) return;
+  }
 
-  // 班级卡若处于「展开名册」状态（入座区被隐藏）则跳过舞台，直接落座
+  // 幽灵占位：先放入入座区（展开名册时该容器隐藏，仅作「已入座」标记，收起后立即还原），动画期间始终占位
   const chip = appendChip(box, s, true);
-  if (cardEl.classList.contains('expanded')) { settleChip(chip); return; }
 
   const showMs = pickShowMs(backlog);
   const legMs = pickLegMs(backlog, false);
@@ -297,19 +331,78 @@ async function runShowcase(item, backlog) {
 
   // 1) 从顶部中央飞向展示台
   await flyBetween(flyOrigin(), stageCenter(), s, legMs);
-  if (showAbort) { finishChip(cardEl.dataset.id, chip); return; }
+  if (showAbort) { finishChip(cardId, chip); return; }
 
   // 2) 展示台放大呈现具体信息（淡出与下一步飞入并行，节省追赶时间）
-  const clsName = (viewClassById(cardEl.dataset.id) || {}).name || '';
+  const clsName = (viewClassById(cardId) || {}).name || '';
   await showDetail(s, clsName, stageCenter(), showMs);
-  if (showAbort) { finishChip(cardEl.dataset.id, chip); return; }
+  if (showAbort) { finishChip(cardId, chip); return; }
 
-  // 3) 飞入对应班级的座位
+  if (exp) {
+    // 3) 展开名册：飞入名册中对应行并高亮（名单本身无重复小卡，落点即该生所在行）
+    await rosterLanding(cardEl, s, seatMs);
+    if (showAbort) { finishChip(cardId, chip); return; }
+    settleChip(chip); // 点亮隐藏占位，作为已入座标记
+    return;
+  }
+
+  // 3) 收起状态：飞入对应班级的座位小卡
   const to = chipCenter(chip);
   if (!to) { settleChip(chip); return; }
   await flyBetween(stageCenter(), to, s, seatMs);
-  if (showAbort) { finishChip(cardEl.dataset.id, chip); return; }
+  if (showAbort) { finishChip(cardId, chip); return; }
   settleChip(chip);
+}
+
+// ============ 展开名册模式的入座落点：飞入名册对应行并高亮 ============
+
+function findRosterRow(list, sid) {
+  const id = String(sid);
+  return [...list.querySelectorAll('.board-roster-row')].find(r => r.dataset.id === id) || null;
+}
+
+// 让名册内的行滚动到可视区（只滚动名册容器本身，不动页面）
+function revealRowInList(listEl, row) {
+  const relTop = row.offsetTop - listEl.offsetTop;
+  const relBot = relTop + row.offsetHeight;
+  if (relTop < listEl.scrollTop) {
+    listEl.scrollTop = Math.max(0, relTop - 2);
+  } else if (relBot > listEl.scrollTop + listEl.clientHeight) {
+    listEl.scrollTop = Math.max(0, relBot - listEl.clientHeight + 2);
+  }
+}
+
+// 第三段飞行终点：优先该学生在名册中的行；行不存在/不可见时落到名册区域中部。到达后行高亮「刚刚入座」
+function rosterLanding(cardEl, s, ms) {
+  const roster = cardEl.querySelector('.board-roster');
+  const list = roster ? roster.querySelector('.board-roster-list') : null;
+  let target = null;
+  if (list) {
+    const row = findRosterRow(list, s.id);
+    if (row) {
+      revealRowInList(list, row);
+      const rect = row.getBoundingClientRect();
+      if (rect.width && rect.height) target = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+  }
+  if (!target) {
+    const anchor = list || roster || cardEl;
+    const rect = anchor.getBoundingClientRect();
+    if (!rect.width || !rect.height) return; // 卡片不可见，无可见落点
+    target = { x: rect.left + rect.width / 2, y: Math.max(rect.top + 8, rect.top + rect.height / 2) };
+  }
+  return flyBetween(stageCenter(), target, s, ms).then(() => {
+    // 名册每轮轮询会整体重建，落地点到达后重新查询该行再高亮
+    const curRoster = cardEl.querySelector('.board-roster');
+    const curList = curRoster ? curRoster.querySelector('.board-roster-list') : null;
+    if (!curList) return;
+    const row = findRosterRow(curList, s.id);
+    if (row && row.isConnected) {
+      row.classList.remove('fresh');
+      void row.offsetWidth; // 强制重放高亮动画
+      row.classList.add('fresh');
+    }
+  });
 }
 
 function settleChip(chip) {
@@ -330,6 +423,7 @@ function finishChip(cardId, chip) {
 function chipCenter(chip) {
   if (!chip.isConnected) return null;
   const r = chip.getBoundingClientRect();
+  if (!r.width || !r.height) return null; // 容器被隐藏时无可见落点
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
@@ -613,7 +707,7 @@ function rosterHtml(c) {
         ? `<span class="board-roster-avatar" style="background-image:url('${escapeHtml(s.photo)}')"></span>`
         : `<span class="board-roster-avatar ${s.gender === '男' ? 'm' : 'f'}">${escapeHtml((s.name || '?').slice(0, 1))}</span>`;
       return `
-      <div class="board-roster-row">
+      <div class="board-roster-row" data-id="${escapeHtml(String(s.id))}">
         ${photo}
         <div class="board-roster-name">${escapeHtml(s.name)}</div>
         <span class="gender-tag ${s.gender === '男' ? 'gender-male' : 'gender-female'}">${escapeHtml(s.gender)}</span>
@@ -629,6 +723,7 @@ function rosterHtml(c) {
 function reconcileGrid(classes) {
   const grid = $('#classesGrid');
   const empty = $('#emptyTip');
+  restoreExpanded(classes); // 页面重载后恢复上次展开的名册（仅当有记录且该班仍展示时）
   const liveNow = liveFresh();
   const ts = (boardData.live && boardData.live.ts) || 0;
   // 是否为「新的直播帧」：只有直播快照刷新过才可能有新学生需要飞入
@@ -654,7 +749,7 @@ function reconcileGrid(classes) {
     }
   });
   // 仅年级切换 / 数据清空才中断队列；直播正常结束不打断，已入队学生逐个播完
-  if (removedCard) flushFlyQueue();
+  if (removedCard) { flushFlyQueue(); persistExpanded(); }
 
   // 2) 对齐顺序并补充新卡，已有卡仅增量更新
   classes.forEach((cls, i) => {
@@ -810,20 +905,29 @@ function bindEvents() {
     }
     setFollowUI();
   };
-  // 点击班级展开 / 收起花名册
+  // 展开 / 收起花名册：仅「查看花名册 / 收起花名册」按钮触发。
+  // 点击卡片其它区域（名册列表、滚动条、班级名、空白处）一律不切换。
+  // 防“自动收起”三重保护：
+  //  1) 允许多个班同时展开——展开 B 不再自动收起 A；
+  //  2) 双击/投影笔连点 350ms 内的第二次点击忽略——避免“刚展开立刻又收起”；
+  //  3) 点击后让按钮失焦——避免焦点停在按钮上，之后按空格/回车误触发收起。
   $('#classesGrid').onclick = (e) => {
-    const card = e.target.closest('.board-class');
+    const btn = e.target.closest('.board-roster-btn');
+    if (!btn) return; // 只有按钮点击才响应
+    const card = btn.closest('.board-class');
     if (!card) return;
+    e.stopPropagation();
     const id = card.dataset.id;
     const cls = viewClassById(id);
     if (!cls) return;
-    if (expandedIds.has(id)) {
-      expandedIds.delete(id);
-    } else {
-      expandedIds.clear();
-      expandedIds.add(id);
-    }
+    const now = Date.now();
+    if (now - (lastToggleAt[id] || 0) < 350) return; // 双击/投影笔连点防抖
+    lastToggleAt[id] = now;
+    if (expandedIds.has(id)) expandedIds.delete(id);
+    else expandedIds.add(id);
+    persistExpanded();
     updateCard(card, cls, { anim: false });
+    btn.blur();
   };
 }
 
