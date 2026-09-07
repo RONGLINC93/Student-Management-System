@@ -733,10 +733,10 @@ function reset(silent = false) {
 
 // 投屏链接同步携带当前所选年级，打开大屏即与该年级对齐
 function syncBoardLink() {
-  const a = $('#boardLink');
+  const a = $('#btnBoard');
   if (!a) return;
   const g = $('#gradeFilter')?.value || '';
-  a.href = '/result.html' + (g ? '?grade=' + encodeURIComponent(g) : '');
+  a.dataset.href = '/result.html' + (g ? '?grade=' + encodeURIComponent(g) : '');
 }
 
 // 广播当前所选年级到大屏：大屏开启「跟播」时，无需直播也会立即切到该年级
@@ -756,6 +756,7 @@ function bindEvents() {
   if (fb) fb.onclick = () => (floatMode === 'deal' ? startDeal() : startShuffle());
   $('#btnDeal').onclick = startDeal;
   $('#btnReset').onclick = () => reset();
+  $('#btnBoard').onclick = () => window.open($('#btnBoard').dataset.href || '/result.html', '_blank');
   $('#gradeFilter').onchange = () => {
     applyGradeFilter();
     saveFilters(); // 保存筛选

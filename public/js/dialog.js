@@ -36,7 +36,7 @@
         <p class="dialog-msg"></p>
         <div class="dialog-btns">
           <button class="btn btn-default dialog-cancel" type="button">取消</button>
-          <button class="btn dialog-ok" type="button">确定</button>
+          <button class="btn btn-primary dialog-ok" type="button">确定</button>
         </div>
       </div>`;
     document.body.appendChild(mask);

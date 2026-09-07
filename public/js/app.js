@@ -514,6 +514,8 @@ async function importTableData(file) {
 // ===== 事件绑定 =====
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
+  $('#btnBoard').onclick = () => window.open('/result.html', '_blank');
+  $('#btnAllocate').onclick = () => location.href = '/allocate.html';
   $('#btnClear').onclick = clearAll;
   $('#btnImport').onclick = batchImport;
   $('#btnDownloadTpl').onclick = downloadTemplate;
