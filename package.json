@@ -1,5 +1,5 @@
 {
-  "name": "intelligent-class-allocation-system",
+  "name": "Student-Management-System",
   "version": "1.0.0",
   "description": "学生管理系统 - 学籍/班级/成绩/教师/考勤/宿舍与智能分班",
   "main": "server.js",
