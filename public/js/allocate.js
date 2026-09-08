@@ -26,6 +26,12 @@ function totalScore(s) {
   return Number(s.chinese) + Number(s.math) + Number(s.english) + Number(s.science);
 }
 
+// 读取系统设置中的数值型参数（未设置时回退默认值）
+function siteNum(key, fallback) {
+  const v = window.SITE && window.SITE[key];
+  return (typeof v === 'number' && isFinite(v)) ? v : fallback;
+}
+
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // 同步控制面板与悬浮按钮的禁用状态（悬浮按钮不可用时隐藏）
@@ -429,7 +435,9 @@ function computeAllocation(strategy) {
         const totalPart = -tSum[i] + (avg - tSum[i]) * 0.5;
         const same = s.gender === '男' ? mMale[i] : mFemale[i];
         const opp = s.gender === '男' ? mFemale[i] : mMale[i];
-        const sc = totalPart + (opp - same) * 1.5 + (s.specialty ? -mSpec[i] : 0) * 2;
+        const sc = totalPart
+          + (opp - same) * siteNum('balanceGender', 1.5)
+          + (s.specialty ? -mSpec[i] : 0) * siteNum('balanceSpecialty', 2);
         if (sc > best) { best = sc; bi = i; }
       }
       if (bi === -1) bi = nCls - 1;
@@ -463,6 +471,11 @@ async function startDeal() {
     toast(`班级总容量不足：待分学生 ${students.length} 人 > 总容量 ${totalCap} 人，请先在班级管理中调大容量或退回部分学生`, 'error');
     return;
   }
+  // 分班前刷新系统设置（均衡权重可能在设置页被调整过）
+  if (typeof window.siteLoadSettings === 'function') {
+    try { await window.siteLoadSettings(); } catch (e) {}
+  }
+
   const strategy = $('#strategy').value;
   const showScale = Number($('#showScale')?.value || 1.6);
   isDealing = true;

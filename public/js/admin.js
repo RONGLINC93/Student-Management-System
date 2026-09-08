@@ -14,6 +14,7 @@
     grades: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
     chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>',
     allocate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>',
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
   };
 
@@ -22,7 +23,8 @@
     students: { key: 'students', title: '学生列表', icon: IC.user, src: '/students.html', pinned: false },
     classes:  { key: 'classes',  title: '班级管理', icon: IC.classes, src: '/classes.html', pinned: false },
     grades:   { key: 'grades',   title: '年级管理', icon: IC.grades, src: '/grades.html', pinned: false },
-    allocate: { key: 'allocate', title: '智能分班', icon: IC.allocate, src: '/allocate.html', pinned: false }
+    allocate: { key: 'allocate', title: '智能分班', icon: IC.allocate, src: '/allocate.html', pinned: false },
+    settings: { key: 'settings', title: '系统设置', icon: IC.settings, src: '/settings.html', pinned: false }
   };
 
   var tabs = [];          // 已打开的选项卡
@@ -76,7 +78,7 @@
     var m = MODULES[key];
     currentTitle.textContent = m.title;
     btnNewWin.href = m.src;
-    document.title = m.title + ' · 智能分班系统后台';
+    setTopTitle();
     updateMenu();
 
     // 已有内容的选项卡在切回时静默刷新数据
@@ -143,10 +145,34 @@
     }
   }
 
+  // 标题中的系统名：使用设置中的学校名称（默认仍为“智能分班系统”）
+  function siteBase() {
+    var n = window.SITE && window.SITE.schoolName ? String(window.SITE.schoolName).trim() : '';
+    return (n && n !== '智能分班系统') ? n : '智能分班系统';
+  }
+
+  function setTopTitle() {
+    var m = activeKey ? MODULES[activeKey] : null;
+    if (m) document.title = m.title + ' · ' + siteBase() + '后台';
+  }
+
   function moduleByUrl(href) {
     var path = '';
-    try { path = new URL(href, location.origin).pathname; } catch (e) {
-      path = String(href).split('#')[0].split('?')[0];
+    var query = '';
+    try {
+      var u = new URL(href, location.origin);
+      path = u.pathname;
+      query = u.search;
+    } catch (e) {
+      var parts = String(href).split('?');
+      path = parts[0].split('#')[0];
+      query = parts[1] ? '?' + parts[1] : '';
+    }
+    // 优先支持 /index.html?mod=settings 这类深链参数定位
+    var modMatch = query.match(/[?&]mod=([^&]+)/);
+    if (modMatch) {
+      var mod = decodeURIComponent(modMatch[1]);
+      if (MODULES[mod]) return mod;
     }
     switch (path) {
       case '/dashboard.html':
@@ -156,6 +182,7 @@
       case '/classes.html': return 'classes';
       case '/grades.html': return 'grades';
       case '/allocate.html': return 'allocate';
+      case '/settings.html': return 'settings';
       default: return null;
     }
   }
@@ -181,6 +208,9 @@
     if (t && t.loaded) sendTo(t, 'icst-refresh');
     else if (t) t.pendingActive = true;
   });
+
+  // 站点配置加载完成（如学校名称变更）后刷新顶部标题
+  window.addEventListener('cb-site-ready', setTopTitle);
 
   // 启动：默认打开「数据总览」常驻选项卡；
   // 学生列表等其它模块不再常驻，需要时从左侧菜单打开。

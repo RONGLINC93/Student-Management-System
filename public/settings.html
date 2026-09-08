@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能分班系统 - 系统设置</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .set-page { max-width: 980px; margin: 0 auto; }
+    .set-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+    .set-head h2 { font-size: 20px; }
+    .set-head .dash-sub { color: var(--text-light); font-size: 13px; margin-top: 4px; }
+
+    .set-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      margin-bottom: 18px;
+    }
+    .set-card-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+    .set-card-icon {
+      width: 34px; height: 34px; flex-shrink: 0;
+      background: linear-gradient(135deg, #4f6df5, #7b5cf5);
+      color: #fff; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .set-card-icon svg { width: 18px; height: 18px; }
+    .set-card-title { font-size: 16px; font-weight: 700; }
+    .set-card-desc { font-size: 12px; color: var(--text-light); margin-top: 3px; }
+    .set-card-foot {
+      display: flex; justify-content: flex-end; gap: 10px;
+      margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border);
+    }
+    .set-field { margin-bottom: 18px; }
+    .set-field:last-child { margin-bottom: 0; }
+    .set-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .set-tip { font-size: 12px; color: var(--text-light); margin-top: 6px; line-height: 1.6; }
+    .set-label .badge { margin-left: 6px; vertical-align: 1px; }
+    .set-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .set-row .range-input { flex: 1; min-width: 220px; }
+    .set-split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 760px) { .set-split { grid-template-columns: 1fr; } }
+    .set-tag { font-size: 13px; color: var(--primary); font-weight: 700; min-width: 64px; }
+    .btn-danger { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+    .btn-soft { background: #f3f4f6; color: var(--text); border: 1px solid var(--border); }
+    .btn-soft:hover { background: #e5e7eb; }
+    .set-restore-tip { font-size: 12px; color: var(--text-light); margin-top: 10px; }
+    .set-toast {
+      position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%) translateY(20px);
+      background: #1f2937; color: #fff; font-size: 13px; padding: 10px 20px;
+      border-radius: 10px; box-shadow: var(--shadow-lg); opacity: 0;
+      transition: all .25s; pointer-events: none; z-index: 9999; max-width: 80vw;
+    }
+    .set-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .set-toast.ok { background: #16a34a; }
+    .set-toast.err { background: #dc2626; }
+    .muted-note { color: var(--text-light); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <div>
+          <h1 data-site-name>智能分班系统</h1>
+          <p class="subtitle">系统设置 · 学校信息 / 分班规则 / 数据管理</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/" class="nav-item">数据总览</a>
+        <a href="/index.html?mod=students" class="nav-item">学生列表</a>
+        <a href="/classes.html" class="nav-item">班级管理</a>
+        <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/allocate.html" class="nav-item">智能分班</a>
+        <a href="/index.html?mod=settings" class="nav-item active">系统设置</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="set-page">
+      <div class="set-head">
+        <div>
+          <h2>系统设置</h2>
+          <p class="dash-sub">修改后即时生效：保存时自动通知已打开的工作台与功能页刷新</p>
+        </div>
+      </div>
+
+      <!-- 学校信息 -->
+      <section class="set-card">
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">学校信息</div>
+            <div class="set-card-desc">用于页面顶部、工作台品牌、浏览器标题与分班结果大屏的展示名称</div>
+          </div>
+        </div>
+        <div class="set-field">
+          <label class="set-label" for="setSchoolName">学校（机构）名称</label>
+          <div class="set-row">
+            <input type="text" id="setSchoolName" class="set-school-input" maxlength="40" autocomplete="off"
+                   style="flex:1; min-width:220px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; font-size:14px; outline:none;"
+                   placeholder="如：第一中学" />
+          </div>
+          <p class="set-tip">
+            留空或使用默认“智能分班系统”时，各页面保持原有标题文案；
+            填写学校名称后，各功能页顶部大字、工作台品牌与浏览器标签会一并更新为学校名称。
+          </p>
+        </div>
+        <div class="set-card-foot">
+          <button class="btn btn-default btn-sm js-reset-name" id="btnResetName">恢复默认</button>
+          <button class="btn btn-primary btn-sm" id="btnSaveSchool">保存学校信息</button>
+        </div>
+      </section>
+
+      <!-- 分班规则 -->
+      <section class="set-card">
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">分班规则 · 综合均衡强度</div>
+            <div class="set-card-desc">仅影响分班页「综合均衡（成绩+性别+特长）」策略下的排序倾向</div>
+          </div>
+        </div>
+        <div class="set-split">
+          <div class="set-field">
+            <label class="set-label" for="setGenderW">性别均衡强度 <span class="badge" id="genderVal">1.5</span></label>
+            <input type="range" class="range-input" id="setGenderW" min="0" max="3" step="0.1" value="1.5" />
+            <p class="set-tip">数值越大，分班时越优先让每个班的男女生比例接近，建议 1～2。</p>
+          </div>
+          <div class="set-field">
+            <label class="set-label" for="setSpecW">特长均衡强度 <span class="badge" id="specVal">2</span></label>
+            <input type="range" class="range-input" id="setSpecW" min="0" max="3" step="0.1" value="2" />
+            <p class="set-tip">数值越大，越倾向于把“有特长”的学生打散到不同班级，建议 1～2。</p>
+          </div>
+        </div>
+        <div class="set-card-foot">
+          <button class="btn btn-primary btn-sm" id="btnSaveRule">保存分班规则</button>
+        </div>
+      </section>
+
+      <!-- 数据管理 -->
+      <section class="set-card">
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">数据备份与维护</div>
+            <div class="set-card-desc">一键导出全部数据（学生 / 班级 / 年级 / 筛选状态 / 系统设置）</div>
+          </div>
+        </div>
+        <div class="set-field">
+          <label class="set-label">备份与恢复</label>
+          <div class="set-row">
+            <button class="btn btn-default btn-sm" id="btnExport">导出数据备份</button>
+            <button class="btn btn-default btn-sm" id="btnPickImport">导入备份文件</button>
+            <input type="file" id="fileImport" accept=".json,application/json" style="display:none" />
+          </div>
+          <p class="set-tip">
+            导出得到一个 JSON 备份文件；换电脑 / 误删后可在“导入备份文件”中选择该文件一键恢复。
+            导入将 <b>覆盖</b> 当前全部数据，请谨慎操作。
+          </p>
+        </div>
+        <div class="set-field">
+          <label class="set-label">清空业务数据</label>
+          <div class="set-row">
+            <button class="btn btn-danger btn-sm" id="btnClearData">清空全部学生（含已分班名单）</button>
+          </div>
+          <p class="set-tip">仅清空学生与各班花名册，保留班级结构、年级和系统设置；操作前建议先导出备份。</p>
+        </div>
+        <div class="set-card-foot">
+          <span class="muted-note" style="margin-right:auto">版本 v1.0 · 本地演示</span>
+          <button class="btn btn-default btn-sm" id="btnDataManage">刷新状态</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="set-toast" id="setToast"></div>
+
+  <script src="/js/dialog.js"></script>
+  <script src="/js/site.js"></script>
+  <script src="/js/embed.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var S = null; // 当前设置
+      var toastEl = document.getElementById('setToast');
+      var toastTimer = null;
+      function toast(msg, type) {
+        toastEl.textContent = msg;
+        toastEl.className = 'set-toast show ' + (type === 'err' ? 'err' : type === 'ok' ? 'ok' : '');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toastEl.className = 'set-toast'; }, 2600);
+      }
+      var $el = function (id) { return document.getElementById(id); };
+      function fmt(v) { return Math.round(Number(v) * 10) / 10; }
+
+      function fill(s) {
+        S = s || {};
+        $el('setSchoolName').value = S.schoolName || '智能分班系统';
+        $el('setGenderW').value = fmt(S.balanceGender != null ? S.balanceGender : 1.5);
+        $el('genderVal').textContent = $el('setGenderW').value;
+        $el('setSpecW').value = fmt(S.balanceSpecialty != null ? S.balanceSpecialty : 2);
+        $el('specVal').textContent = $el('setSpecW').value;
+      }
+
+      function load() {
+        return fetch('/api/settings').then(function (r) { return r.json(); }).then(function (j) {
+          fill(j.data || {});
+        }).catch(function () { toast('读取设置失败', 'err'); });
+      }
+
+      function save(body, okMsg) {
+        return fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '保存失败');
+          toast(okMsg || '设置已保存', 'ok');
+          fill(j.data || {});
+          // 立即应用到自己页面顶栏/标题，并通知父级工作台刷新品牌与标题
+          if (typeof window.siteLoadSettings === 'function') window.siteLoadSettings();
+          try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'icst-settings', url: location.pathname }, location.origin); } catch (e) {}
+        }).catch(function (e) { toast(e.message || '保存失败', 'err'); });
+      }
+
+      function ask(msg) {
+        try {
+          if (window.confirm) return window.confirm(msg);
+        } catch (e) {}
+        return true;
+      }
+
+      // 学校名称
+      $el('btnSaveSchool').addEventListener('click', function () {
+        var name = $el('setSchoolName').value.trim();
+        if (!name) name = '智能分班系统';
+        save({ schoolName: name }, '学校名称已保存');
+      });
+      $el('btnResetName').addEventListener('click', function () {
+        if (!ask('确认将学校名称恢复为默认“智能分班系统”吗？')) return;
+        save({ schoolName: '智能分班系统' }, '已恢复默认学校名称');
+      });
+
+      // 滑块实时数值
+      $el('setGenderW').addEventListener('input', function () { $el('genderVal').textContent = this.value; });
+      $el('setSpecW').addEventListener('input', function () { $el('specVal').textContent = this.value; });
+      $el('btnSaveRule').addEventListener('click', function () {
+        save({
+          balanceGender: Number($el('setGenderW').value),
+          balanceSpecialty: Number($el('setSpecW').value)
+        }, '分班规则已保存');
+      });
+
+      // 导出备份
+      $el('btnExport').addEventListener('click', function () {
+        fetch('/api/backup').then(function (r) {
+          if (!r.ok) throw new Error('导出失败');
+          return r.blob();
+        }).then(function (blob) {
+          var url = URL.createObjectURL(blob);
+          var d = new Date();
+          var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'icbs-backup-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.json';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+          toast('备份文件已导出', 'ok');
+        }).catch(function () { toast('导出失败，请重试', 'err'); });
+      });
+
+      // 导入恢复
+      $el('btnPickImport').addEventListener('click', function () { $el('fileImport').click(); });
+      $el('fileImport').addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        this.value = '';
+        if (!file) return;
+        var rd = new FileReader();
+        rd.onload = function () {
+          var obj;
+          try { obj = JSON.parse(rd.result); } catch (e) { toast('文件不是有效的备份 JSON', 'err'); return; }
+          if (!ask('导入将覆盖当前全部数据，确认继续吗？')) return;
+          fetch('/api/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(obj)
+          }).then(function (r) { return r.json(); }).then(function (j) {
+            if (j.code !== 0) throw new Error(j.msg || '恢复失败');
+            toast('恢复完成：班级 ' + j.classes + ' 个，学生 ' + j.students + ' 人', 'ok');
+            load();
+            if (typeof window.siteLoadSettings === 'function') window.siteLoadSettings();
+            try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'icst-settings', url: location.pathname }, location.origin); } catch (e) {}
+          }).catch(function (e) { toast(e.message || '恢复失败', 'err'); });
+        };
+        rd.readAsText(file);
+      });
+
+      // 清空学生
+      $el('btnClearData').addEventListener('click', function () {
+        if (!ask('确定清空全部学生与各班花名册吗？此操作不可撤销。')) return;
+        fetch('/api/students', { method: 'DELETE' }).then(function (r) { return r.json(); }).then(function (j) {
+          toast(j.code === 0 ? '已清空全部学生数据' : (j.msg || '清空失败'), j.code === 0 ? 'ok' : 'err');
+        }).catch(function () { toast('清空失败', 'err'); });
+      });
+
+      $el('btnDataManage').addEventListener('click', load);
+
+      load();
+    })();
+  </script>
+</body>
+</html>

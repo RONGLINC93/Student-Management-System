@@ -2,11 +2,19 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const DATA_FILE = path.join(__dirname, 'data', 'students.json');
 const CLASSES_FILE = path.join(__dirname, 'data', 'classes.json');
 const GRADES_FILE = path.join(__dirname, 'data', 'grades.json');
 const FILTERS_FILE = path.join(__dirname, 'data', 'filters.json');
+const SETTINGS_FILE = path.join(__dirname, 'data', 'settings.json');
+
+// 系统默认设置
+const DEFAULT_SETTINGS = {
+  schoolName: '智能分班系统', // 页面顶部 / 工作台品牌 / 标题展示的学校（机构）名称
+  balanceGender: 1.5,        // 综合均衡：性别均衡强度（越大越强调男女比例均衡）
+  balanceSpecialty: 2        // 综合均衡：特长均衡强度（越大越强调特长分布均衡）
+};
 
 // 确保数据目录存在
 const dataDir = path.join(__dirname, 'data');
@@ -24,6 +32,9 @@ if (!fs.existsSync(GRADES_FILE)) {
 }
 if (!fs.existsSync(FILTERS_FILE)) {
   fs.writeFileSync(FILTERS_FILE, '{}', 'utf-8');
+}
+if (!fs.existsSync(SETTINGS_FILE)) {
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
 }
 
 const MIME = {
@@ -89,6 +100,34 @@ function readFilters() {
 
 function writeFilters(filters) {
   fs.writeFileSync(FILTERS_FILE, JSON.stringify(filters, null, 2), 'utf-8');
+}
+
+function readSettings() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    return Object.assign({}, DEFAULT_SETTINGS, raw);
+  } catch (e) {
+    return Object.assign({}, DEFAULT_SETTINGS);
+  }
+}
+
+function writeSettings(settings) {
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+}
+
+// 过滤非法/越界的设置值
+function sanitizeSettings(body) {
+  const s = readSettings();
+  if (typeof body.schoolName === 'string') {
+    s.schoolName = String(body.schoolName).trim() || DEFAULT_SETTINGS.schoolName;
+  }
+  if (body.balanceGender !== undefined) {
+    s.balanceGender = Math.min(5, Math.max(0, Number(body.balanceGender) || 0));
+  }
+  if (body.balanceSpecialty !== undefined) {
+    s.balanceSpecialty = Math.min(5, Math.max(0, Number(body.balanceSpecialty) || 0));
+  }
+  return s;
 }
 
 // 实时分班快照（内存态，供大屏看板在分班动画过程中实时展示）
@@ -562,6 +601,51 @@ const server = http.createServer(async (req, res) => {
     Object.assign(filters, body);
     writeFilters(filters);
     return sendJson(res, 200, { code: 0, data: filters });
+  }
+
+  // ===== 系统设置 API =====
+  if (pathname === '/api/settings' && req.method === 'GET') {
+    return sendJson(res, 200, { code: 0, data: readSettings() });
+  }
+  if (pathname === '/api/settings' && req.method === 'PUT') {
+    const body = await readBody(req);
+    const s = sanitizeSettings(body);
+    writeSettings(s);
+    return sendJson(res, 200, { code: 0, data: s, msg: '设置已保存' });
+  }
+
+  // 导出全量数据备份（下载 JSON 文件）
+  if (pathname === '/api/backup' && req.method === 'GET') {
+    const payload = {
+      app: 'intelligent-class-allocation-system',
+      exportedAt: new Date().toISOString(),
+      settings: readSettings(),
+      grades: readGrades(),
+      filters: readFilters(),
+      classes: readClasses(),
+      students: readStudents()
+    };
+    const body = JSON.stringify(payload, null, 2);
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="icbs-backup-' + new Date().toISOString().slice(0, 10) + '.json"'
+    });
+    return res.end(body);
+  }
+
+  // 导入备份（覆盖全部业务数据，settings/grades/filters 缺省时保留现有）
+  if (pathname === '/api/restore' && req.method === 'POST') {
+    const body = await readBody(req);
+    if (!Array.isArray(body.classes) || !Array.isArray(body.students)) {
+      return sendJson(res, 400, { code: 1, msg: '备份文件格式不正确' });
+    }
+    writeSettings(body.settings && typeof body.settings === 'object' ? sanitizeSettings(body.settings) : readSettings());
+    writeGrades(Array.isArray(body.grades) ? body.grades.map(String).filter(Boolean) : readGrades());
+    writeFilters(body.filters && typeof body.filters === 'object' ? body.filters : {});
+    writeClasses(body.classes.map(c => Object.assign({}, c, { students: Array.isArray(c.students) ? c.students : [] })));
+    writeStudents(body.students);
+    liveBoard = null;
+    return sendJson(res, 200, { code: 0, msg: '恢复完成', classes: body.classes.length, students: body.students.length });
   }
 
   // ===== 静态文件 =====
