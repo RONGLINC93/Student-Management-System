@@ -12,12 +12,14 @@
     user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     classes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>',
     grades: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>',
     allocate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
   };
 
   var MODULES = {
-    students: { key: 'students', title: '学生列表', icon: IC.user, src: '/students.html', pinned: true },
+    dashboard: { key: 'dashboard', title: '数据总览', icon: IC.chart, src: '/dashboard.html', pinned: true },
+    students: { key: 'students', title: '学生列表', icon: IC.user, src: '/students.html', pinned: false },
     classes:  { key: 'classes',  title: '班级管理', icon: IC.classes, src: '/classes.html', pinned: false },
     grades:   { key: 'grades',   title: '年级管理', icon: IC.grades, src: '/grades.html', pinned: false },
     allocate: { key: 'allocate', title: '智能分班', icon: IC.allocate, src: '/allocate.html', pinned: false }
@@ -55,7 +57,7 @@
     if (activeKey === key) {
       var next = tabs[idx] || tabs[idx - 1] || tabs[0];
       if (next) activate(next.key);
-      else if (getTab('students')) activate('students');
+      else openTab('dashboard');
     }
   }
 
@@ -147,9 +149,10 @@
       path = String(href).split('#')[0].split('?')[0];
     }
     switch (path) {
+      case '/dashboard.html':
+      case '/': return 'dashboard';
       case '/index.html':
-      case '/students.html':
-      case '/': return 'students';
+      case '/students.html': return 'students';
       case '/classes.html': return 'classes';
       case '/grades.html': return 'grades';
       case '/allocate.html': return 'allocate';
@@ -179,7 +182,15 @@
     else if (t) t.pendingActive = true;
   });
 
-  // 启动：默认打开「学生列表」
-  openTab('students');
+  // 启动：默认打开「数据总览」常驻选项卡；
+  // 学生列表等其它模块不再常驻，需要时从左侧菜单打开。
+  // 支持 /index.html?mod=students 这类地址，直接定位到指定功能选项卡。
+  function urlMod() {
+    var m = location.search.match(/[?&]mod=([^&]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  var want = urlMod();
+  if (!MODULES[want]) want = 'dashboard';
+  openTab(want);
 })();
 

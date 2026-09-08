@@ -38,8 +38,9 @@
       if (!href || href.charAt(0) !== '/') return;
       var path = href.split('#')[0].split('?')[0];
       var KNOWN = {
-        '/': 1, '/index.html': 1, '/students.html': 1,
-        '/classes.html': 1, '/grades.html': 1, '/allocate.html': 1
+        '/': 1, '/index.html': 1, '/dashboard.html': 1,
+        '/students.html': 1, '/classes.html': 1, '/grades.html': 1,
+        '/allocate.html': 1
       };
       if (KNOWN[path]) {
         e.preventDefault();

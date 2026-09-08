@@ -565,6 +565,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ===== 静态文件 =====
+  // 根路径即后台工作台（选项卡式工作台，默认停靠“数据总览”页）
   let filePath = pathname === '/' ? '/index.html' : pathname;
   filePath = path.join(__dirname, 'public', filePath);
   // 安全检查

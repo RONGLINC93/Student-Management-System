@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能分班系统 · 数据总览主页</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
+        <div>
+          <h1>智能分班系统</h1>
+          <p class="subtitle">数据总览 · 一屏掌握全校分班概况</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/" class="nav-item active">数据总览</a>
+        <a href="/index.html?mod=students" class="nav-item">学生列表</a>
+        <a href="/classes.html" class="nav-item">班级管理</a>
+        <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/allocate.html" class="nav-item">智能分班</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- 标题与操作 -->
+    <section class="dash-head">
+      <div>
+        <h2>学校数据统计</h2>
+        <p class="dash-sub" id="dashMeta">正在读取数据…</p>
+      </div>
+      <div class="dash-actions">
+        <a class="btn btn-primary btn-sm js-to-admin" href="/index.html">进入后台工作台</a>
+        <a class="btn btn-default btn-sm" href="/result.html" target="_blank">打开分班大屏</a>
+        <button class="btn btn-default btn-sm" id="btnRefreshDash">刷新数据</button>
+      </div>
+    </section>
+
+    <!-- 实时分班进行中的横幅 -->
+    <section class="dash-banner hidden" id="liveBanner">
+      <span class="b-live"><i class="b-dot"></i><b id="liveText"></b></span>
+      <a class="btn btn-secondary btn-sm" href="/result.html" target="_blank">前往大屏观看</a>
+    </section>
+
+    <!-- 概览数字卡片 -->
+    <section class="dash-cards" id="dashCards"></section>
+
+    <!-- 第一行：分班进度 / 各年级概况 -->
+    <section class="dash-grid">
+      <div class="dash-panel">
+        <div class="dash-panel-title">分班进度</div>
+        <div class="dash-ring-row">
+          <div class="dash-ring-box">
+            <div class="dash-ring" id="ringAllot" style="--p:0%;--c:#4f6df5">
+              <div class="dash-ring-mask">
+                <b class="rm-num" id="allotRingNum">0%</b>
+                <span class="rm-tag">已分班</span>
+              </div>
+            </div>
+          </div>
+          <div class="dash-ring-box">
+            <div class="dash-ring dash-ring-male" id="ringGender" style="--p:0%;--c:#2563eb">
+              <div class="dash-ring-mask">
+                <b class="rm-num" id="genderRingNum">0%</b>
+                <span class="rm-tag">男生占比</span>
+              </div>
+            </div>
+            <p class="dash-caption" id="genderNote">男 0 · 女 0</p>
+          </div>
+        </div>
+        <p class="dash-note" id="allotNote">暂无分班数据</p>
+      </div>
+
+      <div class="dash-panel">
+        <div class="dash-panel-title">各年级学生概况</div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>年级</th>
+                <th class="tc">学生</th>
+                <th class="tc">男 / 女</th>
+                <th class="tc">班级</th>
+                <th>已分 / 待分</th>
+              </tr>
+            </thead>
+            <tbody id="gradeBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 第二行：全校均分 / 各年级均分 -->
+    <section class="dash-grid">
+      <div class="dash-panel">
+        <div class="dash-panel-title">全校学科均分<span class="dash-panel-extra" id="scoreMeta"></span></div>
+        <div id="sbjList" class="sbj-list"></div>
+      </div>
+      <div class="dash-panel">
+        <div class="dash-panel-title">各年级学科均分</div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>年级</th>
+                <th class="tc">语文</th>
+                <th class="tc">数学</th>
+                <th class="tc">英语</th>
+                <th class="tc">科学</th>
+                <th class="tc">总分均</th>
+              </tr>
+            </thead>
+            <tbody id="gradeScoreBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 班级容量一览 -->
+    <section class="dash-panel">
+      <div class="dash-panel-title">各班人数与容量</div>
+      <div id="capList" class="cap-list"></div>
+    </section>
+
+    <!-- 第三行：特长分布 / 快捷入口 -->
+    <section class="dash-grid">
+      <div class="dash-panel">
+        <div class="dash-panel-title">特长分布</div>
+        <div id="specList" class="spec-list"></div>
+        <p class="dash-empty hidden" id="specEmpty">暂无特长记录</p>
+      </div>
+      <div class="dash-panel">
+        <div class="dash-panel-title">快捷入口</div>
+        <div class="dash-quick">
+          <a class="dq-item" href="/students.html">
+            <span class="dq-main"><b>学生列表</b><small>学生增删改查 · 批量导入 · 直接编辑班级名单</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/classes.html">
+            <span class="dq-main"><b>班级管理</b><small>容量设置 · 班级花名册 · 导出 / 整班退回</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/allocate.html">
+            <span class="dq-main"><b>智能分班</b><small>随机排位 · S 型 / 综合均衡 · 大屏直播效果</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/index.html">
+            <span class="dq-main"><b>后台工作台</b><small>选项卡式管理全部功能模块</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/embed.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

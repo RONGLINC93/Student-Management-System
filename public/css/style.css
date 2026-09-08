@@ -2010,4 +2010,304 @@ tr.data-row.dragging { box-shadow: inset 0 0 0 2px var(--primary); }
 /* ========== 后台工作台嵌入模式（各功能页被 iframe 打开时） ========== */
 /* 页面自带站点头部（logo + 导航）在工作台内隐藏，避免导航重复 */
 html.cb-embedded body > header.app-header { display: none; }
+/* 数据总览作为工作台选项卡时，隐藏“进入后台工作台”按钮 */
+html.cb-embedded .dash-head .js-to-admin { display: none; }
+
+/* ========== 数据总览主页（首页 dashboard） ========== */
+.dash-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.dash-head h2 { font-size: 22px; }
+.dash-sub { margin-top: 4px; font-size: 13px; color: var(--text-light); }
+.dash-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 实时分班横幅 */
+.dash-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 13px 18px;
+  border-radius: 14px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(99,102,241,.4);
+  background: linear-gradient(90deg, #eef2ff, #f5f3ff);
+  color: #3730a3;
+  font-size: 14px;
+  box-shadow: var(--shadow);
+}
+.dash-banner.hidden { display: none; }
+.b-live { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; }
+.b-dot {
+  flex-shrink: 0;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #4f6df5;
+  box-shadow: 0 0 0 0 rgba(79,109,245,.5);
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+
+/* 概览卡片 */
+.dash-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.dash-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  box-shadow: var(--shadow);
+  transition: transform .22s, box-shadow .22s;
+}
+.dash-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.dc-num {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.dc-label { font-size: 13px; color: var(--text-light); font-weight: 600; margin-top: 9px; }
+.dc-sub { font-size: 12px; color: var(--text-light); margin-top: 4px; opacity: .8; line-height: 1.5; }
+.dash-card.c-blue .dc-num { color: #4f6df5; }
+.dash-card.c-green .dc-num { color: #16a34a; }
+.dash-card.c-orange .dc-num { color: #f59e0b; }
+.dash-card.c-purple .dc-num { color: #8b5cf6; }
+.dash-card.c-rose .dc-num { color: #ec4899; }
+.dash-card.c-teal .dc-num { color: #0d9488; }
+.dash-card.c-indigo .dc-num { color: #6366f1; }
+.dash-card.c-amber .dc-num { color: #d97706; }
+
+/* 面板 */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.dash-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+.dash-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.dash-panel-title::before {
+  content: '';
+  flex-shrink: 0;
+  width: 4px; height: 16px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #6366f1, #8b5cf6);
+}
+.dash-panel-extra { font-size: 12px; font-weight: 400; color: var(--text-light); margin-left: auto; }
+
+/* 环形图 */
+.dash-ring-row { display: flex; gap: 34px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+.dash-ring-box { text-align: center; }
+.dash-ring {
+  --p: 0%;
+  --c: #4f6df5;
+  position: relative;
+  width: 122px; height: 122px;
+  border-radius: 50%;
+  background: conic-gradient(var(--c) var(--p), #eef1f7 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+  transition: background .4s;
+}
+.dash-ring-mask {
+  position: absolute;
+  inset: 13px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.rm-num { font-size: 25px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; color: #1f2937; }
+.rm-tag { font-size: 11px; color: #94a3b8; }
+.dash-caption { font-size: 13px; color: var(--text-light); margin-top: 8px; }
+.dash-note {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-light);
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+/* 年级分段进度条 */
+.mseg {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f1f5f9;
+  min-width: 110px;
+}
+.mseg i { display: block; height: 100%; transition: width .4s; }
+.mseg-ok { background: #22c55e; }
+.mseg-wait { background: #fecaca; }
+.mseg-text { font-size: 11px; color: var(--text-light); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+/* 表格 */
+.dash-table-wrap { overflow-x: auto; }
+.dash-table { width: 100%; border-collapse: collapse; }
+.dash-table th {
+  background: #f9fafb;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.dash-table td {
+  padding: 9px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+}
+.dash-table tr:last-child td { border-bottom: none; }
+.dash-table .tc { text-align: center; }
+.dash-table .b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.dash-table .c-blue2 { color: var(--primary); }
+.dash-table .dim { color: var(--text-light); }
+.dash-empty {
+  text-align: center;
+  color: var(--text-light);
+  font-size: 13px;
+  padding: 22px 10px;
+}
+.dash-empty.hidden, .hidden { display: none !important; }
+
+/* 学科均分条 */
+.sbj-list { display: flex; flex-direction: column; gap: 14px; }
+.sbj-row { min-width: 0; }
+.sbj-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.sbj-name { font-size: 13px; font-weight: 600; }
+.sbj-val { font-size: 14px; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+.sbj-bar { height: 10px; border-radius: 5px; background: #eef1f7; overflow: hidden; }
+.sbj-fill { display: block; height: 100%; border-radius: 5px; transition: width .5s; }
+.sb-blue { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.sb-green { background: linear-gradient(90deg, #10b981, #34d399); }
+.sb-amber { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.sb-purple { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+
+/* 班级容量一览 */
+.cap-list { display: flex; flex-direction: column; }
+.cap-group-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.cap-group-title:first-child { margin-top: 0; }
+.cap-group-title .dim { font-weight: 400; }
+.cap-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px dashed #f1f5f9;
+  flex-wrap: wrap;
+}
+.cap-row:last-child { border-bottom: none; }
+.cap-name { flex: 0 1 170px; min-width: 120px; display: flex; align-items: center; gap: 8px; }
+.cap-name b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; max-width: 170px; }
+.cap-teacher { font-style: normal; font-size: 12px; color: #94a3b8; white-space: nowrap; }
+.cap-bar {
+  flex: 1;
+  min-width: 120px;
+  height: 9px;
+  border-radius: 5px;
+  background: #eef1f7;
+  overflow: hidden;
+}
+.cap-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #4f6df5, #8b5cf6);
+  transition: width .5s;
+}
+.cap-fill.over { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.cap-num {
+  min-width: 86px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.cap-num.over-text { color: #ef4444; }
+
+/* 特长分布 */
+.spec-list { display: flex; flex-direction: column; gap: 11px; }
+.spec-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.spec-name { flex: 0 0 96px; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.spec-bar { flex: 1; height: 9px; border-radius: 5px; background: #fef3c7; overflow: hidden; }
+.spec-fill { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, #f59e0b, #fbbf24); transition: width .5s; }
+.spec-count { flex: 0 0 58px; font-size: 12px; color: #92400e; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* 快捷入口 */
+.dash-quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.dq-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f9fafb;
+  color: var(--text);
+  text-decoration: none;
+  transition: all .2s;
+  min-width: 0;
+}
+.dq-item:hover {
+  border-color: var(--primary);
+  background: #eef2ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(79,109,245,.12);
+}
+.dq-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dq-main b { font-size: 14px; }
+.dq-main small { font-size: 12px; color: var(--text-light); line-height: 1.5; }
+.dq-arrow { flex-shrink: 0; color: var(--text-light); }
+.dq-arrow svg { width: 16px; height: 16px; }
+.dq-item:hover .dq-arrow { color: var(--primary); transform: translateX(3px); }
+.dq-arrow { transition: transform .2s, color .2s; }
+
+@media (max-width: 520px) {
+  .dash-grid { grid-template-columns: 1fr; }
+  .cap-row { flex-direction: column; align-items: stretch; gap: 6px; }
+  .cap-name { justify-content: space-between; }
+  .cap-num { text-align: left; }
+}
 
