@@ -8,5 +8,6 @@
   "allocate:strategy": "random",
   "allocate:dealSpeed": "2",
   "allocate:showScale": "1.7",
-  "students:pageSize": "10"
+  "students:pageSize": "10",
+  "students:dorm": ""
 }

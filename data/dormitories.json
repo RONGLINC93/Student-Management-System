@@ -31,7 +31,9 @@
     "roomNo": "102",
     "capacity": 4,
     "gender": "female",
-    "students": []
+    "students": [
+      "mtlkhfhijr4n"
+    ]
   },
   {
     "id": "cls_mtsbh38vozxk",
@@ -175,6 +177,86 @@
     "id": "cls_mtsbhvnleojg",
     "building": "1号楼",
     "roomNo": "111",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmw91jsg0",
+    "building": "1号楼",
+    "roomNo": "201",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmw9mayqm",
+    "building": "1号楼",
+    "roomNo": "202",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmw9u2phf",
+    "building": "1号楼",
+    "roomNo": "203",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmwa3rc4f",
+    "building": "1号楼",
+    "roomNo": "204",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmwaaqwpi",
+    "building": "1号楼",
+    "roomNo": "205",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmwahgp84",
+    "building": "1号楼",
+    "roomNo": "206",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmwaq9auk",
+    "building": "1号楼",
+    "roomNo": "207",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmwaxjzru",
+    "building": "1号楼",
+    "roomNo": "208",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmwb6gkpt",
+    "building": "1号楼",
+    "roomNo": "209",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbmwbc4hua",
+    "building": "1号楼",
+    "roomNo": "210",
     "capacity": 4,
     "gender": "male",
     "students": []

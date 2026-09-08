@@ -16,6 +16,7 @@ let dorms = [];
 let dormTarget = null;   // 正在操作的学生
 let dormCurrentId = '';  // 该生当前所在房间 id（'' = 未入住）
 let dormSelectedId = ''; // 弹窗中选中的房间 id
+let stuIndex = {};       // 学生 id -> 学生对象（床位点阵着色用）
 
 // 分页设置
 let pageSize = 10;
@@ -82,6 +83,8 @@ function annotateDorms() {
   dorms.forEach(r => (r.students || []).forEach(id => {
     if (!map[String(id)]) map[String(id)] = r;
   }));
+  stuIndex = {};
+  allStudents.forEach(s => { stuIndex[String(s.id)] = s; });
   allStudents.forEach(s => {
     const r = map[String(s.id)];
     if (r) {
@@ -96,6 +99,78 @@ function annotateDorms() {
 function dormTextOf(s) { return s._dormTxt || ''; }
 function dormRoomOfStudent(stu) {
   return dorms.find(r => (r.students || []).some(id => String(id) === String(stu.id))) || null;
+}
+
+// 房间房态等级（与宿舍管理页配色一致：空房绿 / 部分橙 / 满房紫）
+function dormStateKey(room) {
+  const o = (room.students || []).length;
+  const c = Number(room.capacity) || 1;
+  if (o <= 0) return 'empty';
+  if (o >= c) return 'full';
+  return 'part';
+}
+const DORM_STATE_LBL = { empty: '空房', part: '部分入住', full: '满房' };
+
+// 床位点阵 HTML：房间入住顺序即床位号，meId 命中时高亮该床位
+function dormBedsHtml(room, meId, size) {
+  const cap = Number(room.capacity) || 1;
+  const list = room.students || [];
+  const dots = [];
+  for (let i = 0; i < cap; i++) {
+    const sid = list[i];
+    const stu = sid !== undefined ? stuIndex[String(sid)] : null;
+    let cls = '';
+    if (sid !== undefined) {
+      if (stu) cls = 'on on-' + (stu.gender === '男' ? 'male' : 'female');
+      else cls = 'on on-u';
+      if (meId !== undefined && String(sid) === String(meId)) cls += ' me';
+    }
+    dots.push(`<i class="${cls}"></i>`);
+  }
+  return `<span class="bed-dots ${size === 'mini' ? 'mini' : ''}">${dots.join('')}</span>`;
+}
+
+// 宿舍列表格单元：入住 → 房态小卡；未入住 → 「＋ 分配宿舍」
+function dormCellHtml(s) {
+  if (!s._roomId) {
+    return '<button class="dorm-chip dorm-empty" data-act="dorm" title="点击分配宿舍">＋ 分配宿舍</button>';
+  }
+  const r = dorms.find(x => String(x.id) === String(s._roomId));
+  if (!r) return '<span class="dim-text">—</span>';
+  const sk = dormStateKey(r);
+  const occC = (r.students || []).length;
+  const cap = Number(r.capacity) || 1;
+  const free = Math.max(0, cap - occC);
+  const freeLine = sk === 'full' ? '<span class="dm-fulltxt">满房</span>' : `<span class="dm-free">空 ${free} 床</span>`;
+  return `<div class="dorm-mini dm-${sk}" data-act="dorm-view" title="${escapeHtml(s._dormTxt)}（${DORM_STATE_LBL[sk]}），点击查看该房间房态">
+    <div class="dm-head">
+      <span class="dm-bld">${escapeHtml(String(r.building))}</span><b class="dm-no">${escapeHtml(String(r.roomNo))}</b>
+      <span class="dm-st"><i></i>${DORM_STATE_LBL[sk]}</span>
+    </div>
+    ${dormBedsHtml(r, s.id, 'mini')}
+    <div class="dm-foot">${freeLine}
+      <button type="button" class="dm-act" data-act="dorm" title="为「${escapeHtml(s.name)}」更换宿舍">换宿</button>
+    </div>
+  </div>`;
+}
+
+// 判断当前是否嵌在工作台（index.html 的 iframe）内
+function isEmbedded() {
+  try { return window.self !== window.top; } catch (e) { return true; }
+}
+
+// 跳转到宿舍管理：工作台内切选项卡；独立打开页面时进入工作台并定位宿舍选项卡
+function openDormTab() {
+  if (isEmbedded() && typeof goPage === 'function') goPage('/dorm.html');
+  else location.href = '/index.html?mod=dorm';
+}
+
+// 跳转到宿舍管理页并自动打开对应房间详情（工作台内=切选项卡，独立页=进工作台深链）
+function openRoomPage(roomId, focusId) {
+  let qs = 'room=' + encodeURIComponent(roomId);
+  if (focusId) qs += '&focus=' + encodeURIComponent(focusId);
+  if (isEmbedded() && typeof goPage === 'function') goPage('/dorm.html?' + qs);
+  else location.href = '/index.html?mod=dorm&' + qs;
 }
 
 window.__phErr = function (img) {
@@ -128,6 +203,8 @@ function renderHeader() {
       html += `<th class="sortable" data-sort="${key}">${escapeHtml(label)}</th>`;
     } else if (key === 'photo') {
       html += '<th style="width:56px">照片</th>';
+    } else if (label === '宿舍') {
+      html += '<th style="width:196px">宿舍</th>';
     } else {
       html += `<th style="width:150px">${escapeHtml(label)}</th>`;
     }
@@ -211,6 +288,7 @@ async function saveFilters() {
     const filters = {
       'students:grade': $('#gradeFilter')?.value || '',
       'students:status': $('#statusFilter')?.value || '',
+      'students:dorm': $('#dormFilter')?.value || '',
       'students:search': $('#searchInput')?.value || '',
       'students:pageSize': String(pageSize)
     };
@@ -234,6 +312,8 @@ async function loadFilters() {
     if (gradeFilter && savedFilters['students:grade']) gradeFilter.value = savedFilters['students:grade'];
     const statusFilter = $('#statusFilter');
     if (statusFilter && savedFilters['students:status']) statusFilter.value = savedFilters['students:status'];
+    const dormFilter = $('#dormFilter');
+    if (dormFilter && savedFilters['students:dorm']) dormFilter.value = savedFilters['students:dorm'];
     const searchInput = $('#searchInput');
     if (searchInput && savedFilters['students:search']) searchInput.value = savedFilters['students:search'];
     const savedPageSize = Number(savedFilters['students:pageSize']);
@@ -265,6 +345,9 @@ function renderTable() {
   const statusFilter = $('#statusFilter')?.value || '';
   if (statusFilter === 'allocated') list = list.filter(s => s.allocated === true);
   else if (statusFilter === 'unallocated') list = list.filter(s => s.allocated === false);
+  const dormFilter = $('#dormFilter')?.value || '';
+  if (dormFilter === 'in') list = list.filter(s => !!s._roomId);
+  else if (dormFilter === 'out') list = list.filter(s => !s._roomId);
 
   if (sortKey) list.sort(compareSort);
   if (!list.length) {
@@ -289,9 +372,7 @@ function renderTable() {
     const actions = s.allocated
       ? '<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button></div>'
       : '<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button><button class="btn-sm btn-del" data-act="del">删除</button></div>';
-    const dormChip = s._roomId
-      ? `<button class="dorm-chip" data-act="dorm" title="当前入住：${escapeHtml(s._dormTxt)}，点击更换宿舍">${escapeHtml(s._dormTxt)}</button>`
-      : '<button class="dorm-chip dorm-empty" data-act="dorm" title="点击分配宿舍">＋ 分配宿舍</button>';
+    const dormCell = dormCellHtml(s);
     const scoreCells = subjects.map(sj => {
       const v = stuScoreOf(s, sj.key);
       return `<td class="score">${v === null ? '—' : v}</td>`;
@@ -308,7 +389,7 @@ function renderTable() {
       <td class="total-score">${totalOfStu(s)}</td>
       <td>${s.specialty ? `<span class="specialty-tag">${escapeHtml(s.specialty)}</span>` : '—'}</td>
       <td>${statusTag}</td>
-      <td class="dorm-cell">${dormChip}</td>
+      <td class="dorm-cell">${dormCell}</td>
       <td>${actions}</td>
     </tr>
   `;
@@ -411,6 +492,7 @@ function openModal(stu) {
     el.value = stu ? (stu[key] || '') : '';
   });
   $('#fSpecialty').value = stu ? stu.specialty : '';
+  renderStuDormBox();
   $('#modalMask').classList.add('show');
   setTimeout(() => $('#fStudentId').focus(), 100);
 }
@@ -559,22 +641,27 @@ function renderDormList() {
   }
   if (box) {
     box.innerHTML = list.map(r => {
-      const occ = (r.students || []).length;
+      const occC = (r.students || []).length;
       const cap = Number(r.capacity) || 1;
+      const sk = dormStateKey(r);
       const isCur = r.id === dormCurrentId;
-      const canUse = isCur || occ < cap;
+      const canUse = isCur || occC < cap;
       const isSel = r.id === dormSelectedId && canUse;
-      const pct = Math.min(100, Math.round(occ / cap * 100));
+      const free = Math.max(0, cap - occC);
       const tagHtml = isCur
         ? '<span class="dr-tag dr-cur">当前</span>'
-        : (occ >= cap ? '<span class="dr-tag dr-full">已满</span>' : '');
-      return `<div class="dorm-room ${isSel ? 'selected' : ''} ${canUse ? '' : 'disabled'}" data-id="${escapeHtml(r.id)}" data-full="${canUse ? '' : '1'}">
+        : `<span class="dr-tag dr-${sk === 'empty' ? 'empty' : (sk === 'full' ? 'full' : 'part')}">${sk === 'empty' ? '空房' : (sk === 'full' ? '已满' : '部分')}</span>`;
+      const freeLine = sk === 'full'
+        ? '<span class="dr-free-full">已满房 · 不可再安排</span>'
+        : `<span class="dr-free">${sk === 'empty' ? '空房，可入住 ' + cap + ' 人' : '空余 ' + free + ' 床可入住'}</span>`;
+      return `<div class="dorm-room lv-${sk} ${isSel ? 'selected' : ''} ${canUse ? '' : 'disabled'}" data-id="${escapeHtml(r.id)}" data-full="${canUse ? '' : '1'}">
         <div class="dr-top">
           <div class="dr-name"><b>${escapeHtml(String(r.building))}</b><span class="dr-no">${escapeHtml(String(r.roomNo))}</span></div>
           <span class="dgender g-${escapeHtml(r.gender)}">${DORM_GENDER_LBL[r.gender] || '混合'}</span>
         </div>
-        <div class="dr-cap"><span>已住 <b>${occ}</b>/${cap} 人</span><span class="dr-tags">${tagHtml}</span></div>
-        <div class="dr-bar"><i style="width:${pct}%"></i></div>
+        <div class="dr-cap"><span>已住 <b>${occC}</b>/${cap} 人</span><span class="dr-tags">${tagHtml}</span></div>
+        ${dormBedsHtml(r, dormTarget && dormTarget.id, '')}
+        <div>${freeLine}</div>
         <span class="dr-check">✓</span>
       </div>`;
     }).join('');
@@ -599,27 +686,126 @@ async function doDormSave() {
     toast(dormCurrentId ? '已更换宿舍' : '已分配宿舍', 'success');
     closeDormDlg();
     await loadStudents();
+    renderStuDormBox();
   } catch (e) {
     toast('分配失败：' + e.message, 'error');
   }
 }
 
-async function doDormLeave() {
-  if (!dormTarget || !dormCurrentId) return;
-  const cur = dorms.find(r => r.id === dormCurrentId);
-  const label = cur ? (String(cur.building) + ' ' + String(cur.roomNo)).trim() : '原房间';
-  const ok = await confirmDlg(`确定让「${dormTarget.name}」退宿（${label}）吗？床位将被释放。`, { title: '退宿', okText: '退宿' });
-  if (!ok) return;
+// 退宿（可复用：宿舍弹窗 / 档案住宿区块）
+async function leaveStudent(stu) {
+  if (!stu) return false;
+  const cur = dormRoomOfStudent(stu);
+  if (!cur) return false;
+  const label = (String(cur.building) + ' ' + String(cur.roomNo)).trim();
+  const ok = await confirmDlg(`确定让「${stu.name}」退宿（${label}）吗？床位将被释放。`, { title: '退宿', okText: '退宿' });
+  if (!ok) return false;
   try {
-    const res = await fetch(`${DORMS_API}/${encodeURIComponent(dormCurrentId)}/remove/${encodeURIComponent(dormTarget.id)}`, { method: 'POST' });
+    const res = await fetch(`${DORMS_API}/${encodeURIComponent(cur.id)}/remove/${encodeURIComponent(stu.id)}`, { method: 'POST' });
     const json = await res.json();
-    if (json.code !== 0) { toast(json.msg || '退宿失败', 'error'); return; }
+    if (json.code !== 0) { toast(json.msg || '退宿失败', 'error'); return false; }
     toast('已退宿', 'success');
-    closeDormDlg();
-    await loadStudents();
+    return true;
   } catch (e) {
     toast('退宿失败：' + e.message, 'error');
+    return false;
   }
+}
+async function doDormLeave() {
+  if (!dormTarget || !dormCurrentId) return;
+  if (await leaveStudent(dormTarget)) {
+    closeDormDlg();
+    await loadStudents();
+    renderStuDormBox();
+  }
+}
+
+// ===== 学生编辑档案里的「住宿信息」区块 =====
+function renderStuDormBox() {
+  const box = $('#stuDormBox');
+  if (!box) return;
+  const id = $('#fId').value;
+  const stu = id ? (allStudents.find(s => String(s.id) === String(id)) || null) : null;
+  if (!stu) { box.hidden = true; return; }
+  box.hidden = false;
+
+  if (!dorms.length) {
+    box.innerHTML = `
+      <div class="sdb-card">
+        <div class="sdb-top">
+          <span class="sdb-title">住宿信息</span>
+          <span class="sdb-state st-none">暂无宿舍房间</span>
+        </div>
+        <div class="sdb-hint">系统还没有任何宿舍房间，请先到「宿舍管理」页添加房间。</div>
+        <div class="sdb-actions">
+          <button type="button" class="btn btn-primary btn-sm" data-act="sdb-godorm">前往宿舍管理添加房间</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const cur = dormRoomOfStudent(stu);
+  if (!cur) {
+    box.innerHTML = `
+      <div class="sdb-card">
+        <div class="sdb-top">
+          <span class="sdb-title">住宿信息</span>
+          <span class="dgender ${stu.gender === '男' ? 'g-male' : 'g-female'}">${stu.gender}</span>
+          <span class="sdb-state st-none">未入住</span>
+        </div>
+        <div class="sdb-hint">该生当前未入住宿舍，可按性别为其分配房间。</div>
+        <div class="sdb-actions">
+          <button type="button" class="btn btn-primary btn-sm" data-act="sdb-assign">＋ 分配宿舍</button>
+          <button type="button" class="btn btn-default btn-sm" data-act="sdb-godorm">查看宿舍房态</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const sk = dormStateKey(cur);
+  const cap = Number(cur.capacity) || 1;
+  const occC = (cur.students || []).length;
+  const free = Math.max(0, cap - occC);
+  const meIdx = (cur.students || []).findIndex(x => String(x) === String(stu.id));
+  const roomiesHtml = (cur.students || []).map((sid, i) => {
+    const r = stuIndex[String(sid)];
+    const isMe = String(sid) === String(stu.id);
+    const g = r ? (r.gender === '男' ? 'male' : 'female') : 'u';
+    const nm = r ? r.name : '（已删除学生）';
+    const sub = r ? (r.className ? r.grade + ' ' + r.className : (r.grade || '')) : '';
+    return `<span class="sdb-rm ${isMe ? 'me' : ''}">
+      <span class="ava ${g}">${escapeHtml(String(nm).charAt(0))}</span>
+      ${escapeHtml(nm)}${isMe ? '（本人）' : ''}
+      ${sub ? `<span class="rm-sub">${escapeHtml(sub)}</span>` : ''}
+      <span class="rm-sub">床 ${i + 1}</span>
+    </span>`;
+  }).join('') || '<span class="dim-text">暂无室友</span>';
+
+  box.innerHTML = `
+    <div class="sdb-card lv-${sk}">
+      <div class="sdb-top">
+        <span class="sdb-title">住宿信息</span>
+        <span class="dgender g-${cur.gender === 'male' ? 'male' : (cur.gender === 'female' ? 'female' : 'any')}">${DORM_GENDER_LBL[cur.gender] || '混合'}</span>
+        <span class="sdb-state st-${sk}">${DORM_STATE_LBL[sk]}</span>
+      </div>
+      <div class="sdb-room">
+        <div class="sdb-name">
+          <b>${escapeHtml(String(cur.building))}</b><em>${escapeHtml(String(cur.roomNo))}</em>
+          <span class="sdb-bedno">${cap} 人间${meIdx >= 0 ? ' · 你的床位 ' + (meIdx + 1) : ''}</span>
+        </div>
+        <div>${dormBedsHtml(cur, stu.id, 'mini')}</div>
+        <div class="sdb-occ">已住 ${occC}/${cap} 人${free > 0 ? ` · 空余 ${free} 床` : ' · 已满'}</div>
+      </div>
+      <div>
+        <div class="sdb-roomies-title">同住室友（${occC} 人）</div>
+        <div>${roomiesHtml}</div>
+      </div>
+      <div class="sdb-actions">
+        <button type="button" class="btn btn-default btn-sm" data-act="sdb-view" title="在「宿舍管理」页打开该房间房态">查看房态</button>
+        <button type="button" class="btn btn-outline btn-sm" data-act="sdb-swap" title="为该生选择新房间，原床位自动空出">更换宿舍</button>
+        <button type="button" class="btn btn-leave btn-sm" data-act="sdb-leave">退宿</button>
+      </div>
+    </div>`;
 }
 
 async function clearAll() {
@@ -868,6 +1054,7 @@ function bindEvents() {
   $('#searchInput').oninput = () => { currentPage = 1; renderTable(); saveFilters(); };
   $('#gradeFilter').onchange = () => { currentPage = 1; renderTable(); saveFilters(); };
   $('#statusFilter').onchange = () => { currentPage = 1; renderTable(); saveFilters(); };
+  $('#dormFilter').onchange = () => { currentPage = 1; renderTable(); saveFilters(); };
 
   $('#pagination').onclick = (e) => {
     const btn = e.target.closest('[data-page]');
@@ -896,7 +1083,31 @@ function bindEvents() {
     if (btn.dataset.act === 'edit') openModal(stu);
     if (btn.dataset.act === 'del') deleteStudent(id);
     if (btn.dataset.act === 'dorm') openDormDlg(stu);
+    if (btn.dataset.act === 'dorm-view' && stu && stu._roomId) openRoomPage(stu._roomId, stu.id);
   };
+
+  // 编辑档案里的「住宿信息」区块操作
+  const stuDormBox = $('#stuDormBox');
+  if (stuDormBox) {
+    stuDormBox.onclick = async (e) => {
+      const b = e.target.closest('[data-act]');
+      if (!b) return;
+      const id = $('#fId').value;
+      const stu = id ? (allStudents.find(s => String(s.id) === String(id)) || null) : null;
+      if (!stu) return;
+      const act = b.dataset.act;
+      if (act === 'sdb-assign' || act === 'sdb-swap') {
+        openDormDlg(stu);
+      } else if (act === 'sdb-leave') {
+        if (await leaveStudent(stu)) { await loadStudents(); renderStuDormBox(); }
+      } else if (act === 'sdb-view') {
+        const r = dormRoomOfStudent(stu);
+        if (r) openRoomPage(r.id, stu.id);
+      } else if (act === 'sdb-godorm') {
+        openDormTab();
+      }
+    };
+  }
 
   // 宿舍弹窗
   $('#dormMask').onclick = (e) => { if (e.target.id === 'dormMask') closeDormDlg(); };

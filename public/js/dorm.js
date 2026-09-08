@@ -13,6 +13,7 @@ let assignRoomId = '';      // 补员（多选）目标房间
 let detailRoomId = '';      // 当前打开的详情房间
 let ciSid = '';             // 入住办理选中的学生
 let ciRoomId = '';          // 入住办理选中的房间
+let focusSid = '';          // 从学生档案深链跳转时要高亮的学生
 
 // 房态图筛选
 const filter = { state: 'all', build: '', kw: '' };
@@ -227,8 +228,9 @@ function renderDetail() {
     const g = stu ? genderCls(stu.gender) : 'u';
     const name = stu ? stu.name : '（已删除学生）';
     const sub = stu ? (stu.className ? `${stu.grade} ${stu.className}` : (stu.grade || '')) : '';
+    const isFocus = focusSid && String(sid) === String(focusSid);
     return `
-      <div class="occ-row">
+      <div class="occ-row ${isFocus ? 'focus' : ''}" data-sid="${esc(sid)}">
         <span class="ava ${g}">${esc(String(name).charAt(0))}</span>
         <div style="min-width:0">
           <div class="occ-name">${esc(name)}</div>
@@ -242,6 +244,32 @@ function renderDetail() {
       </div>`;
   }).join('');
   $('#dtlOccList').innerHTML = rows || '<div class="empty-inline">该房间暂无学生入住</div>';
+}
+
+// ========== 深链：从学生档案跳转时自动定位房间并高亮学生 ==========
+function cssEscStr(v) {
+  if (window.CSS && CSS.escape) return CSS.escape(v);
+  return String(v).replace(/"/g, '\\"');
+}
+function applyRoomDeepLink() {
+  const p = new URLSearchParams(location.search);
+  const rid = p.get('room');
+  if (!rid) return;
+  const room = dorms.find(r => String(r.id) === String(rid));
+  if (!room) return;
+  focusSid = p.get('focus') || '';
+  const tile = document.querySelector(`.rtile[data-room-id="${cssEscStr(rid)}"]`);
+  if (tile) {
+    tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    tile.classList.add('flash');
+    setTimeout(() => tile.classList.remove('flash'), 2200);
+  }
+  openDetail(room.id);
+  setTimeout(() => {
+    const occList = document.getElementById('dtlOccList');
+    const row = occList && occList.querySelector('.occ-row.focus');
+    if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 300);
 }
 
 // ========== 房间 增 / 删 / 改 ==========
@@ -623,5 +651,7 @@ window.cbEmbedRefresh = function () { loadDorms(); };
 
 loadBase().then(() => {
   bindEvents();
-  loadDorms();
+  return loadDorms();
+}).then(() => {
+  applyRoomDeepLink();
 }).catch(err => { toast(err.message, 'error'); });

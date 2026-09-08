@@ -185,11 +185,21 @@
     return before;
   }
 
-  function openTab(key) {
+  function openTab(key, urlOpt) {
     // 查看模式账号不能进入「系统设置」（服务端同样拦截 settings.html 与写接口）
     if (key === 'settings' && window.AUTH && window.AUTH.role !== 'admin') return;
     var exist = getTab(key);
-    if (exist) { activate(key); return; }
+    if (exist) {
+      // 子页面携带 URL（如宿舍深链 ?room=..）跳转时，重载已有标签页以应用新地址
+      if (urlOpt) {
+        try {
+          var target = new URL(urlOpt, location.origin).href;
+          if (exist.frame.src !== target) exist.frame.src = target;
+        } catch (e) {}
+      }
+      activate(key);
+      return;
+    }
     var m = MODULES[key];
     if (!m) return;
 
@@ -204,7 +214,7 @@
 
     var frame = document.createElement('iframe');
     frame.className = 'work-frame';
-    frame.src = m.src;
+    frame.src = urlOpt || m.src;
     frame.title = m.title;
     frame.addEventListener('load', function () {
       t.loaded = true;
@@ -277,7 +287,7 @@
     var d = ev.data;
     if (d.type === 'icst-nav' && d.url) {
       var key = moduleByUrl(d.url);
-      if (key) openTab(key);
+      if (key) openTab(key, d.url);
     }
   });
 
@@ -393,7 +403,16 @@
     return m ? decodeURIComponent(m[1]) : '';
   }
   var want = urlMod();
+  // 深链支持：/index.html?mod=dorm&room=..&focus=.. 时把 mod 之外的参数透传给功能页，
+  // 使新打开的选项卡直接定位到指定房间（宿舍管理 - 房态详情）
+  var urlOpt = null;
+  if (MODULES[want]) {
+    var rest = location.search.replace(/[?&]mod=[^&]*/, '');
+    urlOpt = rest
+      ? MODULES[want].src + (rest.charAt(0) === '&' ? '?' + rest.slice(1) : rest)
+      : MODULES[want].src;
+  }
   if (!MODULES[want]) want = 'dashboard';
-  openTab(want);
+  openTab(want, urlOpt);
 })();
 
