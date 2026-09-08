@@ -151,7 +151,7 @@ const server = http.createServer(async (req, res) => {
     const allocated = [];
     classes.forEach(c => {
       (c.students || []).forEach(s => {
-        allocated.push({ ...s, allocated: true, className: c.name });
+        allocated.push({ ...s, allocated: true, className: c.name, classId: c.id });
       });
     });
     const allStudents = [
@@ -241,9 +241,12 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, msg: '已导入', count: arr.length });
   }
 
-  // 清空所有
+  // 清空所有学生：学生池与各班花名册一并清空（班级本身保留，避免「清空学生」后名单里还残留已分班学生）
   if (pathname === '/api/students' && req.method === 'DELETE') {
     writeStudents([]);
+    const classes = readClasses();
+    classes.forEach(c => { c.students = []; });
+    writeClasses(classes);
     return sendJson(res, 200, { code: 0, msg: '已清空' });
   }
 
@@ -281,6 +284,43 @@ const server = http.createServer(async (req, res) => {
     list.push(cls);
     writeClasses(list);
     return sendJson(res, 200, { code: 0, data: cls });
+  }
+
+  // 更新班级内某位已分班学生（直接编辑名单里的学生，无需先退回池）
+  if (pathname.startsWith('/api/classes/') && pathname.includes('/students/') && req.method === 'PUT') {
+    const parts = pathname.split('/');
+    const classId = parts[3];
+    const stuId = parts[5];
+    const body = await readBody(req);
+    const classes = readClasses();
+    const cls = classes.find(c => c.id === classId);
+    if (!cls) return sendJson(res, 404, { code: 1, msg: '班级不存在' });
+    const idx = (cls.students || []).findIndex(s => s.id === stuId);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '学生不在该班级' });
+    // 学号全局查重（学生池 + 全部班级名单，排除自身）
+    const newStuId = body.studentId !== undefined ? String(body.studentId).trim() : cls.students[idx].studentId;
+    const pool = readStudents();
+    const allStu = [
+      ...pool,
+      ...classes.flatMap(c => c.students || [])
+    ].filter(s => s.id !== stuId);
+    if (allStu.some(s => s.studentId && String(s.studentId) === newStuId)) {
+      return sendJson(res, 400, { code: 1, msg: '学号已存在' });
+    }
+    cls.students[idx] = {
+      ...cls.students[idx],
+      studentId: body.studentId !== undefined ? String(body.studentId).trim() : cls.students[idx].studentId,
+      photo: body.photo !== undefined ? body.photo : cls.students[idx].photo,
+      name: body.name !== undefined ? String(body.name).trim() : cls.students[idx].name,
+      gender: body.gender !== undefined ? body.gender : cls.students[idx].gender,
+      chinese: body.chinese !== undefined ? Number(body.chinese) : cls.students[idx].chinese,
+      math: body.math !== undefined ? Number(body.math) : cls.students[idx].math,
+      english: body.english !== undefined ? Number(body.english) : cls.students[idx].english,
+      science: body.science !== undefined ? Number(body.science) : cls.students[idx].science,
+      specialty: body.specialty !== undefined ? body.specialty : cls.students[idx].specialty
+    };
+    writeClasses(classes);
+    return sendJson(res, 200, { code: 0, data: cls.students[idx] });
   }
 
   // 修改班级
@@ -327,6 +367,21 @@ const server = http.createServer(async (req, res) => {
     writeClasses([]);
     writeStudents(students);
     return sendJson(res, 200, { code: 0, msg: '已清空所有班级，学生已退回学生池' });
+  }
+
+  // 整班学生全部退回学生池（班级保留）
+  if (pathname.startsWith('/api/classes/') && pathname.endsWith('/return-all') && req.method === 'POST') {
+    const classId = pathname.split('/')[3];
+    const classes = readClasses();
+    const students = readStudents();
+    const cls = classes.find(c => c.id === classId);
+    if (!cls) return sendJson(res, 404, { code: 1, msg: '班级不存在' });
+    const stus = cls.students || [];
+    if (stus.length) students.push(...stus);
+    cls.students = [];
+    writeClasses(classes);
+    writeStudents(students);
+    return sendJson(res, 200, { code: 0, msg: '已全部退回学生池' });
   }
 
   // 把单个学生从班级退回学生池

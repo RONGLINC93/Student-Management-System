@@ -273,3 +273,9 @@ function bindEvents() {
 bindEvents();
 bindDragSort();
 loadData();
+
+// 工作台切回本页时的静默刷新（embed.js 优先调用本回调）；拖拽排序过程中不打断
+window.cbEmbedRefresh = function () {
+  if (dragEl) return;
+  loadData();
+};

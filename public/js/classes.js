@@ -5,6 +5,7 @@ const GRADES_API = '/api/grades';
 const FILTERS_API = '/api/filters';
 let classes = [];
 let poolCount = 0;
+let rosterClassId = ''; // 当前打开花名册的班级 id（导出/退生以 id 精确对应，避免按班级名匹配出错）
 let gradesList = [];
 
 const $ = (s) => document.querySelector(s);
@@ -255,6 +256,7 @@ async function clearAll() {
 
 // ===== 花名册弹窗 =====
 function openRoster(cls) {
+  rosterClassId = cls.id;
   $('#rosterTitle').textContent = `${cls.name} - 花名册`;
   const male = (cls.students || []).filter(s => s.gender === '男').length;
   const female = (cls.students || []).length - male;
@@ -285,12 +287,14 @@ function openRoster(cls) {
   }
   $('#rosterMask').classList.add('show');
 }
-function closeRoster() { $('#rosterMask').classList.remove('show'); }
+function closeRoster() {
+  rosterClassId = '';
+  $('#rosterMask').classList.remove('show');
+}
 
 // 导出花名册为 CSV
 function exportRoster() {
-  const title = $('#rosterTitle').textContent;
-  const cls = classes.find(c => title.startsWith(c.name));
+  const cls = classes.find(c => c.id === rosterClassId);
   if (!cls || !cls.students?.length) {
     toast('暂无学生数据可导出', 'error');
     return;
@@ -336,6 +340,25 @@ async function removeStudentFromClass(classId, stuId) {
     await loadData();
     const cls = classes.find(c => c.id === classId);
     if (cls) openRoster(cls);
+    else closeRoster();
+  } catch (e) {
+    toast('操作失败：' + e.message, 'error');
+  }
+}
+
+// 整班退回：将该班所有学生退回学生池（班级保留，便于重新分班）
+async function returnAllStudents() {
+  const cls = classes.find(c => c.id === rosterClassId);
+  if (!cls) return;
+  const cnt = cls.students?.length || 0;
+  if (!cnt) { toast('该班暂无学生', 'error'); return; }
+  if (!(await confirmDlg(`确定将「${cls.name}」的 ${cnt} 名学生全部退回学生池吗？`, { title: '整班退回', okText: '退回', danger: true }))) return;
+  try {
+    await fetch(`${API}/${cls.id}/return-all`, { method: 'POST' });
+    toast('已全部退回学生池', 'success');
+    await loadData();
+    const fresh = classes.find(c => c.id === cls.id);
+    if (fresh) openRoster(fresh);
     else closeRoster();
   } catch (e) {
     toast('操作失败：' + e.message, 'error');
@@ -424,6 +447,7 @@ function bindEvents() {
   $('#rosterClose').onclick = closeRoster;
   $('#rosterMask').onclick = (e) => { if (e.target.id === 'rosterMask') closeRoster(); };
   $('#btnExportRoster').onclick = exportRoster;
+  $('#btnReturnAll').onclick = returnAllStudents;
 
   $('#classesTbody').onclick = (e) => {
     const btn = e.target.closest('[data-act]');
@@ -443,10 +467,7 @@ function bindEvents() {
     if (!btn) return;
     const tr = btn.closest('tr');
     const stuId = tr.dataset.id;
-    // 找到当前花名册对应的班级
-    const title = $('#rosterTitle').textContent;
-    const cls = classes.find(c => title.startsWith(c.name));
-    if (cls) removeStudentFromClass(cls.id, stuId);
+    if (rosterClassId) removeStudentFromClass(rosterClassId, stuId);
   };
 }
 
@@ -455,3 +476,11 @@ bindDragSort();
 Promise.all([loadGradeOptions(), loadFilters()]).then(() => {
   loadData();
 });
+
+// 工作台切回本页时的静默刷新（embed.js 优先调用本回调）
+// 先重建年级下拉（可能在其他选项卡中增删/改名），再刷新班级数据；拖拽排序过程中不打断
+window.cbEmbedRefresh = function () {
+  if (dragEl) return;
+  Promise.resolve(typeof loadGradeOptions === 'function' ? loadGradeOptions() : null)
+    .then(() => { loadData(); });
+};

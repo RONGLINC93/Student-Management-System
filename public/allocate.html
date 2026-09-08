@@ -130,7 +130,11 @@
       if (isShuffling || isDealing) return;
       if (cardEls && cardEls.length) return;
       if (allocationResult && allocationResult.length) return;
-      if (typeof loadStudents === 'function') loadStudents();
+      // 先重建年级下拉（年级可能在其他选项卡中被删除/改名），再刷新数据
+      var prep = typeof loadGradeOptions === 'function' ? loadGradeOptions() : Promise.resolve();
+      prep.then(function () {
+        if (typeof loadStudents === 'function') loadStudents();
+      });
     };
   </script>
 </body>

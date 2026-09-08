@@ -186,7 +186,7 @@ function renderTable() {
       ? `<span class="status-tag status-allocated">已分班</span>`
       : `<span class="status-tag status-unallocated">未分班</span>`;
     const actions = s.allocated
-      ? `<span style="color:#999;font-size:12px">已分入班级</span>`
+      ? `<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit" title="已分班学生可在班级名单中直接编辑">编辑</button></div>`
       : `<div class="row-actions">
           <button class="btn-sm btn-edit" data-act="edit">编辑</button>
           <button class="btn-sm btn-del" data-act="del">删除</button>
@@ -280,10 +280,14 @@ async function loadStudents() {
 
 // ===== 弹窗 =====
 function openModal(stu) {
-  $('#modalTitle').textContent = stu ? '编辑学生' : '添加学生';
+  const inClass = !!(stu && stu.allocated);
+  $('#modalTitle').textContent = inClass ? '编辑学生（班级名单）' : (stu ? '编辑学生' : '添加学生');
   $('#fId').value = stu ? stu.id : '';
   $('#fStudentId').value = stu ? stu.studentId : '';
   $('#fGrade').value = stu ? stu.grade : (gradesList[0] || '');
+  // 已分班学生的年级由所属班级决定，禁止在编辑中改动，避免与班级归属不一致
+  $('#fGrade').disabled = inClass;
+  $('#fGrade').title = inClass ? '已分班学生的年级由所属班级决定，如需调整请退回学生池' : '';
   $('#fPhoto').value = stu ? stu.photo : '';
   $('#fName').value = stu ? stu.name : '';
   $('#fGender').value = stu ? stu.gender : '男';
@@ -295,14 +299,18 @@ function openModal(stu) {
   $('#modalMask').classList.add('show');
   setTimeout(() => $('#fStudentId').focus(), 100);
 }
-function closeModal() { $('#modalMask').classList.remove('show'); }
+function closeModal() {
+  $('#fGrade').disabled = false;
+  $('#modalMask').classList.remove('show');
+}
 
 async function saveStudent(e) {
   e.preventDefault();
   const id = $('#fId').value;
+  const cur = id ? (allStudents.find(s => s.id === id) || null) : null;
+  const inClass = !!(cur && cur.allocated);
   const data = {
     studentId: $('#fStudentId').value.trim(),
-    grade: $('#fGrade').value,
     photo: $('#fPhoto').value.trim(),
     name: $('#fName').value.trim(),
     gender: $('#fGender').value,
@@ -312,17 +320,22 @@ async function saveStudent(e) {
     science: $('#fScience').value,
     specialty: $('#fSpecialty').value.trim()
   };
+  if (!inClass) data.grade = $('#fGrade').value; // 已分班学生的年级保持班级归属
   if (!data.studentId) { toast('请输入学号', 'error'); return; }
   if (!data.name) { toast('请输入姓名', 'error'); return; }
   try {
-    const res = await fetch(id ? `${API}/${id}` : API, {
+    // 已分班学生写入其所在班级名单；未分班学生写入学生池
+    const url = inClass
+      ? `/api/classes/${encodeURIComponent(cur.classId)}/students/${encodeURIComponent(id)}`
+      : (id ? `${API}/${id}` : API);
+    const res = await fetch(url, {
       method: id ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
     const json = await res.json();
     if (json.code !== 0) { toast(json.msg || '保存失败', 'error'); return; }
-    toast(id ? '修改成功' : '添加成功', 'success');
+    toast(id ? '保存成功' : '添加成功', 'success');
     closeModal();
     await loadStudents();
   } catch (e) {
@@ -342,10 +355,12 @@ async function deleteStudent(id) {
 }
 
 async function clearAll() {
-  if (!(await confirmDlg('确定清空所有学生数据？\n此操作不可恢复！', { title: '清空学生', okText: '清空', danger: true }))) return;
+  const allocated = allStudents.filter(s => s.allocated).length;
+  const tip = `确定清空所有学生？\n将清空学生池（${allStudents.length - allocated} 人）与各班花名册（${allocated} 人），班级本身会保留。\n此操作不可恢复！`;
+  if (!(await confirmDlg(tip, { title: '清空学生', okText: '清空', danger: true }))) return;
   try {
     await fetch(API, { method: 'DELETE' });
-    toast('已清空', 'success');
+    toast('已清空（学生池与班级名单）', 'success');
     await loadStudents();
   } catch (e) {
     toast('清空失败：' + e.message, 'error');
@@ -573,7 +588,7 @@ function bindEvents() {
     if (!btn) return;
     const tr = btn.closest('tr');
     const id = tr.dataset.id;
-    const stu = students.find(s => s.id === id);
+    const stu = allStudents.find(s => s.id === id) || null;
     if (btn.dataset.act === 'edit') openModal(stu);
     if (btn.dataset.act === 'del') deleteStudent(id);
   };
@@ -595,6 +610,13 @@ function bindEvents() {
   });
   updateSortHeader();
 }
+
+// 工作台切回本页时的静默刷新（embed.js 优先调用本回调）
+// 先重建年级下拉（年级可能在其他选项卡中被删除/改名），再刷新学生数据
+window.cbEmbedRefresh = function () {
+  const p = typeof loadGradeOptions === 'function' ? loadGradeOptions() : Promise.resolve();
+  p.then(() => { loadStudents(); });
+};
 
 // 初始化
 bindEvents();

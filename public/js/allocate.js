@@ -173,12 +173,7 @@ function applyGradeFilter() {
   $('#totalStu').textContent = students.length;
   $('#classCount').textContent = classData.length;
 
-  // 同步醒目的年级显示（控制面板标签 + 舞台角标 + 舞台水印大字）
-  const gradeTag = $('#gradeTag');
-  if (gradeTag) {
-    gradeTag.textContent = grade || '未选择';
-    gradeTag.classList.toggle('empty', !grade);
-  }
+  // 同步醒目的年级水印大字（舞台背景展示当前年级）
   const stageWatermark = $('#stageGradeWatermark');
   if (stageWatermark) stageWatermark.textContent = grade || '';
 
@@ -376,60 +371,72 @@ async function startShuffle() {
   toast('随机排位完成，可以开始分班', 'success');
 }
 
-// ===== 分班算法 =====
-function computeAllocation(strategy, classCount) {
-  const list = students.map(s => ({ ...s, _total: totalScore(s) }));
-  const classes = Array.from({ length: classCount }, () => []);
+// ===== 分班算法（容量感知：各班人数不超过容量，且尽量平均） =====
+function computeAllocation(strategy) {
+  const caps = classData.map(c => Math.max(1, Number(c.capacity) || 50));
+  const nCls = caps.length;
+  const total = students.length;
+
+  // 1) 目标班额：容量内尽量平均，多出的名额优先给当前人数最少的班
+  const budget = new Array(nCls).fill(0);
+  let placed = 0;
+  while (placed < total) {
+    let bi = -1, min = Infinity;
+    for (let i = 0; i < nCls; i++) {
+      if (budget[i] < caps[i] && budget[i] < min) { min = budget[i]; bi = i; }
+    }
+    if (bi === -1) break;
+    budget[bi]++; placed++;
+  }
+  if (placed < total && nCls) budget[nCls - 1] += total - placed; // 防御性兜底
+
+  const classes = Array.from({ length: nCls }, () => []);
+  const clone = s => ({ ...s, _total: totalScore(s) });
 
   if (strategy === 'random') {
-    // 随机分班
-    const shuffled = [...list].sort(() => Math.random() - 0.5);
-    shuffled.forEach((s, i) => classes[i % classCount].push(s));
+    // 2) 随机分班：班额保持不变，随机决定每位学生去向
+    const targets = [];
+    budget.forEach((n, i) => { while (n--) targets.push(i); });
+    for (let i = targets.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [targets[i], targets[j]] = [targets[j], targets[i]];
+    }
+    students.forEach((s, i) => classes[targets[i]].push(clone(s)));
   } else if (strategy === 'snake') {
-    // S型蛇形：按总分排序，1,2,...,n,n,...,2,1 循环
-    const sorted = [...list].sort((a, b) => b._total - a._total);
-    let dir = 1;
-    let cur = 0;
-    sorted.forEach(s => {
-      classes[cur].push(s);
-      if (dir === 1) {
-        if (cur === classCount - 1) dir = -1;
-        else cur++;
-      } else {
-        if (cur === 0) dir = 1;
-        else cur--;
-      }
-    });
+    // 3) S型蛇形：总分从高到低，按 1..n,n..1 循环入班，整班满额自动跳过
+    const sorted = [...students].sort((a, b) => totalScore(b) - totalScore(a));
+    const seq = [];
+    const rem = budget.slice();
+    let pos = 0, fwd = true;
+    while (seq.length < total) {
+      if (rem[pos] > 0) { seq.push(pos); rem[pos]--; }
+      if (fwd) { if (++pos >= nCls) { pos = nCls - 1; fwd = false; } }
+      else { if (--pos < 0) { pos = 0; fwd = true; } }
+    }
+    sorted.forEach((s, i) => classes[seq[i]].push(clone(s)));
   } else {
-    // 综合均衡：贪心，每次把当前学生分到「最该补的班」
-    // 先按总分排序，从高到低，分到当前总分最低且性别/特长尽量平衡的班
-    const sorted = [...list].sort((a, b) => b._total - a._total);
-    const classTotals = new Array(classCount).fill(0);
-    const classMale = new Array(classCount).fill(0);
-    const classFemale = new Array(classCount).fill(0);
-    const classSpec = new Array(classCount).fill(0);
+    // 4) 综合均衡（默认）：贪心均衡 总分/性别/特长，且不突破班额
+    const sorted = students.map(clone).sort((a, b) => b._total - a._total);
+    const room = budget.slice();
+    const tSum = new Array(nCls).fill(0), mMale = new Array(nCls).fill(0),
+      mFemale = new Array(nCls).fill(0), mSpec = new Array(nCls).fill(0);
     sorted.forEach(s => {
-      // 评分：总分低优先 + 性别平衡 + 特长分散
-      let bestIdx = 0;
-      let bestScore = -Infinity;
-      for (let i = 0; i < classCount; i++) {
-        const avgTotal = (classTotals.reduce((a, b) => a + b, 0) || 1) / classCount;
-        const totalScore_ = -classTotals[i] + (avgTotal - classTotals[i]) * 0.5; // 总分越低越优先
-        const sameGender = (s.gender === '男' ? classMale[i] : classFemale[i]);
-        const oppGender = (s.gender === '男' ? classFemale[i] : classMale[i]);
-        const genderScore = oppGender - sameGender; // 异性多则更欢迎该同性
-        const specScore = s.specialty ? -classSpec[i] : 0;
-        const score = totalScore_ + genderScore * 1.5 + specScore * 2;
-        if (score > bestScore) {
-          bestScore = score;
-          bestIdx = i;
-        }
+      const sum = tSum.reduce((a, b) => a + b, 0) || 1;
+      const avg = sum / nCls;
+      let bi = -1, best = -Infinity;
+      for (let i = 0; i < nCls; i++) {
+        if (room[i] <= 0) continue; // 满员跳过
+        const totalPart = -tSum[i] + (avg - tSum[i]) * 0.5;
+        const same = s.gender === '男' ? mMale[i] : mFemale[i];
+        const opp = s.gender === '男' ? mFemale[i] : mMale[i];
+        const sc = totalPart + (opp - same) * 1.5 + (s.specialty ? -mSpec[i] : 0) * 2;
+        if (sc > best) { best = sc; bi = i; }
       }
-      classes[bestIdx].push(s);
-      classTotals[bestIdx] += s._total;
-      if (s.gender === '男') classMale[bestIdx]++;
-      else classFemale[bestIdx]++;
-      if (s.specialty) classSpec[bestIdx]++;
+      if (bi === -1) bi = nCls - 1;
+      classes[bi].push(s);
+      room[bi]--; tSum[bi] += s._total;
+      if (s.gender === '男') mMale[bi]++; else mFemale[bi]++;
+      if (s.specialty) mSpec[bi]++;
     });
   }
   return classes;
@@ -451,6 +458,11 @@ async function startDeal() {
     toast('学生人数不能少于班级数', 'error');
     return;
   }
+  const totalCap = classData.reduce((a, c) => a + (Number(c.capacity) || 50), 0);
+  if (students.length > totalCap) {
+    toast(`班级总容量不足：待分学生 ${students.length} 人 > 总容量 ${totalCap} 人，请先在班级管理中调大容量或退回部分学生`, 'error');
+    return;
+  }
   const strategy = $('#strategy').value;
   const showScale = Number($('#showScale')?.value || 1.6);
   isDealing = true;
@@ -467,7 +479,7 @@ async function startDeal() {
   await runDealCountdown();
 
   // 计算结果
-  allocationResult = computeAllocation(strategy, classCount);
+  allocationResult = computeAllocation(strategy);
   pushLiveBoard(); // 分班首帧：让大屏从倒计时切换到「分班进行中」
 
   // 显示结果区域（使用真实班级名，保留已分班学生）
