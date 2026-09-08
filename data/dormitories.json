@@ -1,1 +1,182 @@
-[]
+[
+  {
+    "id": "cls_mtsbabcqg8rc",
+    "building": "1号楼",
+    "roomNo": "101",
+    "capacity": 4,
+    "gender": "male",
+    "students": [
+      "mtlkhfhivmdv"
+    ]
+  },
+  {
+    "id": "cls_mtsbakgrtbhk",
+    "building": "2号楼",
+    "roomNo": "101",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbgogyo50c",
+    "building": "1号楼",
+    "roomNo": "102",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbh38jvcb4",
+    "building": "2号楼",
+    "roomNo": "102",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbh38vozxk",
+    "building": "2号楼",
+    "roomNo": "103",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbh391vmbf",
+    "building": "2号楼",
+    "roomNo": "104",
+    "capacity": 4,
+    "gender": "female",
+    "students": [
+      "mtlkhfhiuu8s"
+    ]
+  },
+  {
+    "id": "cls_mtsbh397xs2h",
+    "building": "2号楼",
+    "roomNo": "105",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbh39d06uu",
+    "building": "2号楼",
+    "roomNo": "106",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbh39j1oyw",
+    "building": "2号楼",
+    "roomNo": "107",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbh39rtc07",
+    "building": "2号楼",
+    "roomNo": "108",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbh39x1r8w",
+    "building": "2号楼",
+    "roomNo": "109",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbh3a4466s",
+    "building": "2号楼",
+    "roomNo": "110",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbh3abpxal",
+    "building": "2号楼",
+    "roomNo": "111",
+    "capacity": 4,
+    "gender": "female",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbhvm38mdt",
+    "building": "1号楼",
+    "roomNo": "103",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbhvmair2s",
+    "building": "1号楼",
+    "roomNo": "104",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbhvmgugss",
+    "building": "1号楼",
+    "roomNo": "105",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbhvmo1ykd",
+    "building": "1号楼",
+    "roomNo": "106",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbhvmuawpz",
+    "building": "1号楼",
+    "roomNo": "107",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbhvn2fwpq",
+    "building": "1号楼",
+    "roomNo": "108",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbhvn905r6",
+    "building": "1号楼",
+    "roomNo": "109",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbhvnf8pai",
+    "building": "1号楼",
+    "roomNo": "110",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mtsbhvnleojg",
+    "building": "1号楼",
+    "roomNo": "111",
+    "capacity": 4,
+    "gender": "male",
+    "students": []
+  }
+]

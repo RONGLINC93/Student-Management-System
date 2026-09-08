@@ -6,12 +6,32 @@
   <title>学生管理系统 - 考勤操行</title>
   <link rel="stylesheet" href="/css/style.css" />
   <style>
-    .cd-wrap { background:#fff; border:1px solid var(--border, #e5e7eb); border-radius:14px; padding:14px; }
-    .cd-tabs { display:flex; gap:4px; border-bottom:2px solid #eef2f7; margin-bottom:14px; }
-    .cd-tab { padding:8px 18px; cursor:pointer; font-size:14px; color:#6b7280; border-bottom:2px solid transparent; margin-bottom:-2px; }
+    .cd-wrap { background:#fff; border:1px solid var(--border, #e5e7eb); border-radius:14px; padding:16px 18px; }
+    .cd-tabs { display:flex; gap:6px; border-bottom:1px solid #eef2f7; margin-bottom:14px; }
+    .cd-tab { padding:9px 18px; cursor:pointer; font-size:14px; color:#6b7280; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s; }
+    .cd-tab:hover { color:#374151; }
     .cd-tab.active { color:#2563eb; border-color:#2563eb; font-weight:600; }
-    .att-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
-    .att-bar input, .att-bar select { padding:7px 10px; }
+    /* 工具栏：统一控件尺寸 / 圆角 / 边框 / 聚焦态，避免左右按钮高度不一致 */
+    .att-bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+    .att-bar > input,
+    .att-bar > select {
+      height: 36px; padding: 0 12px; border: 1px solid var(--border);
+      border-radius: 8px; background:#fff; font-size: 13px; color: var(--text);
+      outline: none; transition: border-color .15s, box-shadow .15s;
+    }
+    .att-bar > input:focus,
+    .att-bar > select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+    .att-bar > input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; padding: 4px; cursor: pointer; }
+    .att-bar > input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+    .att-bar > span { color:#94a3b8; font-size:12px; }
+    .att-bar > .spacer { flex: 1; }
+    .att-bar .btn {
+      height: 36px; line-height: 34px; padding: 0 14px; font-size: 13px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .att-bar .btn .btn-icon { width: 14px; height: 14px; vertical-align: -2px; margin-right: 5px; }
+    /* 表格空态：垂直空间更足，文字更柔和 */
+    .student-table .empty-tip { padding: 60px 16px !important; color: var(--text-light); }
     .st-select { width: auto; padding: 3px 6px; }
     .st-present { color:#15803d; } .st-late { color:#b45309; } .st-early { color:#a16207; }
     .st-leave { color:#0369a1; } .st-absent { color:#b91c1c; }
@@ -72,9 +92,9 @@
           <select id="attGrade"><option value="">全部年级</option></select>
           <select id="attClass"><option value="">请先选择班级</option></select>
           <button class="btn btn-default" id="btnLoadRoster">加载名单</button>
-          <span style="flex:1"></span>
-          <button class="btn btn-default btn-sm" id="btnSetAllP">全部出勤</button>
-          <button class="btn btn-primary btn-sm" id="btnSaveAtt">保存今日考勤</button>
+          <span class="spacer"></span>
+          <button class="btn btn-default" id="btnSetAllP">全部出勤</button>
+          <button class="btn btn-primary" id="btnSaveAtt">保存今日考勤</button>
         </div>
         <div class="stat-c" id="attStats" style="display:none"></div>
         <div class="table-wrap">
@@ -112,7 +132,7 @@
             <option value="punish">处分</option><option value="comment">评语</option>
           </select>
           <button class="btn btn-default" id="btnQueryCond">查询</button>
-          <span style="flex:1"></span>
+          <span class="spacer"></span>
           <button class="btn btn-primary" id="btnAddCond"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 新增操行记录</button>
         </div>
         <div class="table-wrap">
