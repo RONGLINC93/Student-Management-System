@@ -82,11 +82,6 @@ body.admin-body {
 }
 .menu-item svg { width: 17px; height: 17px; flex: none; }
 .menu-item:hover { background: rgba(255, 255, 255, .08); color: #fff; }
-.menu-item.active {
-  background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  color: #fff;
-  box-shadow: 0 8px 18px rgba(79, 109, 245, .38);
-}
 .aside-foot {
   padding: 14px 16px;
   font-size: 11px;
@@ -169,14 +164,17 @@ body.admin-body {
 /* ---------- 选项卡 ---------- */
 .tab-bar {
   flex: none;
+  display: flex;
   background: #e9edf6;
   border-bottom: 1px solid var(--line);
   padding: 7px 12px 0;
 }
+.tab-bar > .tab-scroll { flex: 1 1 auto; min-width: 0; }
 .tab-scroll { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; }
 .tab-scroll::-webkit-scrollbar { height: 0; }
 .worktab {
   display: flex;
+  flex: none;   /* 不随栏宽挤压：放不下时由 JS 收进“更多”下拉 */
   align-items: center;
   gap: 7px;
   height: 36px;
@@ -201,7 +199,7 @@ body.admin-body {
 }
 .worktab .wt-icon { display: flex; flex: none; }
 .worktab .wt-icon svg { width: 14px; height: 14px; }
-.wt-label { overflow: hidden; text-overflow: ellipsis; }
+.wt-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .wt-close {
   flex: none;
   display: flex;
@@ -242,6 +240,10 @@ body.admin-body {
   background: rgba(79, 70, 229, .08);
   background: color-mix(in srgb, var(--brand) 12%, transparent);
 }
+/* 跨栏拖放提示：主栏页签拖到右侧副栏时，整条副栏高亮为可落点 */
+.tab-bar.split .tab-side.drag-hl {
+  border-radius: 10px 10px 0 0;
+}
 
 /* ---------- 内容区（iframe） ---------- */
 .workbench { flex: 1; background: #fff; position: relative; overflow: hidden; }
@@ -256,34 +258,69 @@ body.admin-body {
 }
 .work-frame.active { display: block; }
 
-/* ---------- 选项卡上的“并列显示”按钮 ---------- */
-.worktab .wt-split {
+/* ---------- 选项卡条最右端：独立“并列”按钮 ---------- */
+.tab-split-btn {
   flex: none;
+  align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-left: 2px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-3);
+  width: 34px;
+  height: 34px;
+  margin-left: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--text-2);
   cursor: pointer;
-  padding: 0;
-  opacity: .75;
+  transition: all .18s;
 }
-.worktab .wt-split svg { width: 12px; height: 12px; }
-.worktab:hover .wt-split { opacity: 1; }
-.worktab .wt-split:hover { background: #e8edfb; color: var(--brand); }
-.worktab .wt-split:disabled { opacity: .35; cursor: not-allowed; }
-.worktab .wt-split:disabled:hover { background: transparent; color: var(--text-3); }
-
-/* 处于右侧并列窗格的选项卡：弱化高亮提示“正在与主窗格并列” */
-.worktab.in-side { background: #f3f5fb; }
-.worktab.in-side:not(.active) {
+.tab-split-btn svg { width: 16px; height: 16px; }
+.tab-split-btn:hover:not(:disabled) {
   color: var(--brand);
-  box-shadow: inset 0 2px 0 rgba(79, 109, 245, .35);
+  border-color: var(--brand);
+  background: #eef2ff;
+}
+.tab-split-btn.on { color: var(--brand); border-color: var(--brand); background: #eef2ff; }
+.tab-split-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 右侧副窗格组的页签：浅底与主栏区分；高亮只给本栏当前页（.active）。
+   两栏高亮互不干预——主栏高亮左窗格当前页，副栏高亮右窗格当前页 */
+.worktab.in-side:not(.active) { box-shadow: none; }
+
+/* 并列分屏时选项卡条也随窗格分为左/右两栏，各栏可容纳多个页签：
+   主栏（#tabScroll）承载左窗格组页签；副栏（#tabSide）承载右窗格组页签，
+   与右侧窗格对齐。仅左右分屏（宽屏 >=1100px）时启用；中/窄屏内容为上下堆叠时，
+   选项卡条还原为单条完整横栏（JS 负责收起分栏）。
+   最右端的独立“并列”按钮不属于任何一栏，始终停靠选项卡条最右端。 */
+.tab-side { display: none; overflow-y: hidden; }
+.tab-side::-webkit-scrollbar { height: 0; }
+.tab-bar.split { position: relative; }
+.tab-bar.split .tab-side {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 2px 0 6px; /* 越过两栏分隔条，副栏页签与右侧窗格起始对齐 */
+}
+.tab-bar.split #tabScroll {
+  flex: none;
+  width: calc(50% - 3px);
+}
+/* 两栏之间的竖直分隔条，与内容区分隔条位置一致 */
+.tab-bar.split::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  bottom: 0;
+  left: calc(50% - 3px);
+  width: 6px;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(#e6eaf4, #cbd3e8);
+  border-left: 1px solid #fff;
+  border-right: 1px solid #fff;
 }
 
 /* ---------- 并列显示（分屏自适应） ----------
@@ -352,4 +389,93 @@ body.admin-body {
   .workbench.split .work-frame.split-ref { display: none; }
   .workbench.split::after { display: none; }
 }
+
+/* ---------- 选项卡溢出收拢（“更多”下拉） ----------
+   页签超出栏宽时，JS 给超出的页签加 .collapsed（display:none），
+   并把它们镜像成最右端“更多”按钮弹出的下拉菜单行。 */
+.worktab.collapsed { display: none; }
+
+.tab-more-btn {
+  display: none;
+  flex: none;
+  align-self: flex-end;
+  margin-left: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: #fff;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color .15s;
+}
+.tab-more-btn.show { display: inline-flex; }
+.tab-more-btn:hover { color: var(--brand); }
+.tab-more-btn svg { width: 14px; height: 14px; }
+.tab-more-count { font-size: 11px; line-height: 1; font-weight: 700; }
+
+.tab-more-menu {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  max-width: 260px;
+  max-height: 45vh;
+  overflow-y: auto;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(30, 41, 82, .18);
+}
+.tab-more-menu[hidden] { display: none; }
+
+.tab-more-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: grab;
+}
+.tab-more-item:active { cursor: grabbing; }
+.tab-more-item:hover { background: #eef2ff; color: var(--brand); }
+.tab-more-item.cur { background: #eef2ff; color: var(--brand); font-weight: 600; }
+/* 按住行上下拖拽＝调整被收起页签的相对顺序 */
+.tab-more-item.dragging { opacity: .45; cursor: grabbing; }
+.tab-more-item .tmi-icon { display: flex; flex: none; }
+.tab-more-item .tmi-icon svg { width: 14px; height: 14px; }
+.tab-more-item .tmi-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tab-more-item .tmi-close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  border-radius: 50%;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.tab-more-item .tmi-close svg { width: 12px; height: 12px; }
+.tab-more-item .tmi-close:hover { background: #fee2e2; color: #dc2626; }
 

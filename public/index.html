@@ -106,8 +106,12 @@
         </div>
       </header>
 
-      <div class="tab-bar">
+      <div class="tab-bar" id="tabBar">
         <div class="tab-scroll" id="tabScroll"></div>
+        <div class="tab-scroll tab-side" id="tabSide"></div>
+        <button class="tab-split-btn" id="btnSplit" title="并列显示：与最近访问的功能页左右同屏" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></svg>
+        </button>
       </div>
 
       <main class="workbench" id="workbench"></main>

@@ -8,6 +8,7 @@ const DATA_FILE = path.join(__dirname, 'data', 'students.json');
 const CLASSES_FILE = path.join(__dirname, 'data', 'classes.json');
 const GRADES_FILE = path.join(__dirname, 'data', 'grades.json');
 const FILTERS_FILE = path.join(__dirname, 'data', 'filters.json');
+const WORKBENCH_FILE = path.join(__dirname, 'data', 'workbench.json'); // 工作台选项卡状态（按账号）
 const SETTINGS_FILE = path.join(__dirname, 'data', 'settings.json');
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const SECRET_FILE = path.join(__dirname, 'data', '.auth_secret');
@@ -80,6 +81,9 @@ if (!fs.existsSync(GRADES_FILE)) {
 if (!fs.existsSync(FILTERS_FILE)) {
   fs.writeFileSync(FILTERS_FILE, '{}', 'utf-8');
 }
+if (!fs.existsSync(WORKBENCH_FILE)) {
+  fs.writeFileSync(WORKBENCH_FILE, '{}', 'utf-8');
+}
 if (!fs.existsSync(SETTINGS_FILE)) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
 }
@@ -151,6 +155,45 @@ function readFilters() {
 
 function writeFilters(filters) {
   fs.writeFileSync(FILTERS_FILE, JSON.stringify(filters, null, 2), 'utf-8');
+}
+
+// ===== 工作台选项卡状态（按账号分别记忆）=====
+function readWorkbench() {
+  try {
+    const raw = fs.readFileSync(WORKBENCH_FILE, 'utf-8');
+    const map = JSON.parse(raw);
+    return (map && typeof map === 'object' && !Array.isArray(map)) ? map : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeWorkbench(map) {
+  fs.writeFileSync(WORKBENCH_FILE, JSON.stringify(map, null, 2), 'utf-8');
+}
+
+// 校验并收敛前端提交的工作台状态（页签数量/字段长度/账号名均作限制）
+const WORKBENCH_MAX_TABS = 30;
+function sanitizeWorkbenchState(b) {
+  const src = (b && typeof b === 'object') ? b : {};
+  const out = { ts: Date.now(), tabs: [], splitOn: !!src.splitOn, activeKey: '', leftKey: '', rightKey: '' };
+  const keyOk = k => typeof k === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(k);
+  const list = Array.isArray(src.tabs) ? src.tabs : [];
+  const seen = new Set();
+  for (let i = 0; i < list.length && out.tabs.length < WORKBENCH_MAX_TABS; i++) {
+    const it = list[i] || {};
+    const k = keyOk(it.key) ? it.key.trim() : '';
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.tabs.push({ key: k, side: !!it.side });
+  }
+  if (!out.tabs.length) {
+    return { ts: out.ts, tabs: [], splitOn: false, activeKey: '', leftKey: '', rightKey: '' };
+  }
+  if (keyOk(src.activeKey)) out.activeKey = src.activeKey;
+  if (keyOk(src.leftKey)) out.leftKey = src.leftKey;
+  if (keyOk(src.rightKey)) out.rightKey = src.rightKey;
+  return out;
 }
 
 // ===== 科目配置 =====
@@ -728,6 +771,12 @@ const server = http.createServer(async (req, res) => {
     }
     list.splice(idx, 1);
     writeUsers(list);
+    // 同步清理该账号的工作台选项卡状态
+    const wb = readWorkbench();
+    if (wb[target]) {
+      delete wb[target];
+      writeWorkbench(wb);
+    }
     return sendJson(res, 200, { code: 0, msg: '账号已删除' });
   }
 
@@ -1626,6 +1675,24 @@ const server = http.createServer(async (req, res) => {
     Object.assign(filters, body);
     writeFilters(filters);
     return sendJson(res, 200, { code: 0, data: filters });
+  }
+
+  // ===== 工作台选项卡状态 API（按账号分别记忆：打开页签/顺序/分屏）=====
+  // 读取当前账号的工作台状态；从未保存过返回 data:null
+  if (pathname === '/api/workbench' && req.method === 'GET') {
+    const me = authUser(req);
+    const map = readWorkbench();
+    const st = (map && typeof map === 'object') ? map[me.username] : null;
+    return sendJson(res, 200, { code: 0, data: st || null });
+  }
+  // 保存当前账号的工作台状态（写操作沿用全局角色限制：仅管理员可写）
+  if (pathname === '/api/workbench' && (req.method === 'PUT' || req.method === 'POST')) {
+    const me = authUser(req);
+    const body = await readBody(req);
+    const map = readWorkbench();
+    map[me.username] = sanitizeWorkbenchState(body);
+    writeWorkbench(map);
+    return sendJson(res, 200, { code: 0, msg: '已保存', data: map[me.username] });
   }
 
   // ===== 系统设置 API =====
