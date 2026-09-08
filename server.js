@@ -12,6 +12,12 @@ const SETTINGS_FILE = path.join(__dirname, 'data', 'settings.json');
 // 系统默认设置
 const DEFAULT_SETTINGS = {
   schoolName: '智能分班系统', // 页面顶部 / 工作台品牌 / 标题展示的学校（机构）名称
+  logoDataUrl: '',           // 校徽图片（data:image 前缀的 base64 小图，≤900KB）
+  schoolYear: '',            // 学年标签，如「2026 年秋季」
+  slogan: '',                // 校训 / 标语（大屏页脚展示）
+  schoolAddress: '',         // 学校地址（大屏页脚展示）
+  schoolPhone: '',           // 联系电话（大屏页脚展示）
+  schoolWebsite: '',         // 学校官网地址（http/https，各页顶栏「官网」入口 + 大屏页脚）
   balanceGender: 1.5,        // 综合均衡：性别均衡强度（越大越强调男女比例均衡）
   balanceSpecialty: 2        // 综合均衡：特长均衡强度（越大越强调特长分布均衡）
 };
@@ -118,8 +124,32 @@ function writeSettings(settings) {
 // 过滤非法/越界的设置值
 function sanitizeSettings(body) {
   const s = readSettings();
+  const clip = (v, max) => String(v).trim().slice(0, max);
   if (typeof body.schoolName === 'string') {
-    s.schoolName = String(body.schoolName).trim() || DEFAULT_SETTINGS.schoolName;
+    s.schoolName = clip(body.schoolName, 40) || DEFAULT_SETTINGS.schoolName;
+  }
+  if (typeof body.schoolYear === 'string') s.schoolYear = clip(body.schoolYear, 60);
+  if (typeof body.slogan === 'string') s.slogan = clip(body.slogan, 200);
+  if (typeof body.schoolAddress === 'string') s.schoolAddress = clip(body.schoolAddress, 200);
+  if (typeof body.schoolPhone === 'string') s.schoolPhone = clip(body.schoolPhone, 40);
+  if (typeof body.schoolWebsite === 'string') {
+    const v = String(body.schoolWebsite).trim().slice(0, 200);
+    if (!v) {
+      s.schoolWebsite = ''; // 清空 = 隐藏官网入口
+    } else if (/^(javascript|vbscript|data):/i.test(v)) {
+      // 危险 scheme：忽略本次提交，保留原有设置
+    } else if (/^https?:\/\//i.test(v)) {
+      s.schoolWebsite = v;
+    } else {
+      s.schoolWebsite = 'https://' + v; // 自动补全协议
+    }
+  }
+  if (typeof body.logoDataUrl === 'string') {
+    const v = String(body.logoDataUrl);
+    // 仅接受 data:image 开头的图片数据；空字符串 = 移除校徽；其余非法值保持原样
+    if (v === '' || (v.indexOf('data:image/') === 0 && v.length <= 900000)) {
+      s.logoDataUrl = v;
+    }
   }
   if (body.balanceGender !== undefined) {
     s.balanceGender = Math.min(5, Math.max(0, Number(body.balanceGender) || 0));

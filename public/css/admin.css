@@ -51,6 +51,10 @@ body.admin-body {
   box-shadow: 0 6px 16px rgba(79, 109, 245, .4);
 }
 .brand-icon svg { width: 22px; height: 22px; }
+.brand-icon > .site-logo-img {
+  width: 40px; height: 40px; border-radius: 11px;
+  object-fit: contain; padding: 7px; box-sizing: border-box;
+}
 .brand-text strong { display: block; font-size: 15px; letter-spacing: .5px; }
 .brand-text span { font-size: 12px; color: rgba(255, 255, 255, .55); }
 
@@ -125,6 +129,8 @@ body.admin-body {
 }
 .icon-btn svg { width: 17px; height: 17px; }
 .icon-btn:hover { color: var(--brand); border-color: var(--brand); background: #eef2ff; }
+/* 官网入口图标（未配置官网时隐藏，避免 href="#" 误点） */
+.icon-btn[hidden] { display: none; }
 
 /* ---------- 选项卡 ---------- */
 .tab-bar {
@@ -180,6 +186,28 @@ body.admin-body {
 .wt-close svg { width: 12px; height: 12px; }
 .wt-close:hover { background: #fee2e2; color: #dc2626; }
 .worktab.pinned .wt-close { display: none; }
+/* 拖拽排序：选项卡跟手浮动 */
+.worktab.dragging {
+  position: fixed;
+  z-index: 99;
+  margin: 0;
+  pointer-events: none;
+  cursor: grabbing;
+  opacity: .97;
+  box-shadow: 0 8px 20px rgba(30, 41, 82, .22);
+  transition: none;
+}
+/* 拖拽排序：落点位置的“虚拟目标”占位 */
+.worktab-slot {
+  flex: none;
+  height: 36px;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--brand);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: rgba(79, 70, 229, .08);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+}
 
 /* ---------- 内容区（iframe） ---------- */
 .workbench { flex: 1; background: #fff; position: relative; overflow: hidden; }

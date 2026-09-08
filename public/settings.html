@@ -58,13 +58,35 @@
     .set-toast.ok { background: #16a34a; }
     .set-toast.err { background: #dc2626; }
     .muted-note { color: var(--text-light); font-size: 12px; }
+    /* 学校信息：校徽与表单 */
+    .logo-setup { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+    .logo-preview {
+      width: 64px; height: 64px; border-radius: 14px; flex-shrink: 0;
+      background: linear-gradient(135deg, #4f6df5, #7b5cf5);
+      color: rgba(255,255,255,.9);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .logo-preview svg { width: 30px; height: 30px; }
+    .logo-preview img { width: 100%; height: 100%; object-fit: contain; background: #fff; box-sizing: border-box; }
+    .logo-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-width: 240px; flex: 1; }
+    .logo-actions .set-tip { flex-basis: 100%; margin-top: 0; }
+    .set-input {
+      width: 100%; padding: 9px 12px;
+      border: 1px solid var(--border); border-radius: 10px;
+      font-size: 14px; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .set-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,109,245,.12); }
+    textarea.set-input { resize: vertical; min-height: 64px; }
   </style>
 </head>
 <body>
   <header class="app-header">
     <div class="header-inner">
       <div class="logo">
-        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <div>
           <h1 data-site-name>智能分班系统</h1>
           <p class="subtitle">系统设置 · 学校信息 / 分班规则 / 数据管理</p>
@@ -77,6 +99,10 @@
         <a href="/grades.html" class="nav-item">年级管理</a>
         <a href="/allocate.html" class="nav-item">智能分班</a>
         <a href="/index.html?mod=settings" class="nav-item active">系统设置</a>
+        <a class="site-web" data-site-web hidden target="_blank" rel="noopener" title="打开学校官网">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span>官网</span>
+        </a>
       </nav>
     </div>
   </header>
@@ -98,23 +124,62 @@
           </span>
           <div>
             <div class="set-card-title">学校信息</div>
-            <div class="set-card-desc">用于页面顶部、工作台品牌、浏览器标题与分班结果大屏的展示名称</div>
+            <div class="set-card-desc">学校名称、校徽、学年与联系信息 —— 展示于各页顶栏 / 工作台品牌 / 浏览器标题 / 分班结果大屏</div>
           </div>
         </div>
+
         <div class="set-field">
-          <label class="set-label" for="setSchoolName">学校（机构）名称</label>
-          <div class="set-row">
-            <input type="text" id="setSchoolName" class="set-school-input" maxlength="40" autocomplete="off"
-                   style="flex:1; min-width:220px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; font-size:14px; outline:none;"
-                   placeholder="如：第一中学" />
+          <label class="set-label">校徽 Logo</label>
+          <div class="logo-setup">
+            <div class="logo-preview" id="logoPreview"></div>
+            <div class="logo-actions">
+              <button type="button" class="btn btn-default btn-sm" id="btnPickLogo">选择图片上传</button>
+              <button type="button" class="btn btn-soft btn-sm" id="btnClearLogo">移除校徽</button>
+              <input type="file" id="fileLogo" accept="image/*" style="display:none" />
+              <p class="set-tip">建议使用正方形 PNG（透明底更佳），上传后自动等比缩小到 300px 内，将替换各页面顶部、后台工作台与大屏的默认图标。</p>
+            </div>
           </div>
-          <p class="set-tip">
-            留空或使用默认“智能分班系统”时，各页面保持原有标题文案；
-            填写学校名称后，各功能页顶部大字、工作台品牌与浏览器标签会一并更新为学校名称。
-          </p>
         </div>
+
+        <div class="set-split">
+          <div class="set-field">
+            <label class="set-label" for="setSchoolName">学校（机构）名称</label>
+            <input type="text" id="setSchoolName" class="set-input" maxlength="40" autocomplete="off" placeholder="如：第一中学" />
+            <p class="set-tip">填写后，各功能页顶部大字、工作台品牌与浏览器标签会一并更新；留空保持默认“智能分班系统”。</p>
+          </div>
+          <div class="set-field">
+            <label class="set-label" for="setSchoolYear">学年标签</label>
+            <input type="text" id="setSchoolYear" class="set-input" maxlength="30" autocomplete="off" placeholder="如：2026 年秋季" />
+            <p class="set-tip">如「2026 年秋季」，以胶囊形式显示在分班结果大屏的副标题处。</p>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label" for="setSlogan">校训 / 标语</label>
+          <textarea id="setSlogan" class="set-input" maxlength="200" placeholder="如：求真务实 · 立德树人"></textarea>
+        </div>
+
+        <div class="set-split">
+          <div class="set-field">
+            <label class="set-label" for="setAddress">学校地址</label>
+            <input type="text" id="setAddress" class="set-input" maxlength="200" autocomplete="off" placeholder="如：XX 市 XX 区 XX 路 100 号" />
+          </div>
+          <div class="set-field">
+            <label class="set-label" for="setPhone">联系电话</label>
+            <input type="text" id="setPhone" class="set-input" maxlength="40" autocomplete="off" placeholder="如：0571-88888888" />
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label" for="setWebsite">学校官网</label>
+          <input type="text" id="setWebsite" class="set-input" maxlength="200" autocomplete="off" placeholder="如：www.example.edu.cn" />
+          <p class="set-tip">填写的网址会以「官网」入口出现在<b>各功能页顶栏</b>与<b>后台工作台右上角</b>（新窗口打开），并同步显示在分班结果大屏页面底部；不填或删除即隐藏入口。保存时自动补全为 http/https。</p>
+        </div>
+
+        <p class="set-tip">校训 / 地址 / 电话会显示在<b>分班结果大屏</b>的页面底部一行，便于投屏展示时对外联系。</p>
+
         <div class="set-card-foot">
-          <button class="btn btn-default btn-sm js-reset-name" id="btnResetName">恢复默认</button>
+          <button class="btn btn-default btn-sm" id="btnResetName">恢复默认名称</button>
           <button class="btn btn-primary btn-sm" id="btnSaveSchool">保存学校信息</button>
         </div>
       </section>
@@ -194,6 +259,7 @@
     (function () {
       'use strict';
       var S = null; // 当前设置
+      var logoDraft = ''; // 当前校徽 dataURL（保存后写入设置）
       var toastEl = document.getElementById('setToast');
       var toastTimer = null;
       function toast(msg, type) {
@@ -205,9 +271,57 @@
       var $el = function (id) { return document.getElementById(id); };
       function fmt(v) { return Math.round(Number(v) * 10) / 10; }
 
+      // 校徽预览（占位图标 / 已选图片）
+      var LOGO_PLACEHOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>';
+      function renderLogo() {
+        var box = $el('logoPreview');
+        box.innerHTML = '';
+        if (logoDraft) {
+          var im = document.createElement('img');
+          im.src = logoDraft;
+          im.alt = '校徽预览';
+          box.appendChild(im);
+        } else {
+          box.innerHTML = LOGO_PLACEHOLDER;
+        }
+      }
+
+      // 上传校徽：等比缩小后存为 PNG dataURL
+      function readLogoFile(file) {
+        if (!/^image\//.test(file.type)) { toast('请选择图片文件', 'err'); return; }
+        if (file.size > 2 * 1024 * 1024) { toast('图片不能超过 2MB', 'err'); return; }
+        var objUrl = URL.createObjectURL(file);
+        var im = new Image();
+        im.onload = function () {
+          var MAX = 300;
+          var scale = Math.min(1, MAX / Math.max(im.naturalWidth, im.naturalHeight));
+          var w = Math.max(1, Math.round(im.naturalWidth * scale));
+          var h = Math.max(1, Math.round(im.naturalHeight * scale));
+          var cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          var ctx = cv.getContext('2d');
+          ctx.drawImage(im, 0, 0, w, h);
+          var data = cv.toDataURL('image/png');
+          URL.revokeObjectURL(objUrl);
+          if (data.length > 850000) { toast('图片处理后仍过大，请换一张更小的图片', 'err'); return; }
+          logoDraft = data;
+          renderLogo();
+          toast('已选择新校徽，点击「保存学校信息」后全局生效');
+        };
+        im.onerror = function () { URL.revokeObjectURL(objUrl); toast('无法读取该图片', 'err'); };
+        im.src = objUrl;
+      }
+
       function fill(s) {
         S = s || {};
         $el('setSchoolName').value = S.schoolName || '智能分班系统';
+        $el('setSchoolYear').value = S.schoolYear || '';
+        $el('setSlogan').value = S.slogan || '';
+        $el('setAddress').value = S.schoolAddress || '';
+        $el('setPhone').value = S.schoolPhone || '';
+        $el('setWebsite').value = S.schoolWebsite || '';
+        logoDraft = S.logoDataUrl || '';
+        renderLogo();
         $el('setGenderW').value = fmt(S.balanceGender != null ? S.balanceGender : 1.5);
         $el('genderVal').textContent = $el('setGenderW').value;
         $el('setSpecW').value = fmt(S.balanceSpecialty != null ? S.balanceSpecialty : 2);
@@ -242,15 +356,33 @@
         return true;
       }
 
-      // 学校名称
+      // 学校信息：保存（名称/校徽/学年/校训/地址/电话）
       $el('btnSaveSchool').addEventListener('click', function () {
-        var name = $el('setSchoolName').value.trim();
-        if (!name) name = '智能分班系统';
-        save({ schoolName: name }, '学校名称已保存');
+        save({
+          schoolName: $el('setSchoolName').value.trim() || '智能分班系统',
+          schoolYear: $el('setSchoolYear').value.trim(),
+          slogan: $el('setSlogan').value.trim(),
+          schoolAddress: $el('setAddress').value.trim(),
+          schoolPhone: $el('setPhone').value.trim(),
+          schoolWebsite: $el('setWebsite').value.trim(),
+          logoDataUrl: logoDraft
+        }, '学校信息已保存');
       });
       $el('btnResetName').addEventListener('click', function () {
-        if (!ask('确认将学校名称恢复为默认“智能分班系统”吗？')) return;
-        save({ schoolName: '智能分班系统' }, '已恢复默认学校名称');
+        $el('setSchoolName').value = '智能分班系统';
+        toast('已恢复默认名称，点击「保存学校信息」生效');
+      });
+      $el('btnPickLogo').addEventListener('click', function () { $el('fileLogo').click(); });
+      $el('fileLogo').addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        this.value = '';
+        if (file) readLogoFile(file);
+      });
+      $el('btnClearLogo').addEventListener('click', function () {
+        if (!logoDraft) { toast('当前没有校徽可移除'); return; }
+        if (!ask('确认移除已设置的校徽吗？（保存后生效）')) return;
+        logoDraft = '';
+        renderLogo();
       });
 
       // 滑块实时数值

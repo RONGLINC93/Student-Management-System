@@ -1,7 +1,8 @@
 /* ============================================================
    智能分班系统 · 后台工作台主逻辑
    左侧菜单 -> 打开功能页选项卡；iframe 独立加载各功能页；
-   选项卡切换/关闭；切回时静默刷新，保证数据最新。
+   选项卡切换/关闭（切回时静默刷新保证数据最新）；
+   选项卡支持鼠标拖拽排序，顺序记入 localStorage，刷新后保持。
    ============================================================ */
 (function () {
   'use strict';
@@ -35,6 +36,39 @@
   var currentTitle = $('#currentTitle');
   var btnRefresh = $('#btnRefresh');
   var btnNewWin = $('#btnNewWin');
+
+  // 拖拽状态 + 顺序记忆
+  var ORDER_KEY = 'icst_tab_order'; // localStorage 中保存的选项卡顺序
+  var dragState = null;             // 当前拖拽中的选项卡（数据总览为固定页，不可拖）
+  var lastDropTime = 0;             // 拖拽落点时间，用于吞掉拖拽产生的那次 click
+
+  function readOrder() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(ORDER_KEY) || '[]');
+      var out = [];
+      for (var i = 0; i < raw.length; i++) {
+        if (MODULES[raw[i]] && out.indexOf(raw[i]) === -1) out.push(raw[i]);
+      }
+      return out;
+    } catch (e) { return []; }
+  }
+
+  function saveOrder() {
+    try {
+      var order = [];
+      for (var i = 0; i < tabs.length; i++) order.push(tabs[i].key);
+      localStorage.setItem(ORDER_KEY, JSON.stringify(order));
+    } catch (e) {}
+  }
+
+  // tabs 数组与 tabScroll 中 DOM 顺序保持一致
+  function syncTabsOrder() {
+    tabs.sort(function (a, b) {
+      var ia = Array.prototype.indexOf.call(tabScroll.children, a.tabEl);
+      var ib = Array.prototype.indexOf.call(tabScroll.children, b.tabEl);
+      return ia - ib;
+    });
+  }
 
   function sendTo(t, type) {
     try {
@@ -104,12 +138,43 @@
         e.stopPropagation();
         closeTab(m.key);
       });
+      // 按住选项卡左键横向拖动 = 拖拽排序（关闭按钮上不触发）
+      el.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return;
+        if (e.target && e.target.closest && e.target.closest('.wt-close')) return;
+        var r = el.getBoundingClientRect();
+        dragState = {
+          el: el,
+          startX: e.clientX,
+          startY: e.clientY,
+          grabX: e.clientX - r.left,
+          grabY: e.clientY - r.top,
+          moved: false
+        };
+      });
     }
-    el.addEventListener('click', function () { activate(m.key); });
+    el.addEventListener('click', function () {
+      if (Date.now() - lastDropTime < 350) return; // 刚拖完的释放不算“点击切换”
+      activate(m.key);
+    });
     el.addEventListener('auxclick', function (e) {
       if (e.button === 1) { e.preventDefault(); if (!m.pinned) closeTab(m.key); }
     });
     return el;
+  }
+
+  // 新打开的选项卡应插入的位置：按记忆顺序，排到“本应在其前面”的选项卡之后
+  function openSlot(key) {
+    var order = readOrder();
+    if (order.indexOf(key) < 0) return tabs.length;
+    var at = 0;
+    while (at < tabs.length && MODULES[tabs[at].key].pinned) at++; // 固定页始终在最前
+    var before = at;
+    for (var i = at; i < tabs.length; i++) {
+      var r = order.indexOf(tabs[i].key);
+      if (r >= 0 && r < order.indexOf(key)) before = i + 1;
+    }
+    return before;
   }
 
   function openTab(key) {
@@ -119,8 +184,13 @@
     if (!m) return;
 
     var t = { key: m.key, pinned: !!m.pinned, loaded: false, pendingActive: false, tabEl: null, frame: null };
-    tabs.push(t);
-    tabScroll.appendChild(buildTab(m, t));
+    t.tabEl = buildTab(m, t);
+    // 按记忆顺序插入（未拖过则追加到末尾）
+    var slot = openSlot(key);
+    var kids = tabScroll.children;
+    if (slot < kids.length) tabScroll.insertBefore(t.tabEl, kids[slot]);
+    else tabScroll.appendChild(t.tabEl);
+    tabs.splice(slot, 0, t);
 
     var frame = document.createElement('iframe');
     frame.className = 'work-frame';
@@ -211,6 +281,87 @@
 
   // 站点配置加载完成（如学校名称变更）后刷新顶部标题
   window.addEventListener('cb-site-ready', setTopTitle);
+
+  // ---------- 选项卡拖拽排序 ----------
+  // 根据指针横坐标返回“虚拟落点”：应在它之前插入的选项卡；null 表示拖到末尾
+  // （“数据总览”为固定页，始终排最前，不可被越过）
+  function dropTargetAt(x) {
+    var valid = [];
+    var pinned = 0;
+    var kids = tabScroll.children;
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i];
+      if (el.classList.contains('dragging') || el.classList.contains('worktab-slot')) continue;
+      if (el.classList.contains('pinned')) pinned++;
+      valid.push(el);
+    }
+    var pos = valid.length;
+    for (var j = 0; j < valid.length; j++) {
+      var r = valid[j].getBoundingClientRect();
+      if (x < r.left + r.width / 2) { pos = j; break; }
+    }
+    if (pos < pinned) pos = pinned;
+    return valid[pos] || null;
+  }
+
+  // 拖到左右边缘时自动横向滚动
+  function rollTabBar(x) {
+    var sr = tabScroll.getBoundingClientRect();
+    if (x < sr.left + 30) tabScroll.scrollLeft -= 12;
+    else if (x > sr.right - 30) tabScroll.scrollLeft += 12;
+  }
+
+  function endDrag() {
+    var d = dragState;
+    if (!d) return;
+    if (d.moved) {
+      // 收起虚拟占位，把选项卡落到占位指示的目标位置
+      var ref = d.slot.nextElementSibling || null;
+      if (d.slot.parentNode) d.slot.parentNode.removeChild(d.slot);
+      tabScroll.insertBefore(d.el, ref);
+      syncTabsOrder();
+      var el = d.el;
+      el.classList.remove('dragging');
+      el.style.left = '';
+      el.style.top = '';
+      el.style.width = '';
+      el.style.height = '';
+      document.body.style.cursor = '';
+      saveOrder();          // 记住本次排列，刷新/下次打开依然生效
+      lastDropTime = Date.now();
+    }
+    dragState = null;
+  }
+
+  document.addEventListener('pointermove', function (e) {
+    var d = dragState;
+    if (!d) return;
+    if (!d.moved) {
+      if (Math.abs(e.clientX - d.startX) < 4 && Math.abs(e.clientY - d.startY) < 4) return;
+      d.moved = true;
+      var w = d.el.getBoundingClientRect();
+      // 在自身原位留下“虚拟目标”占位，随后随指针在选项卡之间移动
+      d.slot = document.createElement('div');
+      d.slot.className = 'worktab-slot';
+      d.slot.style.width = Math.round(w.width) + 'px';
+      d.slot.style.height = Math.round(w.height) + 'px';
+      d.el.parentNode.insertBefore(d.slot, d.el);
+      d.el.classList.add('dragging');   // position:fixed，跟手移动
+      d.el.style.width = w.width + 'px';
+      d.el.style.height = w.height + 'px';
+      document.body.style.cursor = 'grabbing';
+    }
+    rollTabBar(e.clientX);
+    d.el.style.left = (e.clientX - d.grabX) + 'px';
+    d.el.style.top = (e.clientY - d.grabY) + 'px';
+    // 虚拟占位跟随指针指向的目标
+    var target = dropTargetAt(e.clientX);
+    if (d.slot.nextElementSibling !== target) {
+      tabScroll.insertBefore(d.slot, target);
+    }
+  });
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
 
   // 启动：默认打开「数据总览」常驻选项卡；
   // 学生列表等其它模块不再常驻，需要时从左侧菜单打开。

@@ -47,6 +47,32 @@ body {
 .btn-sm .btn-icon { width: 13px; height: 13px; }
 .logo h1 { font-size: 22px; font-weight: 700; }
 .subtitle { font-size: 12px; opacity: .85; margin-top: 2px; }
+/* 校徽图片：由系统设置上传后，site.js 注入到站点头部 logo 位置 */
+.logo > .site-logo-img {
+  width: 36px; height: 36px; border-radius: 10px; object-fit: contain;
+  flex-shrink: 0; padding: 2px; box-sizing: border-box;
+  background: rgba(255, 255, 255, .16);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.2));
+}
+/* 学年标签小胶囊（显示于大屏副标题行） */
+.site-year-pill {
+  display: inline-block; margin-right: 8px; padding: 1px 10px;
+  font-size: 12px; font-weight: 600; letter-spacing: .5px;
+  line-height: 18px; border-radius: 999px;
+  background: rgba(255,255,255,.16);
+  border: 1px solid rgba(255,255,255,.3);
+}
+/* 大屏页脚：校训 / 地址 / 联系电话 / 官网入口 */
+.board-foot { text-align: center; padding: 6px 24px 24px; }
+.board-body .board-foot {
+  color: rgba(255,255,255,.6); font-size: 13px; line-height: 1.8;
+}
+.board-body .board-foot a.board-site-link {
+  color: rgba(255,255,255,.85);
+  text-decoration: underline dotted rgba(255,255,255,.55);
+  transition: color .15s;
+}
+.board-body .board-foot a.board-site-link:hover { color: #fff; }
 .nav { display: flex; gap: 8px; }
 .nav-item {
   color: rgba(255,255,255,.75);
@@ -59,6 +85,19 @@ body {
 }
 .nav-item:hover { background: rgba(255,255,255,.15); color: #fff; }
 .nav-item.active { background: rgba(255,255,255,.22); color: #fff; }
+/* 官网入口（在系统设置填写学校官网后由 site.js 显示） */
+.site-web {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: 10px; padding: 8px 16px;
+  background: #fff; color: #4f6df5;
+  border-radius: 999px; font-size: 13px; font-weight: 700;
+  text-decoration: none; white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0,0,0,.15);
+  transition: transform .15s, box-shadow .15s, color .15s;
+}
+.site-web svg { width: 13px; height: 13px; }
+.site-web:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.22); color: #7b5cf5; }
+.site-web[hidden] { display: none; }
 
 /* ========== 容器 ========== */
 .container {

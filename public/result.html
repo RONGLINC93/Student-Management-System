@@ -10,10 +10,10 @@
   <header class="app-header">
     <div class="header-inner board-header">
       <div class="logo">
-        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         <div>
           <h1 data-site-name>分班结果大屏</h1>
-          <p class="subtitle">实时看板 · 点班级卡片「查看花名册」按钮展开完整名单</p>
+          <p class="subtitle"><span class="site-year-pill" data-site-year hidden></span>实时看板 · 点班级卡片「查看花名册」按钮展开完整名单</p>
         </div>
       </div>
       <div class="board-current" id="boardCurrent">
@@ -78,6 +78,9 @@
       </div>
     </section>
   </main>
+
+  <!-- 大屏页脚：校训 / 地址 / 联系电话（由系统设置注入） -->
+  <footer class="board-foot" data-site-meta-host hidden><div data-site-meta></div></footer>
 
   <div class="toast" id="toast"></div>
   <!-- 分班前 3-2-1 倒计时遮罩（居中大字） -->
