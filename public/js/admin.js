@@ -178,6 +178,8 @@
   }
 
   function openTab(key) {
+    // 查看模式账号不能进入「系统设置」（服务端同样拦截 settings.html 与写接口）
+    if (key === 'settings' && window.AUTH && window.AUTH.role !== 'admin') return;
     var exist = getTab(key);
     if (exist) { activate(key); return; }
     var m = MODULES[key];
@@ -281,6 +283,14 @@
 
   // 站点配置加载完成（如学校名称变更）后刷新顶部标题
   window.addEventListener('cb-site-ready', setTopTitle);
+
+  // 登录角色：查看模式账号隐藏「系统设置」菜单
+  window.addEventListener('cb-auth-ready', function () {
+    if (window.AUTH && window.AUTH.role !== 'admin') {
+      var it = document.querySelector('.menu-item[data-mod="settings"]');
+      if (it) it.style.display = 'none';
+    }
+  });
 
   // ---------- 选项卡拖拽排序 ----------
   // 根据指针横坐标返回“虚拟落点”：应在它之前插入的选项卡；null 表示拖到末尾

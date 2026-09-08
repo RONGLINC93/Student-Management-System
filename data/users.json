@@ -1,0 +1,11 @@
+[
+  {
+    "u": "admin",
+    "salt": "8ef5edd2afc21997088b0efa2f381aa5",
+    "hash": "048d19cf5753f9ec6e5a46c7b2705b9bdd977b941afbfb53f69eb47c5b3f8577",
+    "role": "admin",
+    "nickname": "管理员",
+    "createdAt": "2026-09-08T02:58:23.520Z",
+    "updatedAt": "2026-09-08T02:58:23.520Z"
+  }
+]

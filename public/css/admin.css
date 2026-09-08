@@ -131,6 +131,40 @@ body.admin-body {
 .icon-btn:hover { color: var(--brand); border-color: var(--brand); background: #eef2ff; }
 /* 官网入口图标（未配置官网时隐藏，避免 href="#" 误点） */
 .icon-btn[hidden] { display: none; }
+/* 顶栏账号胶囊（与 tb-actions 内图标按钮同高） */
+.tb-actions .auth-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  height: 34px;
+  padding: 0 5px 0 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: default;
+}
+.tb-actions .auth-chip > svg { width: 13px; height: 13px; flex: none; color: var(--text-3); }
+.tb-actions .auth-chip .auth-name {
+  max-width: 110px; overflow: hidden; text-overflow: ellipsis;
+  font-style: normal; font-weight: 600; color: var(--text);
+}
+.tb-actions .auth-chip .auth-role {
+  font-style: normal;
+  background: #eef2ff; color: var(--brand);
+  padding: 1px 8px; border-radius: 999px; font-size: 11px;
+}
+.tb-actions .auth-chip a.auth-exit {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  color: var(--text-3); text-decoration: none;
+}
+.tb-actions .auth-chip a.auth-exit svg { width: 12px; height: 12px; }
+.tb-actions .auth-chip a.auth-exit:hover { background: #eef2ff; color: var(--brand); }
 
 /* ---------- 选项卡 ---------- */
 .tab-bar {

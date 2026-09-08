@@ -58,6 +58,31 @@
     .set-toast.ok { background: #16a34a; }
     .set-toast.err { background: #dc2626; }
     .muted-note { color: var(--text-light); font-size: 12px; }
+    /* 账号管理 */
+    .acc-zone { border: 1px solid var(--border); border-radius: 12px; margin-top: 12px; overflow: hidden; }
+    .acc-head, .acc-row {
+      display: grid; grid-template-columns: 1.1fr .95fr 1.05fr 1fr auto;
+      gap: 10px; align-items: center; padding: 9px 14px; font-size: 13px;
+    }
+    .acc-head {
+      background: #f8fafc; color: var(--text-light); font-size: 12px; font-weight: 700;
+    }
+    .acc-row + .acc-row { border-top: 1px dashed var(--border); }
+    .acc-me { color: var(--primary); font-size: 11px; border: 1px solid var(--primary); border-radius: 999px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; }
+    .acc-role-sel {
+      padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px;
+      background: #fff; font-size: 12px; color: var(--text); max-width: 130px; width: 100%;
+    }
+    .acc-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .acc-created { color: var(--text-light); font-size: 12px; }
+    @media (max-width: 900px) {
+      .acc-head { display: none; }
+      .acc-row {
+        grid-template-columns: 1fr 1fr; grid-auto-rows: auto; padding: 12px 14px; gap: 6px 12px;
+      }
+    }
+    .acc-empty { text-align: center; color: var(--text-light); font-size: 13px; padding: 18px 0; }
+    .acc-tip { font-size: 12px; color: var(--text-light); margin-top: 8px; line-height: 1.7; }
     /* 学校信息：校徽与表单 */
     .logo-setup { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
     .logo-preview {
@@ -245,6 +270,66 @@
         <div class="set-card-foot">
           <span class="muted-note" style="margin-right:auto">版本 v1.0 · 本地演示</span>
           <button class="btn btn-default btn-sm" id="btnDataManage">刷新状态</button>
+        </div>
+      </section>
+
+      <!-- 账号与安全 -->
+      <section class="set-card">
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">账号与安全</div>
+            <div class="set-card-desc">修改登录密码；管理员可在此新增 / 管理系统登录账号与权限</div>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label">修改当前账号密码</label>
+          <div class="set-split">
+            <div class="set-field">
+              <label class="set-label" for="pwOld">当前密码</label>
+              <input type="password" id="pwOld" class="set-input" autocomplete="current-password" maxlength="64" placeholder="输入当前登录密码" />
+            </div>
+            <div class="set-field">
+              <label class="set-label" for="pwNew">新密码（6～64 位）</label>
+              <input type="password" id="pwNew" class="set-input" autocomplete="new-password" maxlength="64" placeholder="设置新密码" />
+            </div>
+            <div class="set-field">
+              <label class="set-label" for="pwNew2">确认新密码</label>
+              <input type="password" id="pwNew2" class="set-input" autocomplete="new-password" maxlength="64" placeholder="再次输入新密码" />
+            </div>
+          </div>
+          <div class="set-row" style="justify-content:flex-start">
+            <button class="btn btn-primary btn-sm" id="btnSavePwd">保存新密码</button>
+          </div>
+        </div>
+
+        <div class="set-field" id="accAdminZone">
+          <label class="set-label">账号管理 <span class="badge">管理员</span></label>
+          <div class="set-row" style="align-items:flex-end">
+            <div style="flex:1;min-width:150px">
+              <label class="set-label" for="accUser">账号</label>
+              <input type="text" id="accUser" class="set-input" maxlength="20" autocomplete="off" placeholder="2～20 位中英文 / 数字" />
+            </div>
+            <div style="flex:1;min-width:150px">
+              <label class="set-label" for="accRole">角色</label>
+              <select id="accRole" class="set-input">
+                <option value="admin">管理员（完整权限）</option>
+                <option value="viewer">查看模式（只读）</option>
+              </select>
+            </div>
+            <div style="flex:1;min-width:160px">
+              <label class="set-label" for="accPwd">初始密码</label>
+              <input type="password" id="accPwd" class="set-input" maxlength="64" autocomplete="new-password" placeholder="6～64 位" />
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnAddAcc">添加账号</button>
+          </div>
+          <div class="acc-zone" id="accZone">
+            <div class="acc-empty" id="accEmpty">账号列表加载中…</div>
+          </div>
+          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝。系统始终需保留至少一个管理员账号。</p>
         </div>
       </section>
     </div>
@@ -450,6 +535,141 @@
       });
 
       $el('btnDataManage').addEventListener('click', load);
+
+      // ================= 账号与安全 =================
+      function escU(t) {
+        return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      // —— 修改当前账号密码 ——
+      $el('btnSavePwd').addEventListener('click', function () {
+        var oldP = $el('pwOld').value;
+        var n1 = $el('pwNew').value;
+        var n2 = $el('pwNew2').value;
+        if (!oldP) return toast('请输入当前密码', 'err');
+        if (n1.length < 6 || n1.length > 64) return toast('新密码需为 6～64 位', 'err');
+        if (n1 !== n2) return toast('两次输入的新密码不一致', 'err');
+        fetch('/api/auth/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldPassword: oldP, newPassword: n1 })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '修改失败');
+          $el('pwOld').value = $el('pwNew').value = $el('pwNew2').value = '';
+          toast('密码已更新，请妥善保管', 'ok');
+        }).catch(function (e) { toast(e.message || '修改失败', 'err'); });
+      });
+
+      // —— 账号管理（仅管理员可见）——
+      var accSelf = null;
+
+      function accRow(u) {
+        var isMe = accSelf && u.username === accSelf.username;
+        var opts = ['admin', 'viewer'].map(function (r) {
+          return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' +
+            (r === 'admin' ? '管理员' : '查看模式') + '</option>';
+        }).join('');
+        var row = document.createElement('div');
+        row.className = 'acc-row';
+        row.innerHTML =
+          '<div><b>' + escU(u.nickname || u.username) + '</b>' +
+          (isMe ? '<span class="acc-me">当前登录</span>' : '') +
+          '<div class="acc-created">@' + escU(u.username) + '</div></div>' +
+          '<div class="acc-created">' + (u.createdAt ? String(u.createdAt).slice(0, 10) : '—') + '</div>' +
+          '<div><select class="acc-role-sel">' + opts + '</select></div>' +
+          '<div class="acc-created">' + (u.role === 'admin' ? '可操作全部功能与数据' : '仅查看，不可修改') + '</div>' +
+          '<div class="acc-btns">' +
+          '<button class="btn btn-soft btn-sm acc-reset">重设密码</button>' +
+          (isMe ? '' : '<button class="btn btn-soft btn-sm acc-del" style="color:#e11d48">删除</button>') +
+          '</div>';
+
+        var sel = row.querySelector('.acc-role-sel');
+        sel.addEventListener('change', function () {
+          fetch('/api/users/' + encodeURIComponent(u.username), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: sel.value })
+          }).then(function (r) { return r.json(); }).then(function (j) {
+            if (j.code !== 0) { toast(j.msg || '修改失败', 'err'); renderAccList(); return; }
+            toast('已将「' + u.username + '」设为' + (sel.value === 'admin' ? '管理员' : '查看模式'), 'ok');
+            renderAccList();
+          }).catch(function () { toast('修改失败', 'err'); renderAccList(); });
+        });
+
+        row.querySelector('.acc-reset').addEventListener('click', function () {
+          var np = prompt('为账号「' + u.username + '」设置新密码（6～64 位）：', '');
+          if (np === null) return;
+          if (np.length < 6 || np.length > 64) return toast('密码需为 6～64 位', 'err');
+          fetch('/api/users/' + encodeURIComponent(u.username), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: np })
+          }).then(function (r) { return r.json(); }).then(function (j) {
+            toast(j.code === 0 ? '密码已重置' : (j.msg || '操作失败'), j.code === 0 ? 'ok' : 'err');
+          }).catch(function () { toast('操作失败', 'err'); });
+        });
+
+        var del = row.querySelector('.acc-del');
+        if (del) del.addEventListener('click', function () {
+          if (!ask('确定删除账号「' + u.username + '」吗？')) return;
+          fetch('/api/users/' + encodeURIComponent(u.username), { method: 'DELETE' })
+            .then(function (r) { return r.json(); }).then(function (j) {
+              toast(j.code === 0 ? '账号已删除' : (j.msg || '删除失败'), j.code === 0 ? 'ok' : 'err');
+              if (j.code === 0) renderAccList();
+            }).catch(function () { toast('删除失败', 'err'); });
+        });
+        return row;
+      }
+
+      function renderAccList() {
+        fetch('/api/users').then(function (r) { return r.json(); }).then(function (j) {
+          var zone = $el('accZone');
+          zone.innerHTML = '';
+          if (j.code !== 0 || !j.data || !j.data.length) {
+            zone.innerHTML = '<div class="acc-empty">' + escU(j.msg || '暂无账号') + '</div>';
+            return;
+          }
+          var head = document.createElement('div');
+          head.className = 'acc-head';
+          ['账号 / 昵称', '创建时间', '角色', '权限', '操作'].forEach(function (t) {
+            var d = document.createElement('div');
+            d.textContent = t;
+            head.appendChild(d);
+          });
+          zone.appendChild(head);
+          j.data.forEach(function (u) { zone.appendChild(accRow(u)); });
+        }).catch(function () { toast('读取账号列表失败', 'err'); });
+      }
+
+      $el('btnAddAcc').addEventListener('click', function () {
+        var name = $el('accUser').value.trim();
+        var pwd = $el('accPwd').value;
+        var role = $el('accRole').value;
+        if (!name) return toast('请输入账号', 'err');
+        if (!/^[\w\u4e00-\u9fa5-]{2,20}$/.test(name)) return toast('账号需为 2～20 位中英文、数字、下划线或短横线', 'err');
+        if (pwd.length < 6 || pwd.length > 64) return toast('初始密码需为 6～64 位', 'err');
+        fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: name, password: pwd, role: role })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '创建失败');
+          toast('账号已创建', 'ok');
+          $el('accUser').value = $el('accPwd').value = '';
+          renderAccList();
+        }).catch(function (e) { toast(e.message || '创建失败', 'err'); });
+      });
+
+      function initAcc() {
+        accSelf = window.AUTH ? { username: window.AUTH.username } : null;
+        var zone = $el('accAdminZone');
+        if (!zone || !accSelf) { if (zone) zone.style.display = 'none'; return; }
+        renderAccList();
+      }
+      if (window.AUTH) initAcc();
+      else window.addEventListener('cb-auth-ready', initAcc);
 
       load();
     })();

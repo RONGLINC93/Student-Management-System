@@ -145,6 +145,57 @@
     return load().then(function () { apply(); broadcast(); });
   };
 
+  // ===== 登录用户：顶栏账号展示 / 查看模式隐藏管理入口 =====
+  window.AUTH = null;
+
+  var IC_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+  var IC_LOGOUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>';
+
+  function renderAuthUI() {
+    var a = window.AUTH;
+    if (!a) return;
+
+    // 查看模式：隐藏「系统设置 / 智能分班」等管理与写操作入口
+    if (a.role === 'viewer') {
+      var hid = document.querySelectorAll(
+        'a[href*="settings"], a[href*="allocate"], .menu-item[data-mod="settings"], .dq-item[href*="settings"]'
+      );
+      for (var i = 0; i < hid.length; i++) hid[i].style.display = 'none';
+    }
+
+    // 顶栏（后台工作台右侧 / 单页顶部导航）插入账号胶囊
+    var host = document.querySelector('.tb-actions');
+    if (!host) host = document.querySelector('.nav');
+    if (!host) return;
+
+    var chip = document.createElement('span');
+    chip.className = 'auth-chip';
+    chip.title = '当前账号：' + a.username + '（' + (a.label || (a.role === 'viewer' ? '查看模式' : '管理员')) + '）';
+    chip.innerHTML =
+      IC_USER +
+      '<em class="auth-name"></em>' +
+      '<i class="auth-role">' + escHtml(a.role === 'viewer' ? '查看' : '管理') + '</i>' +
+      '<a class="auth-exit" href="/api/logout" title="退出登录">' + IC_LOGOUT + '</a>';
+    chip.querySelector('.auth-name').textContent = a.nickname || a.username;
+    host.appendChild(chip);
+  }
+
+  function loadAuth() {
+    return fetch('/api/auth/me')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        window.AUTH = (j && j.code === 0 && j.data) ? j.data : null;
+      })
+      .catch(function () { window.AUTH = null; })
+      .then(function () {
+        renderAuthUI();
+        try {
+          window.dispatchEvent(new CustomEvent('cb-auth-ready', { detail: { auth: window.AUTH } }));
+        } catch (e) {}
+      });
+  }
+  window.siteLoadAuth = loadAuth;
+
   // 工作台切换选项卡 / 手动刷新 / 系统设置保存后：静默重拉并应用
   window.addEventListener('message', function (ev) {
     if (!ev.data) return;
@@ -156,4 +207,5 @@
 
   // 启动加载
   window.siteLoadSettings();
+  window.siteLoadAuth();
 })();

@@ -99,6 +99,41 @@ body {
 .site-web:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.22); color: #7b5cf5; }
 .site-web[hidden] { display: none; }
 
+/* ========== 登录用户（顶栏账号胶囊） ========== */
+.auth-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  margin-left: 10px;
+  padding: 5px 6px 5px 12px;
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: 999px;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.auth-chip > svg { width: 13px; height: 13px; flex: none; opacity: .9; }
+.auth-chip .auth-name {
+  max-width: 110px; overflow: hidden; text-overflow: ellipsis;
+  font-style: normal; font-weight: 600;
+}
+.auth-chip .auth-role {
+  font-style: normal;
+  background: rgba(255,255,255,.2);
+  padding: 1px 8px; border-radius: 999px; font-size: 11px;
+}
+.auth-chip a.auth-exit {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  color: rgba(255,255,255,.85); text-decoration: none;
+}
+.auth-chip a.auth-exit svg { width: 12px; height: 12px; }
+.auth-chip a.auth-exit:hover { background: rgba(255,255,255,.28); color: #fff; }
+/* 半透明深色顶栏（智能分班页） */
+.allocate-body .auth-chip { background: rgba(255,255,255,.1); }
+
 /* ========== 容器 ========== */
 .container {
   max-width: 1400px;

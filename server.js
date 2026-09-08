@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_FILE = path.join(__dirname, 'data', 'students.json');
@@ -8,6 +9,18 @@ const CLASSES_FILE = path.join(__dirname, 'data', 'classes.json');
 const GRADES_FILE = path.join(__dirname, 'data', 'grades.json');
 const FILTERS_FILE = path.join(__dirname, 'data', 'filters.json');
 const SETTINGS_FILE = path.join(__dirname, 'data', 'settings.json');
+const USERS_FILE = path.join(__dirname, 'data', 'users.json');
+const SECRET_FILE = path.join(__dirname, 'data', '.auth_secret');
+
+// 会话：Cookie 内 HMAC 签名（无服务端 session），Path=/ 以便所有页面共享
+const AUTH_COOKIE = 'icbs_auth';
+const SESSION_SECONDS = 24 * 3600;      // 默认会话 24 小时
+const REMEMBER_SECONDS = 7 * 24 * 3600; // 「记住我」7 天
+const ROLES = { ADMIN: 'admin', VIEWER: 'viewer' };
+const ROLE_LABEL = { admin: '管理员', viewer: '查看模式' };
+
+// 已注销的会话 token（内存级；保证“退出登录”后旧 Cookie 立即失效）
+const revokedTokens = new Set();
 
 // 系统默认设置
 const DEFAULT_SETTINGS = {
@@ -121,6 +134,140 @@ function writeSettings(settings) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
 }
 
+// ===== 登录认证：账号 / 口令 / 会话 =====
+function readUsers() {
+  try {
+    const arr = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function writeUsers(list) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(list, null, 2), 'utf-8');
+}
+function findUser(name) {
+  const list = readUsers();
+  for (let i = 0; i < list.length; i++) if (list[i].u === name) return list[i];
+  return null;
+}
+
+// scrypt 加盐口令哈希（同步即可，登录频率很低）
+function hashPassword(password, salt) {
+  return crypto.scryptSync(String(password), salt, 32).toString('hex');
+}
+function verifyPassword(password, salt, hash) {
+  try {
+    const calc = hashPassword(password, salt);
+    const a = Buffer.from(calc, 'hex');
+    const b = Buffer.from(String(hash), 'hex');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch (e) { return false; }
+}
+
+// base64url 工具（兼容较老 Node，不依赖 Buffer#toString('base64url')）
+function b64url(str) {
+  return Buffer.from(str, 'utf8').toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function unb64url(str) {
+  return Buffer.from(str.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+}
+
+function readSecret() {
+  try {
+    return fs.readFileSync(SECRET_FILE, 'utf-8').trim();
+  } catch (e) { return 'icbs-demo-secret'; }
+}
+function sign(payload) {
+  return crypto.createHmac('sha256', readSecret()).update(payload).digest('hex');
+}
+function safeEq(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || !a.length || a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
+}
+function makeToken(username, role, ttlSeconds) {
+  const payload = b64url(JSON.stringify({ u: username, r: role, exp: Date.now() + ttlSeconds * 1000 }));
+  return payload + '.' + sign(payload);
+}
+function parseCookies(req) {
+  const out = {};
+  const raw = req.headers.cookie || '';
+  raw.split(';').forEach(part => {
+    const i = part.indexOf('=');
+    if (i < 0) return;
+    const k = part.slice(0, i).trim();
+    const v = part.slice(i + 1).trim();
+    if (k) out[k] = decodeURIComponent(v);
+  });
+  return out;
+}
+// 校验 Cookie 会话；有效返回 { username, role }，否则 null
+function authUser(req) {
+  try {
+    const c = parseCookies(req)[AUTH_COOKIE];
+    if (!c || revokedTokens.has(c)) return null;
+    const dot = c.lastIndexOf('.');
+    if (dot < 0) return null;
+    const payload = c.slice(0, dot);
+    const sig = c.slice(dot + 1);
+    if (!safeEq(sig, sign(payload))) return null;
+    const data = JSON.parse(unb64url(payload));
+    if (!data.u || typeof data.exp !== 'number' || data.exp < Date.now()) return null;
+    const user = findUser(data.u);
+    if (!user || user.role !== data.r) return null; // 账号被删除 / 角色变更后旧会话自动失效
+    return { username: user.u, role: user.role };
+  } catch (e) { return null; }
+}
+function cookieHeader(token, maxAge) {
+  return AUTH_COOKIE + '=' + token + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge;
+}
+function clearCookieHeader() {
+  return AUTH_COOKIE + '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+}
+function redirect(res, loc) {
+  res.writeHead(302, { Location: loc });
+  res.end();
+}
+function forbiddenPage(msg) {
+  return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>403 · 无权限</title></head>' +
+    '<body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#eef1f8;color:#1f2937">' +
+    '<div style="text-align:center;background:#fff;border-radius:16px;padding:40px 48px;box-shadow:0 10px 30px rgba(30,41,82,.08)">' +
+    '<div style="font-size:52px;font-weight:800;background:linear-gradient(135deg,#4f6df5,#7b5cf5);-webkit-background-clip:text;background-clip:text;color:transparent">403</div>' +
+    '<p style="margin:10px 0 24px;font-size:14px;color:#6b7280">' + String(msg || '您没有权限访问该页面。').replace(/</g, '&lt;') + '</p>' +
+    '<a href="/login.html" style="color:#4f6df5;font-size:14px;margin-right:16px">返回登录</a>' +
+    '<a href="/result.html" style="color:#4f6df5;font-size:14px">前往分班结果大屏</a>' +
+    '</div></body></html>';
+}
+
+// 确保账号与签名密钥文件存在；仅当没有任何账号时创建默认管理员
+function ensureAuthFiles() {
+  if (!fs.existsSync(SECRET_FILE)) {
+    fs.writeFileSync(SECRET_FILE, crypto.randomBytes(32).toString('hex'), 'utf-8');
+  }
+  if (!fs.existsSync(USERS_FILE) || readUsers().length === 0) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const now = new Date().toISOString();
+    writeUsers([{
+      u: 'admin',
+      salt,
+      hash: hashPassword('admin123', salt),
+      role: ROLES.ADMIN,
+      nickname: '管理员',
+      createdAt: now,
+      updatedAt: now
+    }]);
+    console.log('[提示] 已创建默认管理员账号 admin / admin123，请登录后在「系统设置 → 账号与安全」中尽快修改密码。');
+  }
+}
+ensureAuthFiles();
+
+// 校验用户名 / 口令规范
+function validUsername(name) {
+  return /^[\w\u4e00-\u9fa5-]{2,20}$/.test(name);
+}
+function validPassword(pw) {
+  return typeof pw === 'string' && pw.length >= 6 && pw.length <= 64;
+}
+
 // 过滤非法/越界的设置值
 function sanitizeSettings(body) {
   const s = readSettings();
@@ -205,6 +352,167 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     return res.end();
+  }
+
+  // ===== 访问控制（登录与会话）=====
+  // 公开只读接口：大屏轮询与各页品牌配置（含未登录访问）
+  const publicRead = req.method === 'GET'
+    && (pathname === '/api/settings' || pathname === '/api/board');
+  const isAuthEndpoint = pathname === '/api/login' || pathname === '/api/logout'
+    || pathname === '/api/auth/me' || pathname === '/api/auth/password'
+    || pathname === '/api/users' || pathname.startsWith('/api/users/');
+  if (pathname.startsWith('/api/') && !isAuthEndpoint && !publicRead) {
+    const u = authUser(req);
+    if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
+    if (pathname === '/api/backup' && u.role !== ROLES.ADMIN) {
+      return sendJson(res, 403, { code: 1, msg: '数据备份导出仅限管理员账号' });
+    }
+    if (req.method !== 'GET' && u.role !== ROLES.ADMIN) {
+      return sendJson(res, 403, { code: 1, msg: '当前账号为「查看模式」，仅可查看，不能修改数据' });
+    }
+  }
+
+  // ===== 登录认证 API =====
+  // 账号密码登录（remember=true 时会话延长至 7 天）
+  if (pathname === '/api/login' && req.method === 'POST') {
+    const body = await readBody(req);
+    const username = String(body.username || '').trim();
+    const user = findUser(username);
+    if (!user || !verifyPassword(body.password, user.salt, user.hash)) {
+      return sendJson(res, 401, { code: 1, msg: '账号或密码不正确' });
+    }
+    const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
+    const token = makeToken(user.u, user.role, ttl);
+    res.setHeader('Set-Cookie', cookieHeader(token, ttl));
+    return sendJson(res, 200, {
+      code: 0, msg: '登录成功',
+      data: { username: user.u, role: user.role, nickname: user.nickname || '', label: ROLE_LABEL[user.role] }
+    });
+  }
+
+  // 退出登录（GET 供链接直达，POST 供前端调用）
+  if (pathname === '/api/logout') {
+    const t = parseCookies(req)[AUTH_COOKIE];
+    if (t) revokedTokens.add(t); // 立即作废旧会话
+    res.setHeader('Set-Cookie', clearCookieHeader());
+    if (req.method === 'GET') return redirect(res, '/login.html');
+    return sendJson(res, 200, { code: 0, msg: '已退出登录' });
+  }
+
+  // 当前登录用户（供页面顶栏展示 / 前端判断角色）
+  if (pathname === '/api/auth/me' && req.method === 'GET') {
+    const u = authUser(req);
+    if (!u) return sendJson(res, 401, { code: 1, msg: '未登录' });
+    const full = findUser(u.username);
+    return sendJson(res, 200, {
+      code: 0,
+      data: {
+        username: u.username,
+        role: u.role,
+        nickname: (full && full.nickname) || '',
+        label: ROLE_LABEL[u.role]
+      }
+    });
+  }
+
+  // 修改自己的密码（管理员 / 查看账号均可）
+  if (pathname === '/api/auth/password' && req.method === 'PUT') {
+    const u = authUser(req);
+    if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
+    const body = await readBody(req);
+    const user = findUser(u.username);
+    if (!user) return sendJson(res, 401, { code: 1, msg: '账号不存在，请重新登录' });
+    if (!verifyPassword(body.oldPassword, user.salt, user.hash)) {
+      return sendJson(res, 400, { code: 1, msg: '当前密码不正确' });
+    }
+    if (!validPassword(body.newPassword)) {
+      return sendJson(res, 400, { code: 1, msg: '新密码需为 6～64 位字符' });
+    }
+    user.salt = crypto.randomBytes(16).toString('hex');
+    user.hash = hashPassword(body.newPassword, user.salt);
+    user.updatedAt = new Date().toISOString();
+    writeUsers(readUsers().map(x => (x.u === user.u ? user : x)));
+    // 让旧会话仍有效（密码已改），无需强制重新登录
+    return sendJson(res, 200, { code: 0, msg: '密码已更新' });
+  }
+
+  // ===== 账号管理 API（仅管理员）=====
+  if (pathname === '/api/users' && req.method === 'GET') {
+    const me = authUser(req);
+    if (!me) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
+    if (me.role !== ROLES.ADMIN) return sendJson(res, 403, { code: 1, msg: '账号管理仅限管理员' });
+    return sendJson(res, 200, {
+      code: 0,
+      data: readUsers().map(x => ({
+        username: x.u, role: x.role, nickname: x.nickname || '',
+        createdAt: x.createdAt, updatedAt: x.updatedAt
+      }))
+    });
+  }
+
+  if (pathname === '/api/users' && req.method === 'POST') {
+    const me = authUser(req);
+    if (!me) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
+    if (me.role !== ROLES.ADMIN) return sendJson(res, 403, { code: 1, msg: '账号管理仅限管理员' });
+    const body = await readBody(req);
+    const name = String(body.username || '').trim();
+    if (!validUsername(name)) return sendJson(res, 400, { code: 1, msg: '账号需为 2～20 位中英文、数字、下划线或短横线' });
+    if (findUser(name)) return sendJson(res, 400, { code: 1, msg: '该账号已存在' });
+    if (!validPassword(body.password)) return sendJson(res, 400, { code: 1, msg: '初始密码需为 6～64 位字符' });
+    const role = body.role === ROLES.VIEWER ? ROLES.VIEWER : ROLES.ADMIN;
+    const salt = crypto.randomBytes(16).toString('hex');
+    const now = new Date().toISOString();
+    const list = readUsers();
+    list.push({
+      u: name, salt,
+      hash: hashPassword(body.password, salt),
+      role,
+      nickname: String(body.nickname || '').trim().slice(0, 20),
+      createdAt: now, updatedAt: now
+    });
+    writeUsers(list);
+    return sendJson(res, 200, { code: 0, msg: '账号已创建', data: name });
+  }
+
+  if (pathname.startsWith('/api/users/') && (req.method === 'PUT' || req.method === 'DELETE')) {
+    const me = authUser(req);
+    if (!me) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
+    if (me.role !== ROLES.ADMIN) return sendJson(res, 403, { code: 1, msg: '账号管理仅限管理员' });
+    const target = decodeURIComponent(pathname.split('/').pop());
+    const list = readUsers();
+    const idx = list.findIndex(x => x.u === target);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '账号不存在' });
+
+    if (req.method === 'PUT') {
+      const body = await readBody(req);
+      const cur = list[idx];
+      const isLastAdmin = cur.role === ROLES.ADMIN && !list.some(x => x !== cur && x.role === ROLES.ADMIN);
+      if (body.role === ROLES.VIEWER && cur.role === ROLES.ADMIN && isLastAdmin) {
+        return sendJson(res, 400, { code: 1, msg: '系统需至少保留一个管理员账号' });
+      }
+      if (body.role === ROLES.VIEWER || body.role === ROLES.ADMIN) cur.role = body.role;
+      if (typeof body.nickname === 'string') cur.nickname = body.nickname.trim().slice(0, 20);
+      if (body.password) {
+        if (!validPassword(body.password)) return sendJson(res, 400, { code: 1, msg: '密码需为 6～64 位字符' });
+        cur.salt = crypto.randomBytes(16).toString('hex');
+        cur.hash = hashPassword(body.password, cur.salt);
+      }
+      cur.updatedAt = new Date().toISOString();
+      writeUsers(list);
+      return sendJson(res, 200, { code: 0, msg: '账号已更新' });
+    }
+
+    // DELETE：禁止删除自己与系统内最后一个管理员
+    if (target === me.username) {
+      return sendJson(res, 400, { code: 1, msg: '不能删除当前登录的账号' });
+    }
+    const isLastAdmin = list[idx].role === ROLES.ADMIN && !list.some(x => x !== list[idx] && x.role === ROLES.ADMIN);
+    if (isLastAdmin) {
+      return sendJson(res, 400, { code: 1, msg: '系统需至少保留一个管理员账号' });
+    }
+    list.splice(idx, 1);
+    writeUsers(list);
+    return sendJson(res, 200, { code: 0, msg: '账号已删除' });
   }
 
   // ===== API 路由 =====
@@ -678,7 +986,30 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, msg: '恢复完成', classes: body.classes.length, students: body.students.length });
   }
 
-  // ===== 静态文件 =====
+  // ===== 静态文件（含页面登录守卫）=====
+  // 受保护页面：后台工作台与各功能页（大屏 result.html / 登录页无需登录）
+  const PROTECTED_PAGES = ['/index.html', '/dashboard.html', '/students.html',
+    '/classes.html', '/grades.html', '/allocate.html', '/settings.html'];
+  const ADMIN_ONLY_PAGES = ['/settings.html'];
+  const asPage = pathname === '/' ? '/index.html' : pathname;
+  if (pathname === '/' || (asPage.endsWith('.html'))) {
+    if (PROTECTED_PAGES.indexOf(asPage) !== -1) {
+      const u = authUser(req);
+      if (!u) {
+        const next = encodeURIComponent(pathname + url.search);
+        return redirect(res, '/login.html?next=' + next);
+      }
+      if (ADMIN_ONLY_PAGES.indexOf(asPage) !== -1 && u.role !== ROLES.ADMIN) {
+        res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(forbiddenPage('「系统设置」仅限管理员账号使用。'));
+      }
+    }
+    // 已登录访问登录页 → 直接回到工作台
+    if (pathname === '/login.html' && authUser(req)) {
+      return redirect(res, '/index.html');
+    }
+  }
+
   // 根路径即后台工作台（选项卡式工作台，默认停靠“数据总览”页）
   let filePath = pathname === '/' ? '/index.html' : pathname;
   filePath = path.join(__dirname, 'public', filePath);

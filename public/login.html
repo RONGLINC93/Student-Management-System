@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>登录 · 智能分班系统</title>
+  <style>
+    :root {
+      --brand: #4f6df5;
+      --brand-2: #7b5cf5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+      background: #141430;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: hidden;
+      position: relative;
+    }
+    /* 背景光斑 */
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      z-index: 0;
+    }
+    body::before { width: 480px; height: 480px; left: -140px; top: -140px; background: rgba(79,109,245,.5); }
+    body::after  { width: 420px; height: 420px; right: -120px; bottom: -160px; background: rgba(123,92,245,.45); }
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0; opacity: .25; pointer-events: none;
+      background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+      background-size: 46px 46px;
+    }
+
+    .login-card {
+      position: relative; z-index: 1;
+      width: 860px; max-width: 100%;
+      display: grid; grid-template-columns: 1.05fr 1fr;
+      background: #fff; color: #1f2937;
+      border-radius: 22px; overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,.5);
+    }
+    @media (max-width: 760px) { .login-card { grid-template-columns: 1fr; } .login-intro { display: none; } }
+
+    /* 左侧品牌区 */
+    .login-intro {
+      background: linear-gradient(150deg, #4f6df5 0%, #6a5cf5 55%, #7b5cf5 100%);
+      color: #fff; padding: 40px 34px;
+      display: flex; flex-direction: column;
+      position: relative; overflow: hidden;
+    }
+    .login-intro::after {
+      content: ""; position: absolute; right: -70px; top: -70px; width: 220px; height: 220px;
+      border-radius: 50%; border: 34px solid rgba(255,255,255,.08);
+    }
+    .lg-brand { display: flex; align-items: center; gap: 12px; }
+    .lg-logo {
+      width: 44px; height: 44px; border-radius: 12px; flex: none;
+      background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center;
+      padding: 5px; box-sizing: border-box; overflow: hidden;
+    }
+    .lg-logo svg { width: 100%; height: 100%; }
+    .lg-logo img { width: 100%; height: 100%; object-fit: contain; }
+    .lg-brand h1 { font-size: 20px; margin: 0; letter-spacing: .5px; }
+    .lg-brand .lg-en { font-size: 11px; opacity: .8; margin-top: 2px; letter-spacing: 1.2px; }
+    .lg-title { margin: 34px 0 8px; font-size: 26px; line-height: 1.35; font-weight: 800; }
+    .lg-title small { display: block; font-size: 13px; font-weight: 500; opacity: .85; margin-top: 10px; line-height: 1.7; }
+    .lg-points { margin-top: auto; padding-top: 24px; display: grid; gap: 10px; font-size: 13px; opacity: .95; }
+    .lg-points span { display: flex; align-items: center; gap: 8px; }
+    .lg-points svg { width: 15px; height: 15px; flex: none; }
+
+    /* 右侧登录表单 */
+    .login-form-side { padding: 40px 38px; display: flex; flex-direction: column; }
+    .login-form-side h2 { margin: 0 0 6px; font-size: 22px; color: #111827; }
+    .login-form-side .lg-sub { font-size: 13px; color: #6b7280; margin-bottom: 24px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; color: #374151; }
+    .inp {
+      width: 100%; padding: 11px 13px; font-size: 14px;
+      border: 1px solid #d1d5db; border-radius: 10px; outline: none;
+      transition: border-color .15s, box-shadow .15s; background: #fff; color: #111827;
+    }
+    .inp:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,109,245,.14); }
+    .pw-wrap { position: relative; }
+    .pw-wrap .inp { padding-right: 42px; }
+    .pw-eye {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 30px; height: 30px; border: 0; background: transparent; cursor: pointer;
+      color: #9ca3af; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    }
+    .pw-eye:hover { color: var(--brand); background: #f3f4f6; }
+    .pw-eye svg { width: 17px; height: 17px; }
+    .opt-row { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 18px; font-size: 13px; }
+    .opt-row label { display: inline-flex; align-items: center; gap: 6px; color: #4b5563; cursor: pointer; }
+    .opt-row input[type="checkbox"] { accent-color: var(--brand); width: 14px; height: 14px; }
+    .btn-login {
+      width: 100%; padding: 11px; font-size: 15px; font-weight: 600; color: #fff;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      border: 0; border-radius: 10px; cursor: pointer; letter-spacing: 2px;
+      box-shadow: 0 8px 20px rgba(79,109,245,.35); transition: transform .12s, box-shadow .12s, opacity .12s;
+    }
+    .btn-login:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(79,109,245,.45); }
+    .btn-login:disabled { opacity: .6; transform: none; cursor: not-allowed; }
+    .err-box {
+      display: none; margin-top: 14px; padding: 9px 12px; font-size: 13px;
+      background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 8px;
+    }
+    .lg-foot { margin-top: 20px; text-align: center; font-size: 12px; color: #9ca3af; }
+    .lg-foot a { color: var(--brand); text-decoration: none; }
+    .lg-foot a:hover { text-decoration: underline; }
+    .hint { margin-top: 16px; font-size: 12px; color: #9ca3af; line-height: 1.7; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <div class="login-card">
+    <!-- 左侧品牌 -->
+    <aside class="login-intro">
+      <div class="lg-brand">
+        <span class="lg-logo">
+          <svg data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg>
+        </span>
+        <div>
+          <h1 data-site-name>智能分班系统</h1>
+          <div class="lg-en">SMART CLASS ALLOCATION</div>
+        </div>
+      </div>
+      <div class="lg-title" data-site-slogan>
+        均衡 · 公平 · 高效
+        <small>基于成绩、性别与特长综合权衡的智能均衡分班，搭配卡牌式分班直播大屏，让每个班级都同样优秀。</small>
+      </div>
+      <div class="lg-points">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>综合均衡 · S 型 · 随机三种策略</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>分班过程大屏实时直播</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>学生 / 班级 / 数据一键备份管理</span>
+      </div>
+    </aside>
+
+    <!-- 右侧表单 -->
+    <section class="login-form-side">
+      <h2>欢迎回来</h2>
+      <p class="lg-sub">请使用系统账号登录后台工作台</p>
+
+      <div class="field">
+        <label for="loginUser">账号</label>
+        <input type="text" id="loginUser" class="inp" autocomplete="username" placeholder="请输入账号" maxlength="20" />
+      </div>
+
+      <div class="field">
+        <label for="loginPwd">密码</label>
+        <div class="pw-wrap">
+          <input type="password" id="loginPwd" class="inp" autocomplete="current-password" placeholder="请输入密码" maxlength="64" />
+          <button type="button" class="pw-eye" id="btnEye" title="显示 / 隐藏密码" aria-label="显示密码">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="opt-row">
+        <label><input type="checkbox" id="loginRemember" /> 记住我（7 天内免登录）</label>
+      </div>
+
+      <button type="button" class="btn-login" id="btnLogin">登　录</button>
+      <div class="err-box" id="errBox"></div>
+
+      <p class="hint">首次使用默认管理员账号 <b>admin / admin123</b>，登录后请及时在「系统设置 → 账号与安全」中修改密码。</p>
+      <div class="lg-foot">需要展示分班结果？<a href="/result.html" target="_blank" rel="noopener">直接打开分班大屏</a></div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // 注入学校品牌（校名 / 校徽）
+      fetch('/api/settings').then(function (r) { return r.json(); }).then(function (j) {
+        var s = (j && j.data) || {};
+        var name = String(s.schoolName || '').trim();
+        if (name && name !== '智能分班系统') {
+          var els = document.querySelectorAll('[data-site-name]');
+          for (var i = 0; i < els.length; i++) els[i].textContent = name;
+          document.title = '登录 · ' + name;
+        }
+        if (s.logoDataUrl) {
+          var host = document.querySelector('.lg-logo');
+          var svg = host.querySelector('svg[data-site-logo]');
+          var img = document.createElement('img');
+          img.src = s.logoDataUrl;
+          img.alt = '校徽';
+          host.insertBefore(img, svg);
+          svg.style.display = 'none';
+        }
+      }).catch(function () {});
+
+      var user = document.getElementById('loginUser');
+      var pwd = document.getElementById('loginPwd');
+      var errBox = document.getElementById('errBox');
+      var btn = document.getElementById('btnLogin');
+
+      // 明文切换
+      var eye = document.getElementById('btnEye');
+      eye.addEventListener('click', function () {
+        var show = pwd.type === 'password';
+        pwd.type = show ? 'text' : 'password';
+        eye.querySelector('svg').setAttribute('viewBox', show ? '0 0 24 24' : '0 0 24 24');
+      });
+
+      function showErr(msg) {
+        errBox.textContent = msg || '登录失败，请重试';
+        errBox.style.display = 'block';
+      }
+      function hideErr() { errBox.style.display = 'none'; }
+
+      // 仅允许站内相对路径，防开放跳转
+      function safeNext() {
+        var m = location.search.match(/[?&]next=([^&]+)/);
+        if (!m) return '/index.html';
+        var n = decodeURIComponent(m[1]);
+        if (n.charAt(0) === '/' && n.charAt(1) !== '/') return n;
+        return '/index.html';
+      }
+
+      btn.addEventListener('click', doLogin);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
+
+      function doLogin() {
+        hideErr();
+        var username = user.value.trim();
+        if (!username) { showErr('请输入账号'); user.focus(); return; }
+        if (!pwd.value) { showErr('请输入密码'); pwd.focus(); return; }
+        btn.disabled = true;
+        btn.textContent = '登录中…';
+        fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username, password: pwd.value, remember: document.getElementById('loginRemember').checked })
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (res.ok && res.j.code === 0) {
+              location.href = safeNext();
+              return;
+            }
+            showErr((res.j && res.j.msg) || '账号或密码不正确');
+          })
+          .catch(function () { showErr('网络异常，请稍后重试'); })
+          .then(function () {
+            btn.disabled = false;
+            btn.textContent = '登　录';
+          });
+      }
+
+      setTimeout(function () { user.focus(); }, 60);
+    })();
+  </script>
+</body>
+</html>
