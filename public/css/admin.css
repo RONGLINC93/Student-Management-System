@@ -256,3 +256,100 @@ body.admin-body {
 }
 .work-frame.active { display: block; }
 
+/* ---------- 选项卡上的“并列显示”按钮 ---------- */
+.worktab .wt-split {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 0;
+  opacity: .75;
+}
+.worktab .wt-split svg { width: 12px; height: 12px; }
+.worktab:hover .wt-split { opacity: 1; }
+.worktab .wt-split:hover { background: #e8edfb; color: var(--brand); }
+.worktab .wt-split:disabled { opacity: .35; cursor: not-allowed; }
+.worktab .wt-split:disabled:hover { background: transparent; color: var(--text-3); }
+
+/* 处于右侧并列窗格的选项卡：弱化高亮提示“正在与主窗格并列” */
+.worktab.in-side { background: #f3f5fb; }
+.worktab.in-side:not(.active) {
+  color: var(--brand);
+  box-shadow: inset 0 2px 0 rgba(79, 109, 245, .35);
+}
+
+/* ---------- 并列显示（分屏自适应） ----------
+   主/副两个 iframe 都叠放在 .workbench 内，靠 .active 决定可见性；
+   根据视口宽度自动选择版式：
+     宽屏（>=1100px） 左右分屏：主左副右，中间竖直分隔条；
+     中屏（760-1099px）上下分屏：主上副下，中间水平分隔条；
+     窄屏（<760px）  退化为单窗格：仅显示主窗格（并列状态保留，
+                     窗口拉宽后自动恢复并列显示）。
+
+   重要：.work-frame 是 <iframe>（替换元素）。替换元素在 width/height 为
+   auto 时会按固有尺寸（iframe 默认 300px）渲染，而不是自动拉伸。因此
+   分屏时必须显式给出窗格宽度/高度（width / height），否则窗格会缩成
+   300px 并在右侧/下方留白。 */
+.workbench.split .work-frame.active.split-main {
+  left: 0; top: 0; bottom: 0;
+  width: calc(50% - 3px); height: 100%;
+}
+.workbench.split .work-frame.active.split-ref {
+  left: calc(50% + 3px); top: 0; bottom: 0;
+  width: calc(50% - 3px); height: 100%;
+}
+.workbench.split::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 6px;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(#e6eaf4, #cbd3e8);
+  border-left: 1px solid #fff;
+  border-right: 1px solid #fff;
+}
+
+/* 中屏：左右分屏自动转为上下分屏 */
+@media (max-width: 1099px) {
+  .workbench.split .work-frame.active.split-main {
+    top: 0; left: 0; right: 0;
+    width: 100%; height: calc(50% - 3px);
+  }
+  .workbench.split .work-frame.active.split-ref {
+    top: calc(50% + 3px); left: 0; right: 0;
+    width: 100%; height: calc(50% - 3px);
+  }
+  .workbench.split::after {
+    top: 50%; bottom: auto;
+    left: 0; right: 0;
+    width: auto; height: 6px;
+    transform: translateY(-50%);
+    background: linear-gradient(90deg, #e6eaf4, #cbd3e8);
+    border: 0;
+    border-top: 1px solid #fff;
+    border-bottom: 1px solid #fff;
+  }
+}
+
+/* 窄屏：退化为单窗格，仅显示主窗格 */
+@media (max-width: 759px) {
+  .workbench.split .work-frame.active.split-main {
+    top: 0; bottom: 0; left: 0; right: 0;
+    width: 100%; height: 100%;
+  }
+  .workbench.split .work-frame.split-ref { display: none; }
+  .workbench.split::after { display: none; }
+}
+

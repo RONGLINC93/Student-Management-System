@@ -2,7 +2,9 @@
    学生管理系统 · 后台工作台主逻辑
    左侧菜单 -> 打开功能页选项卡；iframe 独立加载各功能页；
    选项卡切换/关闭（切回时静默刷新保证数据最新）；
-   选项卡支持鼠标拖拽排序，顺序记入 localStorage，刷新后保持。
+   选项卡支持鼠标拖拽排序，顺序记入 localStorage，刷新后保持；
+   选项卡上的“并列”按钮可将两个选项卡分屏同时显示（再次点击退出）；
+   版式随视口自适应：宽屏左右分屏、中屏上下分屏、窄屏退化为单窗格。
    ============================================================ */
 (function () {
   'use strict';
@@ -20,6 +22,7 @@
     chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>',
     allocate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>',
     settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+    split: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
   };
 
@@ -37,13 +40,15 @@
   };
 
   var tabs = [];          // 已打开的选项卡
-  var activeKey = null;
+  var activeKey = null;   // 主窗格（左侧/焦点）选项卡
+  var refKey = null;      // 右侧并列窗格选项卡；null = 单窗格（未并列）
 
   var tabScroll = $('#tabScroll');
   var workbench = $('#workbench');
   var currentTitle = $('#currentTitle');
   var btnRefresh = $('#btnRefresh');
   var btnNewWin = $('#btnNewWin');
+  var btnExitSplit = $('#btnExitSplit');
 
   // 拖拽状态 + 顺序记忆
   var ORDER_KEY = 'icst_tab_order'; // localStorage 中保存的选项卡顺序
@@ -91,30 +96,42 @@
     return null;
   }
 
-  function closeTab(key) {
-    var t = getTab(key);
-    if (!t || t.pinned) return;
-    var idx = tabs.indexOf(t);
-    tabs.splice(idx, 1);
-    if (t.tabEl && t.tabEl.parentNode) t.tabEl.parentNode.removeChild(t.tabEl);
-    if (t.frame && t.frame.parentNode) t.frame.parentNode.removeChild(t.frame);
-    if (activeKey === key) {
-      var next = tabs[idx] || tabs[idx - 1] || tabs[0];
-      if (next) activate(next.key);
-      else openTab('dashboard');
+  /* ---------- 并列显示（左右分屏） ----------
+     所有已打开的 iframe 都叠放在 .workbench 内，靠 .active 决定可见性：
+       - 单窗格：仅主窗格选项卡可见，铺满内容区；
+       - 并列：主窗格（左侧/焦点）与右侧并列窗格各占一半，两个选项卡同时显示；
+       通过 .split-main / .split-ref 分别定位左右窗格。 */
+  function layoutPanes() {
+    var main = activeKey ? getTab(activeKey) : null;
+    var side = refKey ? getTab(refKey) : null;
+    var splitOn = !!refKey && !!main && !!side;
+    for (var i = 0; i < tabs.length; i++) {
+      var x = tabs[i];
+      if (x.tabEl) {
+        x.tabEl.classList.toggle('in-side', x === side);
+        var sb = x.tabEl.querySelector('.wt-split');
+        if (sb) sb.disabled = tabs.length < 2;
+      }
+      if (x.frame) {
+        x.frame.classList.remove('split-main', 'split-ref');
+        x.frame.classList.toggle('active', x === main || x === side);
+      }
     }
+    if (splitOn) {
+      main.frame.classList.add('split-main');
+      side.frame.classList.add('split-ref');
+    }
+    workbench.classList.toggle('split', splitOn);
+    if (btnExitSplit) btnExitSplit.hidden = !splitOn;
   }
 
-  function activate(key) {
+  // 令某选项卡成为主窗格（焦点）；负责高亮/标题/菜单/数据刷新等副作用
+  function focusTab(key) {
     var t = getTab(key);
     if (!t) return;
     var prev = activeKey ? getTab(activeKey) : null;
-    if (prev && prev !== t) {
-      prev.tabEl.classList.remove('active');
-      prev.frame.classList.remove('active');
-    }
+    if (prev && prev !== t && prev.tabEl) prev.tabEl.classList.remove('active');
     t.tabEl.classList.add('active');
-    t.frame.classList.add('active');
     activeKey = key;
 
     var m = MODULES[key];
@@ -126,6 +143,80 @@
     // 已有内容的选项卡在切回时静默刷新数据
     if (t.loaded) sendTo(t, 'icst-active');
     else t.pendingActive = true;
+    layoutPanes();
+  }
+
+  // 切换主窗格选项卡。并列模式下主/副两窗格始终保持同时显示：
+  //   点击右侧窗格的选项卡 → 主副互换；点击其它选项卡 → 原主窗格退为右侧对照
+  function activate(key) {
+    var t = getTab(key);
+    if (!t) return;
+    if (activeKey === key) {
+      if (t.loaded) sendTo(t, 'icst-active');
+      layoutPanes();
+      return;
+    }
+    if (refKey === key) {
+      // 点击右侧并列窗格的选项卡：主副互换，两页仍并列
+      refKey = activeKey;
+      focusTab(key);
+    } else {
+      // 普通切换：目标进入主窗格；若正并列，则原主窗格退为右侧对照
+      if (refKey) refKey = activeKey;
+      focusTab(key);
+    }
+  }
+
+  // 选项卡“并列”按钮：让本选项卡与当前页左右同屏；再次点击则取消并列
+  function toggleSplit(key) {
+    var t = getTab(key);
+    if (!t) return;
+    if (refKey === key || activeKey === key) {
+      // 点击已在并列中的选项卡按钮 = 取消并列，还原单窗格
+      exitSplit();
+    } else if (!refKey) {
+      // 单窗格：把点击的选项卡放到右侧，与当前主窗格并列
+      refKey = key;
+      layoutPanes();
+    } else {
+      // 并列中点击第三个选项卡的按钮：替换右侧并列窗格
+      refKey = key;
+      layoutPanes();
+    }
+  }
+
+  // 取消并列显示，还原为仅显示主窗格
+  function exitSplit() {
+    refKey = null;
+    layoutPanes();
+  }
+
+  function closeTab(key) {
+    var t = getTab(key);
+    if (!t || t.pinned) return;
+    var wasFocus = activeKey === key;
+    var wasRef = refKey === key;
+    var idx = tabs.indexOf(t);
+    tabs.splice(idx, 1);
+    if (t.tabEl && t.tabEl.parentNode) t.tabEl.parentNode.removeChild(t.tabEl);
+    if (t.frame && t.frame.parentNode) t.frame.parentNode.removeChild(t.frame);
+    if (wasFocus) {
+      if (refKey) {
+        // 关闭的是主窗格：右侧窗格顶上并退出并列
+        var promote = refKey;
+        refKey = null;
+        focusTab(promote);
+        return;
+      }
+      var next = tabs[idx] || tabs[idx - 1] || tabs[0];
+      if (next) focusTab(next.key);
+      else openTab('dashboard');
+    } else if (wasRef) {
+      // 关闭的是右侧并列窗格：退出并列，主窗格保留
+      exitSplit();
+    } else {
+      layoutPanes();
+    }
   }
 
   function buildTab(m, t) {
@@ -134,22 +225,31 @@
     el.dataset.key = m.key;
     el.title = m.title;
 
+    var splitHtml = '<button class="wt-split" title="并列显示：与当前页面左右同屏">' + IC.split + '</button>';
     var closeHtml = m.pinned ? '' :
       '<button class="wt-close" title="关闭选项卡">' + IC.close + '</button>';
     el.innerHTML = '<span class="wt-icon">' + m.icon + '</span>' +
-      '<span class="wt-label"></span>' + closeHtml;
+      '<span class="wt-label"></span>' + splitHtml + closeHtml;
     el.querySelector('.wt-label').textContent = m.title;
     t.tabEl = el;
+
+    // 并列按钮：本选项卡与当前页左右同屏；再次点击取消并列
+    el.querySelector('.wt-split').addEventListener('click', function (e) {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleSplit(m.key);
+    });
 
     if (!m.pinned) {
       el.querySelector('.wt-close').addEventListener('click', function (e) {
         e.stopPropagation();
         closeTab(m.key);
       });
-      // 按住选项卡左键横向拖动 = 拖拽排序（关闭按钮上不触发）
+      // 按住选项卡左键横向拖动 = 拖拽排序（关闭/并列按钮上不触发）
       el.addEventListener('pointerdown', function (e) {
         if (e.button !== 0) return;
-        if (e.target && e.target.closest && e.target.closest('.wt-close')) return;
+        if (e.target && e.target.closest &&
+            (e.target.closest('.wt-close') || e.target.closest('.wt-split'))) return;
         var r = el.getBoundingClientRect();
         dragState = {
           el: el,
@@ -302,6 +402,9 @@
     if (t && t.loaded) sendTo(t, 'icst-refresh');
     else if (t) t.pendingActive = true;
   });
+
+  // 顶栏：退出并列显示（还原单窗格）
+  if (btnExitSplit) btnExitSplit.addEventListener('click', exitSplit);
 
   // 站点配置加载完成（如学校名称变更）后刷新顶部标题
   window.addEventListener('cb-site-ready', setTopTitle);
