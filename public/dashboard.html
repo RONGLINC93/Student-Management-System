@@ -46,6 +46,31 @@
       <a class="btn btn-secondary btn-sm" href="/result.html" target="_blank">前往大屏观看</a>
     </section>
 
+    <!-- 快捷入口 -->
+    <section class="dash-grid dash-grid-quick">
+      <div class="dash-panel">
+        <div class="dash-panel-title">快捷入口</div>
+        <div class="dash-quick">
+          <a class="dq-item" href="/index.html?mod=students">
+            <span class="dq-main"><b>学生列表</b><small>学生增删改查 · 批量导入 · 直接编辑班级名单</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/classes.html">
+            <span class="dq-main"><b>班级管理</b><small>容量设置 · 班级花名册 · 导出 / 整班退回</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/allocate.html">
+            <span class="dq-main"><b>智能分班</b><small>随机排位 · S 型 / 综合均衡 · 大屏直播效果</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/index.html">
+            <span class="dq-main"><b>后台工作台</b><small>选项卡式管理全部功能模块</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+        </div>
+      </div>
+    </section>
+
     <!-- 概览数字卡片 -->
     <section class="dash-cards" id="dashCards"></section>
 
@@ -121,38 +146,17 @@
     </section>
 
     <!-- 班级容量一览 -->
-    <section class="dash-panel">
+    <section class="dash-panel dash-block">
       <div class="dash-panel-title">各班人数与容量</div>
       <div id="capList" class="cap-list"></div>
     </section>
 
-    <!-- 第三行：特长分布 / 快捷入口 -->
+    <!-- 特长分布 -->
     <section class="dash-grid">
       <div class="dash-panel">
         <div class="dash-panel-title">特长分布</div>
         <div id="specList" class="spec-list"></div>
         <p class="dash-empty hidden" id="specEmpty">暂无特长记录</p>
-      </div>
-      <div class="dash-panel">
-        <div class="dash-panel-title">快捷入口</div>
-        <div class="dash-quick">
-          <a class="dq-item" href="/students.html">
-            <span class="dq-main"><b>学生列表</b><small>学生增删改查 · 批量导入 · 直接编辑班级名单</small></span>
-            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
-          </a>
-          <a class="dq-item" href="/classes.html">
-            <span class="dq-main"><b>班级管理</b><small>容量设置 · 班级花名册 · 导出 / 整班退回</small></span>
-            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
-          </a>
-          <a class="dq-item" href="/allocate.html">
-            <span class="dq-main"><b>智能分班</b><small>随机排位 · S 型 / 综合均衡 · 大屏直播效果</small></span>
-            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
-          </a>
-          <a class="dq-item" href="/index.html">
-            <span class="dq-main"><b>后台工作台</b><small>选项卡式管理全部功能模块</small></span>
-            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
-          </a>
-        </div>
       </div>
     </section>
   </main>

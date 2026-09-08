@@ -2053,10 +2053,10 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
   animation: livePulse 1.4s ease-in-out infinite;
 }
 
-/* 概览卡片 */
+/* 概览卡片：固定 4 列，与上方“快捷入口”对齐，8 张卡片排成 4×2 */
 .dash-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -2101,6 +2101,8 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
   box-shadow: var(--shadow);
   min-width: 0;
 }
+/* 独立整行面板（如“各班人数与容量”）与相邻区块保持 18px 间距 */
+.dash-panel.dash-block { margin-bottom: 18px; }
 .dash-panel-title {
   display: flex;
   align-items: center;
@@ -2304,8 +2306,13 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
 .dq-item:hover .dq-arrow { color: var(--primary); transform: translateX(3px); }
 .dq-arrow { transition: transform .2s, color .2s; }
 
+@media (max-width: 900px) {
+  .dash-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 520px) {
   .dash-grid { grid-template-columns: 1fr; }
+  .dash-cards { grid-template-columns: 1fr; }
   .cap-row { flex-direction: column; align-items: stretch; gap: 6px; }
   .cap-name { justify-content: space-between; }
   .cap-num { text-align: left; }
