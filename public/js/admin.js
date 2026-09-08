@@ -1,5 +1,5 @@
 /* ============================================================
-   智能分班系统 · 后台工作台主逻辑
+   学生管理系统 · 后台工作台主逻辑
    左侧菜单 -> 打开功能页选项卡；iframe 独立加载各功能页；
    选项卡切换/关闭（切回时静默刷新保证数据最新）；
    选项卡支持鼠标拖拽排序，顺序记入 localStorage，刷新后保持。
@@ -11,6 +11,10 @@
 
   var IC = {
     user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    teacher: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    exam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h6"/><path d="M9 11h6"/></svg>',
+    conduct: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    dorm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M7 21v-5h10v5"/><path d="M10 6h4M10 9h4M10 12h4"/></svg>',
     classes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>',
     grades: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
     chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>',
@@ -21,9 +25,13 @@
 
   var MODULES = {
     dashboard: { key: 'dashboard', title: '数据总览', icon: IC.chart, src: '/dashboard.html', pinned: true },
-    students: { key: 'students', title: '学生列表', icon: IC.user, src: '/students.html', pinned: false },
+    students: { key: 'students', title: '学生档案', icon: IC.user, src: '/students.html', pinned: false },
     classes:  { key: 'classes',  title: '班级管理', icon: IC.classes, src: '/classes.html', pinned: false },
     grades:   { key: 'grades',   title: '年级管理', icon: IC.grades, src: '/grades.html', pinned: false },
+    teachers: { key: 'teachers', title: '教师管理', icon: IC.teacher, src: '/teachers.html', pinned: false },
+    exams:    { key: 'exams',    title: '成绩管理', icon: IC.exam, src: '/exams.html', pinned: false },
+    conduct:  { key: 'conduct',  title: '考勤操行', icon: IC.conduct, src: '/conduct.html', pinned: false },
+    dorm:     { key: 'dorm',     title: '宿舍管理', icon: IC.dorm, src: '/dorm.html', pinned: false },
     allocate: { key: 'allocate', title: '智能分班', icon: IC.allocate, src: '/allocate.html', pinned: false },
     settings: { key: 'settings', title: '系统设置', icon: IC.settings, src: '/settings.html', pinned: false }
   };
@@ -217,10 +225,10 @@
     }
   }
 
-  // 标题中的系统名：使用设置中的学校名称（默认仍为“智能分班系统”）
+  // 标题中的系统名：使用设置中的学校名称（默认仍为“学生管理系统”）
   function siteBase() {
     var n = window.SITE && window.SITE.schoolName ? String(window.SITE.schoolName).trim() : '';
-    return (n && n !== '智能分班系统') ? n : '智能分班系统';
+    return (n && n !== '学生管理系统') ? n : '学生管理系统';
   }
 
   function setTopTitle() {
@@ -248,11 +256,15 @@
     }
     switch (path) {
       case '/dashboard.html':
-      case '/': return 'dashboard';
-      case '/index.html':
+      case '/':
+      case '/index.html': return 'dashboard';
       case '/students.html': return 'students';
       case '/classes.html': return 'classes';
       case '/grades.html': return 'grades';
+      case '/teachers.html': return 'teachers';
+      case '/exams.html': return 'exams';
+      case '/conduct.html': return 'conduct';
+      case '/dorm.html': return 'dorm';
       case '/allocate.html': return 'allocate';
       case '/settings.html': return 'settings';
       default: return null;
@@ -374,7 +386,7 @@
   document.addEventListener('pointercancel', endDrag);
 
   // 启动：默认打开「数据总览」常驻选项卡；
-  // 学生列表等其它模块不再常驻，需要时从左侧菜单打开。
+  // 学生档案等其它模块不再常驻，需要时从左侧菜单打开。
   // 支持 /index.html?mod=students 这类地址，直接定位到指定功能选项卡。
   function urlMod() {
     var m = location.search.match(/[?&]mod=([^&]+)/);

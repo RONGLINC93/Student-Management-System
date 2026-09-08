@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>学生管理系统 - 宿舍管理</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .room-grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(250px,1fr)); gap:14px; margin-top:6px; }
+    .room-card { border:1px solid var(--border,#e5e7eb); border-radius:14px; padding:12px; background:#fff; }
+    .room-card.h { border-left:4px solid #6366f1; }
+    .room-card .r-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .room-card .r-name { font-weight:700; font-size:15px; }
+    .room-card .r-no { color:#64748b; font-size:12px; }
+    .gender-any { background:#e2e8f0; color:#334155; } .gender-male { background:#dbeafe; color:#1d4ed8; } .gender-female { background:#fce7f3; color:#be185d; }
+    .cap-line { font-size:12px; color:#64748b; margin-bottom:8px; display:flex; justify-content:space-between; }
+    .bed-bar { height:6px; background:#eef2f7; border-radius:6px; overflow:hidden; margin:4px 0 10px; }
+    .bed-bar i { display:block; height:100%; background:linear-gradient(90deg,#6366f1,#22d3ee); border-radius:6px; }
+    .mem-list { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; max-height:150px; overflow-y:auto; }
+    .mem-chip { display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #eef2f7; border-radius:8px; padding:3px 8px; font-size:12px; }
+    .mem-chip button { border:none; background:none; color:#ef4444; cursor:pointer; padding:0 2px; }
+    .r-actions { display:flex; gap:6px; margin-top:6px; }
+    .r-actions .btn-sm { flex:1; }
+    .room-empty { text-align:center; color:#9ca3af; font-size:12px; padding:10px 0; }
+    .assign-list { max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; border:1px solid #eef2f7; border-radius:8px; padding:8px; }
+    .assign-item { display:flex; gap:8px; align-items:center; font-size:13px; padding:4px 6px; border-radius:8px; }
+    .assign-item:hover { background:#f1f5f9; }
+    #modalMask .modal { max-width:620px; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M7 21v-5h10v5"/><path d="M10 6h4M10 9h4M10 12h4"/></svg>
+        <div>
+          <h1 data-site-name>学生管理系统</h1>
+          <p class="subtitle">宿舍楼栋 · 房间分配与入住管理</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/" class="nav-item">数据总览</a>
+        <a href="/students.html" class="nav-item">学生档案</a>
+        <a href="/classes.html" class="nav-item">班级管理</a>
+        <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/teachers.html" class="nav-item">教师管理</a>
+        <a href="/exams.html" class="nav-item">成绩管理</a>
+        <a href="/conduct.html" class="nav-item">考勤操行</a>
+        <a href="/dorm.html" class="nav-item active">宿舍管理</a>
+        <a href="/allocate.html" class="nav-item">智能分班</a>
+        <a href="/settings.html" class="nav-item">系统设置</a>
+        <a class="site-web" data-site-web hidden target="_blank" rel="noopener" title="打开学校官网">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span>官网</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="stats">
+      <div class="stat-card"><div class="stat-num" id="sRooms">0</div><div class="stat-label">房间数</div></div>
+      <div class="stat-card"><div class="stat-num" id="sBeds">0</div><div class="stat-label">总床位</div></div>
+      <div class="stat-card"><div class="stat-num" id="sIn">0</div><div class="stat-label">已入住</div></div>
+      <div class="stat-card"><div class="stat-num" id="sRate">0%</div><div class="stat-label">入住率</div></div>
+    </section>
+
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <select id="buildFilter" class="grade-filter"><option value="">全部楼栋</option></select>
+        <input type="text" id="roomSearch" class="search-input" placeholder="搜索房间号" style="width:160px" />
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-primary" id="btnAddRoom"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加房间</button>
+      </div>
+    </section>
+
+    <div id="roomGroups"></div>
+  </main>
+
+  <!-- 房间编辑弹窗 -->
+  <div class="modal-mask" id="modalMask">
+    <div class="modal">
+      <div class="modal-header"><h3 id="roomModalTitle">添加房间</h3>
+        <button class="modal-close" id="modalClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="modal-body" id="roomForm">
+        <input type="hidden" id="rId" />
+        <div class="form-grid">
+          <div class="form-row"><label class="form-label">楼栋名称</label><input type="text" id="rBuilding" list="buildList" placeholder="如：1号楼" /></div>
+          <div class="form-row"><label class="form-label">房号 <span class="req">*</span></label><input type="text" id="rRoomNo" placeholder="如：101" /></div>
+          <div class="form-row"><label class="form-label">床位容量</label><input type="number" id="rCapacity" min="1" max="100" value="4" /></div>
+          <div class="form-row"><label class="form-label">宿舍类型</label>
+            <select id="rGender"><option value="any">不限（混合楼）</option><option value="male">男生宿舍</option><option value="female">女生宿舍</option></select>
+          </div>
+        </div>
+        <datalist id="buildList"></datalist>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="modalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 安排入住弹窗 -->
+  <div class="modal-mask" id="assignMask">
+    <div class="modal">
+      <div class="modal-header"><h3 id="assignTitle">安排入住</h3>
+        <button class="modal-close" id="assignClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <p class="set-tip" id="assignHint" style="margin-bottom:8px"></p>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input type="text" id="assignSearch" class="search-input" style="flex:1" placeholder="搜索姓名 / 学号" />
+          <select id="assignGrade" class="grade-filter"><option value="">全部年级</option></select>
+        </div>
+        <div class="assign-list" id="assignList"></div>
+        <div class="modal-footer">
+          <span class="dim" id="assignCount" style="margin-right:auto;font-size:12px"></span>
+          <button type="button" class="btn btn-default" id="assignCancel">取消</button>
+          <button type="button" class="btn btn-primary" id="btnDoAssign">确认入住</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/dialog.js"></script>
+  <script src="/js/site.js"></script>
+  <script src="/js/embed.js"></script>
+  <script src="/js/dorm.js"></script>
+</body>
+</html>

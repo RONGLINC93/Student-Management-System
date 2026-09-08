@@ -15,8 +15,10 @@ function escapeHtml(s) {
 }
 
 // 拖拽排序：无手柄图标，整行即可拖拽调整顺序
+// 学生当前总分：按生效科目配置求和（site.js 注入 window.subjTotal）
 function totalScore(s) {
-  return Number(s.chinese) + Number(s.math) + Number(s.english) + Number(s.science);
+  const r = window.subjTotal(s);
+  return r.total;
 }
 
 function photoHtml(s) {
@@ -300,16 +302,17 @@ function exportRoster() {
     return;
   }
 
-  // CSV 表头
-  const headers = ['学号', '姓名', '性别', '语文', '数学', '英语', '理综', '总分', '特长'];
+  // CSV 表头（科目列动态）
+  const subs = window.SUBJECTS || [];
+  const headers = ['学号', '姓名', '性别', ...subs.map(sj => sj.name), '总分', '特长'];
   const rows = cls.students.map(s => [
     s.studentId || '',
     s.name || '',
     s.gender || '',
-    s.chinese || 0,
-    s.math || 0,
-    s.english || 0,
-    s.science || 0,
+    ...subs.map(sj => {
+      const v = window.stuScore(s, sj.key);
+      return v === null ? '' : v;
+    }),
     totalScore(s),
     s.specialty || ''
   ]);

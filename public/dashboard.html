@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>智能分班系统 · 数据总览主页</title>
+  <title>学生管理系统 · 数据总览主页</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
@@ -12,17 +12,21 @@
       <div class="logo">
         <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
         <div>
-          <h1 data-site-name>智能分班系统</h1>
-          <p class="subtitle">数据总览 · 一屏掌握全校分班概况</p>
+          <h1 data-site-name>学生管理系统</h1>
+          <p class="subtitle">数据总览 · 一屏掌握全校概况与分班进度</p>
         </div>
       </div>
       <nav class="nav">
         <a href="/" class="nav-item active">数据总览</a>
-        <a href="/index.html?mod=students" class="nav-item">学生列表</a>
+        <a href="/students.html" class="nav-item">学生档案</a>
         <a href="/classes.html" class="nav-item">班级管理</a>
         <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/teachers.html" class="nav-item">教师管理</a>
+        <a href="/exams.html" class="nav-item">成绩管理</a>
+        <a href="/conduct.html" class="nav-item">考勤操行</a>
+        <a href="/dorm.html" class="nav-item">宿舍管理</a>
         <a href="/allocate.html" class="nav-item">智能分班</a>
-        <a href="/index.html?mod=settings" class="nav-item">系统设置</a>
+        <a href="/settings.html" class="nav-item">系统设置</a>
         <a class="site-web" data-site-web hidden target="_blank" rel="noopener" title="打开学校官网">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           <span>官网</span>
@@ -56,12 +60,28 @@
       <div class="dash-panel">
         <div class="dash-panel-title">快捷入口</div>
         <div class="dash-quick">
-          <a class="dq-item" href="/index.html?mod=students">
-            <span class="dq-main"><b>学生列表</b><small>学生增删改查 · 批量导入 · 直接编辑班级名单</small></span>
+          <a class="dq-item" href="/students.html">
+            <span class="dq-main"><b>学生档案</b><small>学籍增删改查 · 批量导入 · 直接编辑班级名单</small></span>
             <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
           </a>
           <a class="dq-item" href="/classes.html">
             <span class="dq-main"><b>班级管理</b><small>容量设置 · 班级花名册 · 导出 / 整班退回</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/teachers.html">
+            <span class="dq-main"><b>教师管理</b><small>教师档案 · 任教学科 · 班主任与班级联动</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/exams.html">
+            <span class="dq-main"><b>成绩管理</b><small>考试场次 · 成绩录入 · 统计排名 · 个人成绩单</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/conduct.html">
+            <span class="dq-main"><b>考勤操行</b><small>日常考勤登记 · 奖惩记录 · 评语</small></span>
+            <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </a>
+          <a class="dq-item" href="/dorm.html">
+            <span class="dq-main"><b>宿舍管理</b><small>楼栋房间 · 入住安排 · 退宿迁宿</small></span>
             <span class="dq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
           </a>
           <a class="dq-item" href="/allocate.html">
@@ -134,15 +154,8 @@
         <div class="dash-panel-title">各年级学科均分</div>
         <div class="dash-table-wrap">
           <table class="dash-table">
-            <thead>
-              <tr>
-                <th>年级</th>
-                <th class="tc">语文</th>
-                <th class="tc">数学</th>
-                <th class="tc">英语</th>
-                <th class="tc">科学</th>
-                <th class="tc">总分均</th>
-              </tr>
+            <thead id="gradeScoreHead">
+              <tr><th>年级</th></tr>
             </thead>
             <tbody id="gradeScoreBody"></tbody>
           </table>

@@ -3,8 +3,90 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>智能分班系统 - 学生列表</title>
+  <title>学生管理系统 - 学生档案</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    /* 学生档案弹窗宽一些，容纳档案 + 成绩字段 */
+    #stuModal .modal { max-width: 900px; }
+    .arch-group-title {
+      grid-column: 1 / -1; font-size: 13px; color: #6b7280; font-weight: 600;
+      margin: 6px 0 -4px; padding-top: 8px; border-top: 1px dashed var(--border, #e5e7eb);
+    }
+    .arch-group-title:first-of-type { border-top: none; padding-top: 0; }
+    .table-wrap { overflow-x: auto; }
+    .student-table { min-width: 1080px; }
+    /* 宿舍列：绿色入住胶囊 / 虚线空态 */
+    .dorm-cell { white-space: nowrap; }
+    .dorm-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857;
+      font-size: 12px; font-weight: 600; line-height: 1;
+      padding: 5px 10px; border-radius: 999px; cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .dorm-chip:hover { background: #d1fae5; border-color: #6ee7b7; }
+    .dorm-chip.dorm-empty {
+      background: #f8fafc; border: 1px dashed #cbd5e1; color: #94a3b8; font-weight: 500;
+    }
+    .dorm-chip.dorm-empty:hover { border-color: var(--primary); color: var(--primary); background: #eef2ff; }
+    /* 宿舍弹窗 */
+    #dormMask .modal { max-width: 760px; }
+    .dorm-stu { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px;
+      padding: 10px 14px; margin-bottom: 12px; }
+    .dorm-stu-avatar {
+      flex: 0 0 42px; width: 42px; height: 42px; border-radius: 50%; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #93c5fd, #3b82f6); color: #fff;
+      font-size: 18px; font-weight: 700;
+    }
+    .dorm-stu-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .di-main { flex: 1; min-width: 200px; }
+    .di-name { display: flex; align-items: center; gap: 6px; }
+    .di-name strong { font-size: 15px; }
+    .di-sub { color: #64748b; font-size: 12px; margin-top: 3px; }
+    .di-cur { font-size: 12.5px; color: #64748b; }
+    .di-cur b { color: var(--text); }
+    #dormSearch { width: 100%; margin-bottom: 10px; }
+    .dorm-pick-list {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+      gap: 10px; max-height: 360px; overflow: auto; padding: 2px;
+    }
+    .dorm-room {
+      position: relative; border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px 12px; background: #fff; cursor: pointer; user-select: none;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+    .dorm-room:hover { border-color: #a5b4fc; }
+    .dorm-room.selected { border-color: var(--primary); background: #eef2ff; box-shadow: inset 0 0 0 1px var(--primary); }
+    .dorm-room.disabled { opacity: .55; cursor: not-allowed; background: #f8fafc; }
+    .dorm-room .dr-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .dr-name b { font-size: 14px; }
+    .dr-name .dr-no { color: #64748b; font-size: 12px; font-weight: 600; margin-left: 4px; }
+    .dgender { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; line-height: 1.6; }
+    .dgender.g-male { background: #dbeafe; color: #1d4ed8; }
+    .dgender.g-female { background: #fce7f3; color: #be185d; }
+    .dgender.g-any { background: #e2e8f0; color: #334155; }
+    .dr-cap { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #64748b; margin: 8px 0 6px; }
+    .dr-tags { display: inline-flex; gap: 4px; }
+    .dr-tag { font-size: 10.5px; padding: 0 6px; border-radius: 999px; }
+    .dr-tag.dr-cur { background: #dcfce7; color: #166534; }
+    .dr-tag.dr-full { background: #fef2f2; color: #b91c1c; }
+    .dr-bar { height: 5px; border-radius: 5px; background: #eef2f7; overflow: hidden; }
+    .dr-bar i { display: block; height: 100%; background: linear-gradient(90deg, #6366f1, #22d3ee); border-radius: 5px; }
+    .dr-check {
+      position: absolute; top: 8px; right: 8px; width: 18px; height: 18px;
+      border-radius: 50%; background: var(--primary); color: #fff;
+      font-size: 12px; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transform: scale(.6); transition: .15s;
+    }
+    .dorm-room.selected .dr-check { opacity: 1; transform: none; }
+    .dorm-empty-tip { text-align: center; color: #64748b; padding: 46px 10px;
+      display: flex; flex-direction: column; gap: 14px; align-items: center; }
+    .dorm-empty-tip p { margin: 0; }
+    .btn-leave { background: #fff; border: 1px solid #fecaca; color: var(--danger); }
+    .btn-leave:hover:not(:disabled) { background: #fef2f2; border-color: #fca5a5; }
+  </style>
 </head>
 <body>
   <header class="app-header">
@@ -12,17 +94,21 @@
       <div class="logo">
         <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg>
         <div>
-          <h1 data-site-name>智能分班系统</h1>
-          <p class="subtitle">学生信息管理</p>
+          <h1 data-site-name>学生管理系统</h1>
+          <p class="subtitle">学生档案 · 学籍信息管理</p>
         </div>
       </div>
       <nav class="nav">
         <a href="/" class="nav-item">数据总览</a>
-        <a href="/students.html" class="nav-item active">学生列表</a>
+        <a href="/students.html" class="nav-item active">学生档案</a>
         <a href="/classes.html" class="nav-item">班级管理</a>
         <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/teachers.html" class="nav-item">教师管理</a>
+        <a href="/exams.html" class="nav-item">成绩管理</a>
+        <a href="/conduct.html" class="nav-item">考勤操行</a>
+        <a href="/dorm.html" class="nav-item">宿舍管理</a>
         <a href="/allocate.html" class="nav-item">智能分班</a>
-        <a href="/index.html?mod=settings" class="nav-item">系统设置</a>
+        <a href="/settings.html" class="nav-item">系统设置</a>
         <a class="site-web" data-site-web hidden target="_blank" rel="noopener" title="打开学校官网">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           <span>官网</span>
@@ -55,7 +141,7 @@
     <!-- 操作工具栏 -->
     <section class="toolbar">
       <div class="toolbar-left">
-        <input type="text" id="searchInput" class="search-input" placeholder="搜索姓名/特长..." />
+        <input type="text" id="searchInput" class="search-input" placeholder="搜索姓名 / 学号 / 特长..." />
         <select id="gradeFilter" class="grade-filter">
           <option value="">全部年级</option>
         </select>
@@ -74,7 +160,7 @@
           <div class="dropdown-menu" id="moreMenu">
             <button class="dropdown-item" id="btnImport"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 批量导入示例</button>
             <button class="dropdown-item" id="btnDownloadTpl" title="下载 CSV 格式的示例表格，可用 Excel 编辑后导入"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg> 下载示例表格</button>
-            <button class="dropdown-item" id="btnImportFile" title="导入 CSV 表格文件（列：学号、年级、姓名、性别、语文、数学、英语、理综、特长）"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> 导入表格数据</button>
+            <button class="dropdown-item" id="btnImportFile" title="导入 CSV 表格文件（支持导入学籍档案列，详见示例表格）"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> 导入表格数据</button>
             <div class="dropdown-divider"></div>
             <button class="dropdown-item item-danger" id="btnClear"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 清空学生</button>
           </div>
@@ -86,26 +172,9 @@
     <!-- 学生表格 -->
     <section class="table-wrap">
       <table class="student-table">
-        <thead>
-          <tr>
-            <th style="width:60px">照片</th>
-            <th class="sortable" data-sort="studentId">学号</th>
-            <th class="sortable" data-sort="grade">年级</th>
-            <th class="sortable" data-sort="className">班级</th>
-            <th class="sortable" data-sort="name">姓名</th>
-            <th class="sortable" data-sort="gender">性别</th>
-            <th class="sortable" data-sort="chinese">语文</th>
-            <th class="sortable" data-sort="math">数学</th>
-            <th class="sortable" data-sort="english">英语</th>
-            <th class="sortable" data-sort="science">理综</th>
-            <th class="sortable" data-sort="total">总分</th>
-            <th class="sortable" data-sort="specialty">特长</th>
-            <th class="sortable" data-sort="allocated">分班状态</th>
-            <th style="width:140px">操作</th>
-          </tr>
-        </thead>
+        <thead id="stuThead"></thead>
         <tbody id="studentTbody">
-          <tr><td colspan="14" class="empty-tip">加载中...</td></tr>
+          <tr><td colspan="20" class="empty-tip">加载中...</td></tr>
         </tbody>
       </table>
     </section>
@@ -116,7 +185,7 @@
 
   <!-- 学生编辑弹窗 -->
   <div class="modal-mask" id="modalMask">
-    <div class="modal">
+    <div class="modal" id="stuModal">
       <div class="modal-header">
         <h3 id="modalTitle">添加学生</h3>
         <button class="modal-close" id="modalClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -134,8 +203,7 @@
           </div>
           <div class="form-row">
             <label class="form-label">年级</label>
-            <select id="fGrade">
-            </select>
+            <select id="fGrade"></select>
           </div>
           <div class="form-row">
             <label class="form-label">姓名 <span class="req">*</span></label>
@@ -148,22 +216,63 @@
               <option value="女">女</option>
             </select>
           </div>
+
+          <div class="arch-group-title">学籍档案信息</div>
           <div class="form-row">
-            <label class="form-label">语文</label>
-            <input type="number" id="fChinese" min="0" max="150" value="0" />
+            <label class="form-label">学籍号</label>
+            <input type="text" id="fArchNo" placeholder="全国学籍号" />
           </div>
           <div class="form-row">
-            <label class="form-label">数学</label>
-            <input type="number" id="fMath" min="0" max="150" value="0" />
+            <label class="form-label">身份证号</label>
+            <input type="text" id="fIdCard" placeholder="18 位身份证号" />
           </div>
           <div class="form-row">
-            <label class="form-label">英语</label>
-            <input type="number" id="fEnglish" min="0" max="150" value="0" />
+            <label class="form-label">出生日期</label>
+            <input type="date" id="fBirthday" />
           </div>
           <div class="form-row">
-            <label class="form-label">理综</label>
-            <input type="number" id="fScience" min="0" max="300" value="0" />
+            <label class="form-label">民族</label>
+            <input type="text" id="fNation" placeholder="如：汉族" />
           </div>
+          <div class="form-row">
+            <label class="form-label">户籍所在地</label>
+            <input type="text" id="fNativePlace" placeholder="如：XX省XX市" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">入学日期</label>
+            <input type="date" id="fEnrollDate" />
+          </div>
+          <div class="form-row form-row-full">
+            <label class="form-label">家庭住址</label>
+            <input type="text" id="fAddress" placeholder="详细家庭住址" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">监护人</label>
+            <input type="text" id="fGuardian" placeholder="监护人姓名" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">监护人电话</label>
+            <input type="text" id="fGuardianPhone" placeholder="联系电话" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">与监护人关系</label>
+            <select id="fGuardianRel">
+              <option value="">请选择</option>
+              <option value="父亲">父亲</option>
+              <option value="母亲">母亲</option>
+              <option value="祖父/外祖父">祖父/外祖父</option>
+              <option value="祖母/外祖母">祖母/外祖母</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <div class="form-row form-row-full">
+            <label class="form-label">备注</label>
+            <input type="text" id="fRemark" placeholder="备注（如健康情况、注意事项等）" />
+          </div>
+
+          <div class="arch-group-title" id="scoreTitle">当前成绩（用作分班 / 均衡参考，可来自某次考试“同步到档案”）</div>
+          <div id="scoreGrid" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:14px 18px;"></div>
+
           <div class="form-row form-row-full">
             <label class="form-label">特长</label>
             <input type="text" id="fSpecialty" placeholder="如：篮球、钢琴、绘画..." />
@@ -174,6 +283,27 @@
           <button type="submit" class="btn btn-primary">保存</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 宿舍分配 / 更换 / 退宿弹窗 -->
+  <div class="modal-mask" id="dormMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="dormTitle">分配宿舍</h3>
+        <button class="modal-close" id="dormClose" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="dorm-stu" id="dormStuInfo"></div>
+        <input type="text" id="dormSearch" class="search-input" placeholder="搜索楼栋 / 房号，快速定位宿舍" />
+        <div class="dorm-pick-list" id="dormList"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-leave" id="btnDormLeave" hidden>退宿</button>
+          <span class="dim" id="dormTip" style="margin-right:auto;font-size:12px"></span>
+          <button type="button" class="btn btn-default" id="dormCancel">取消</button>
+          <button type="button" class="btn btn-primary" id="btnDormSave">确认入住</button>
+        </div>
+      </div>
     </div>
   </div>
 

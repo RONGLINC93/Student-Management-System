@@ -1,13 +1,13 @@
 {
   "name": "intelligent-class-allocation-system",
   "version": "1.0.0",
-  "description": "智能分班系统 - 卡牌洗牌发牌分班效果",
+  "description": "学生管理系统 - 学籍/班级/成绩/教师/考勤/宿舍与智能分班",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["分班", "智能分班", "卡牌", "洗牌"],
+  "keywords": ["学生管理", "教务", "学籍", "成绩", "智能分班"],
   "author": "",
   "license": "MIT"
 }

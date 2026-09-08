@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>学生管理系统 - 成绩管理</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .exam-wrap { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+    .exam-side { background: #fff; border: 1px solid var(--border, #e5e7eb); border-radius: 14px; padding: 14px; }
+    .exam-side-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; }
+    .exam-list { max-height: 70vh; overflow-y: auto; display:flex; flex-direction:column; gap:6px; }
+    .exam-item { border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px; cursor:pointer; background:#fafafa; }
+    .exam-item.active { border-color:#2563eb; background:#eff6ff; }
+    .exam-item .e-name { font-weight:600; font-size:13px; }
+    .exam-item .e-meta { font-size:12px; color:#6b7280; margin-top:4px; display:flex; gap:8px; flex-wrap:wrap; }
+    .exam-item .e-type { background:#e0e7ff; color:#3730a3; padding:1px 8px; border-radius:12px; }
+    .exam-main { background:#fff; border:1px solid var(--border, #e5e7eb); border-radius:14px; padding:14px; min-height: 60vh; }
+    .e-head { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding-bottom:12px; border-bottom:1px solid #eef2f7; }
+    .e-head input, .e-head select { padding:7px 10px; }
+    .e-name-input { font-size:16px; font-weight:700; border:1px solid transparent; }
+    .e-name-input:hover { border-color:#e5e7eb; }
+    .main-tabs { display:flex; gap:4px; margin:12px 0; border-bottom:2px solid #eef2f7; }
+    .main-tabs .mt { padding:8px 16px; cursor:pointer; font-size:14px; color:#6b7280; border-bottom:2px solid transparent; margin-bottom:-2px; }
+    .main-tabs .mt.active { color:#2563eb; border-color:#2563eb; font-weight:600; }
+    .entry-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+    .entry-table-wrap { max-height: 60vh; overflow:auto; }
+    .entry-table { width:100%; border-collapse: collapse; font-size:13px; }
+    .entry-table th { position: sticky; top:0; background:#f1f5f9; z-index:1; }
+    .entry-table th, .entry-table td { border-bottom:1px solid #eef2f7; padding:4px 6px; text-align:center; }
+    .entry-table td:first-child, .entry-table th:first-child { text-align:left; }
+    .entry-table input { width:56px; padding:4px 2px; text-align:center; border:1px solid #dbeafe; border-radius:6px; }
+    .entry-table .cls-cell { font-size:11px; color:#6b7280; }
+    .st-total { font-weight:600; }
+    .picked .st-name { font-weight:600; }
+    .empty-tip2 { padding: 40px 10px; text-align:center; color:#9ca3af; }
+    .stat-table th { font-size:12px; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <div>
+          <h1 data-site-name>学生管理系统</h1>
+          <p class="subtitle">考试场次 · 成绩录入 · 统计排名 · 个人成绩单</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/" class="nav-item">数据总览</a>
+        <a href="/students.html" class="nav-item">学生档案</a>
+        <a href="/classes.html" class="nav-item">班级管理</a>
+        <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/teachers.html" class="nav-item">教师管理</a>
+        <a href="/exams.html" class="nav-item active">成绩管理</a>
+        <a href="/conduct.html" class="nav-item">考勤操行</a>
+        <a href="/dorm.html" class="nav-item">宿舍管理</a>
+        <a href="/allocate.html" class="nav-item">智能分班</a>
+        <a href="/settings.html" class="nav-item">系统设置</a>
+        <a class="site-web" data-site-web hidden target="_blank" rel="noopener" title="打开学校官网">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span>官网</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="exam-wrap">
+      <!-- 左侧考试列表 -->
+      <aside class="exam-side">
+        <div class="exam-side-title">
+          <span>考试场次</span>
+          <button class="btn btn-primary btn-sm" id="btnNewExam">+ 新建</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <input type="text" id="examSearch" class="search-input" style="flex:1" placeholder="搜索考试名称" />
+        </div>
+        <div id="examList" class="exam-list"><p class="empty-tip2">暂无考试</p></div>
+      </aside>
+
+      <!-- 右侧主面板 -->
+      <section class="exam-main" id="examMain">
+        <div id="emptyHint" class="empty-tip2" style="padding-top:100px">请选择或新建一场考试开始成绩管理</div>
+        <div id="examDetail" hidden>
+          <div class="e-head">
+            <input type="text" id="eName" class="e-name-input" placeholder="考试名称，如：2026学年第一学期期中" style="min-width:220px" />
+            <select id="eType">
+              <option value="期中考试">期中考试</option><option value="期末考试">期末考试</option>
+              <option value="月考">月考</option><option value="周测">周测</option>
+              <option value="模拟考试">模拟考试</option><option value="入学考试">入学考试</option>
+              <option value="单元测试">单元测试</option><option value="其他">其他</option>
+            </select>
+            <select id="eGrade"></select>
+            <input type="date" id="eDate" />
+            <button class="btn btn-default btn-sm" id="btnMetaSave">保存信息</button>
+            <button class="btn btn-default btn-sm" id="btnToArchive">设为档案成绩</button>
+            <button class="btn btn-default btn-sm" id="btnExportCsv">导出成绩单</button>
+            <button class="btn btn-outline btn-sm danger-text" id="btnDelExam" style="margin-left:auto">删除</button>
+          </div>
+
+          <div class="main-tabs">
+            <span class="mt active" data-tab="entry">成绩录入</span>
+            <span class="mt" data-tab="stats">统计分析</span>
+            <span class="mt" data-tab="personal">个人成绩单</span>
+          </div>
+
+          <div id="tab-entry">
+            <div class="entry-bar">
+              <select id="scopeClass"><option value="">全部班级</option></select>
+              <span class="dim" style="font-size:12px">在下方直接填写分数，修改后点击保存</span>
+              <span style="flex:1"></span>
+              <button class="btn btn-default btn-sm" id="btnFillArchive">载入档案成绩</button>
+              <button class="btn btn-primary btn-sm" id="btnSaveScores">保存录入</button>
+            </div>
+            <div class="entry-table-wrap">
+              <table class="entry-table" id="entryTable"></table>
+            </div>
+          </div>
+
+          <div id="tab-stats" hidden>
+            <div class="stat-summary" id="statSummary" style="margin-bottom:12px"></div>
+            <div class="entry-table-wrap"><table class="entry-table stat-table" id="statTable"></table></div>
+          </div>
+
+          <div id="tab-personal" hidden>
+            <div class="entry-bar">
+              <select id="personalStudent" style="min-width:220px"></select>
+              <span class="dim">查看该生历次考试成绩</span>
+              <button class="btn btn-default btn-sm" id="btnViewConduct" hidden style="margin-left:8px">查看操行记录</button>
+            </div>
+            <div class="entry-table-wrap"><table class="entry-table" id="personalTable"></table></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- 新建考试弹窗 -->
+  <div class="modal-mask" id="modalMask">
+    <div class="modal">
+      <div class="modal-header"><h3>新建考试</h3>
+        <button class="modal-close" id="modalClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="modal-body" id="newExamForm">
+        <div class="form-grid">
+          <div class="form-row form-row-full"><label class="form-label">考试名称 <span class="req">*</span></label><input type="text" id="nName" required placeholder="如：2026学年第一学期期中考试" /></div>
+          <div class="form-row"><label class="form-label">考试类型</label>
+            <select id="nType">
+              <option value="期中考试">期中考试</option><option value="期末考试">期末考试</option>
+              <option value="月考">月考</option><option value="周测">周测</option>
+              <option value="模拟考试">模拟考试</option><option value="入学考试">入学考试</option>
+              <option value="单元测试">单元测试</option><option value="其他">其他</option>
+            </select>
+          </div>
+          <div class="form-row"><label class="form-label">面向年级</label><select id="nGrade"></select></div>
+          <div class="form-row"><label class="form-label">考试日期</label><input type="date" id="nDate" /></div>
+          <div class="form-row form-row-full"><label class="form-label">备注</label><input type="text" id="nRemark" /></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="modalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">创建并录入成绩</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/dialog.js"></script>
+  <script src="/js/site.js"></script>
+  <script src="/js/embed.js"></script>
+  <script src="/js/exams.js"></script>
+</body>
+</html>

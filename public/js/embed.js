@@ -1,7 +1,7 @@
 /* ============================================================
    后台工作台 - 页面嵌入桥接
-   功能页（学生/班级/年级/分班）被 index.html 工作台以 iframe
-   打开后：
+   功能页（数据总览/学生/班级/年级/教师/成绩/考勤/宿舍/分班）
+   被 index.html 工作台以 iframe 打开后：
    1. 隐藏页面自己的站点头部，避免重复导航；
    2. 页内指向其他功能页的跳转转发给父窗口，作为选项卡切换；
    3. 接收父窗口「激活 / 刷新」指令，静默刷新当前数据。
@@ -40,7 +40,8 @@
       var KNOWN = {
         '/': 1, '/index.html': 1, '/dashboard.html': 1,
         '/students.html': 1, '/classes.html': 1, '/grades.html': 1,
-        '/allocate.html': 1, '/settings.html': 1
+        '/teachers.html': 1, '/exams.html': 1, '/conduct.html': 1,
+        '/dorm.html': 1, '/allocate.html': 1, '/settings.html': 1
       };
       if (KNOWN[path]) {
         e.preventDefault();

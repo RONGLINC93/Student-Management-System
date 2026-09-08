@@ -11,6 +11,12 @@ const FILTERS_FILE = path.join(__dirname, 'data', 'filters.json');
 const SETTINGS_FILE = path.join(__dirname, 'data', 'settings.json');
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const SECRET_FILE = path.join(__dirname, 'data', '.auth_secret');
+// 学生管理系统扩展数据
+const TEACHERS_FILE = path.join(__dirname, 'data', 'teachers.json');       // 教师档案
+const EXAMS_FILE = path.join(__dirname, 'data', 'exams.json');             // 考试场次与成绩
+const ATTENDANCE_FILE = path.join(__dirname, 'data', 'attendance.json');   // 考勤
+const CONDUCT_FILE = path.join(__dirname, 'data', 'conduct.json');         // 操行（奖惩/评语）
+const DORMS_FILE = path.join(__dirname, 'data', 'dormitories.json');       // 宿舍房间
 
 // 会话：Cookie 内 HMAC 签名（无服务端 session），Path=/ 以便所有页面共享
 const AUTH_COOKIE = 'icbs_auth';
@@ -24,7 +30,7 @@ const revokedTokens = new Set();
 
 // 系统默认设置
 const DEFAULT_SETTINGS = {
-  schoolName: '智能分班系统', // 页面顶部 / 工作台品牌 / 标题展示的学校（机构）名称
+  schoolName: '学生管理系统', // 页面顶部 / 工作台品牌 / 标题展示的学校（机构）名称
   logoDataUrl: '',           // 校徽图片（data:image 前缀的 base64 小图，≤900KB）
   schoolYear: '',            // 学年标签，如「2026 年秋季」
   slogan: '',                // 校训 / 标语（大屏页脚展示）
@@ -32,8 +38,30 @@ const DEFAULT_SETTINGS = {
   schoolPhone: '',           // 联系电话（大屏页脚展示）
   schoolWebsite: '',         // 学校官网地址（http/https，各页顶栏「官网」入口 + 大屏页脚）
   balanceGender: 1.5,        // 综合均衡：性别均衡强度（越大越强调男女比例均衡）
-  balanceSpecialty: 2        // 综合均衡：特长均衡强度（越大越强调特长分布均衡）
+  balanceSpecialty: 2,       // 综合均衡：特长均衡强度（越大越强调特长分布均衡）
+  subjects: []               // 考试科目配置：[{ key, name, max }]，空时使用 DEFAULT_SUBJECTS
 };
+
+// 默认考试科目（语文 / 数学 / 英语 / 理综，兼容旧版系统的分班参考成绩）
+const DEFAULT_SUBJECTS = [
+  { key: 'chinese', name: '语文', max: 150 },
+  { key: 'math', name: '数学', max: 150 },
+  { key: 'english', name: '英语', max: 150 },
+  { key: 'science', name: '理综', max: 300 }
+];
+
+// 学生档案字段清单（基础 + 学籍扩展，新增字段在此登记即可贯穿各 API）
+const ARCH_FIELDS = [
+  'studentId', 'grade', 'photo', 'name', 'gender', 'specialty',
+  'archNo', 'idCard', 'birthday', 'nation', 'nativePlace', 'address',
+  'guardian', 'guardianPhone', 'guardianRel', 'enrollDate', 'remark'
+];
+// 考勤状态字典
+const ATT_STATUS = { present: '出勤', late: '迟到', early: '早退', leave: '请假', absent: '旷课' };
+// 操行类型字典
+const CONDUCT_TYPE = { reward: '奖励', punish: '处分', comment: '评语' };
+// 宿舍性别限制
+const DORM_GENDER = { any: '不限', male: '男生楼', female: '女生楼' };
 
 // 确保数据目录存在
 const dataDir = path.join(__dirname, 'data');
@@ -55,6 +83,10 @@ if (!fs.existsSync(FILTERS_FILE)) {
 if (!fs.existsSync(SETTINGS_FILE)) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
 }
+['teachers', 'exams', 'attendance', 'conduct', 'dormitories'].forEach(name => {
+  const f = { teachers: TEACHERS_FILE, exams: EXAMS_FILE, attendance: ATTENDANCE_FILE, conduct: CONDUCT_FILE, dormitories: DORMS_FILE }[name];
+  if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf-8');
+});
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -121,6 +153,18 @@ function writeFilters(filters) {
   fs.writeFileSync(FILTERS_FILE, JSON.stringify(filters, null, 2), 'utf-8');
 }
 
+// ===== 科目配置 =====
+// 读取设置中的科目；未配置任何科目时回退默认科目
+function readSubjects() {
+  const s = readSettings();
+  const arr = Array.isArray(s.subjects) && s.subjects.length ? s.subjects : DEFAULT_SUBJECTS;
+  return arr.map(sj => ({
+    key: String(sj.key || '').replace(/[^a-z0-9_]/gi, '') || 'subj',
+    name: String(sj.name || '').trim() || '科目',
+    max: Math.min(1000, Math.max(10, Number(sj.max) || 100))
+  }));
+}
+
 function readSettings() {
   try {
     const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
@@ -128,6 +172,158 @@ function readSettings() {
   } catch (e) {
     return Object.assign({}, DEFAULT_SETTINGS);
   }
+}
+
+// ===== 学生档案规范化（新旧数据通用） =====
+// 将任意来源的学生对象整理为标准档案结构：
+//  - 成绩统一存入 scores = { [subjectKey]: number }
+//  - 旧字段 chinese/math/english/science 自动迁移进 scores
+//  - 学籍扩展字段缺省时补空
+function normalizeStudent(raw) {
+  const o = (raw && typeof raw === 'object') ? raw : {};
+  const out = { id: o.id || genId() };
+  ARCH_FIELDS.forEach(f => { out[f] = f === 'grade' ? String(o[f] || '') : (o[f] !== undefined ? o[f] : ''); });
+  out.name = String(out.name || '');
+  out.gender = out.gender === '女' ? '女' : '男';
+  out.studentId = String(out.studentId || '').trim();
+  out.photo = String(out.photo || '');
+  // 旧固定成绩字段迁移
+  if (o.scores === undefined || o.scores === null) {
+    const legacy = ['chinese', 'math', 'english', 'science'];
+    if (legacy.some(k => o[k] !== undefined)) {
+      out.scores = {};
+      legacy.forEach(k => { if (o[k] !== undefined) out.scores[k] = Math.max(0, Number(o[k]) || 0); });
+    } else {
+      out.scores = {};
+    }
+  } else {
+    out.scores = {};
+    const obj = (typeof o.scores === 'object' && o.scores) ? o.scores : {};
+    Object.keys(obj).forEach(k => { out.scores[k] = Math.max(0, Math.min(1000, Number(obj[k]) || 0)); });
+  }
+  return out;
+}
+
+// 依据前端提交创建/更新档案字段
+function pickArch(body) {
+  const raw = {};
+  ARCH_FIELDS.forEach(f => {
+    if (body[f] !== undefined) raw[f] = body[f];
+  });
+  return raw;
+}
+// 新建学生：字段白名单 + 分数解析 + 默认年级
+function buildStudent(body) {
+  const defGrade = (readGrades()[0]) || '';
+  const raw = { id: genId(), grade: body.grade !== undefined ? body.grade : defGrade };
+  Object.assign(raw, pickArch(body));
+  const stu = normalizeStudent(raw);
+  const scores = bodyScores(body);
+  if (scores) stu.scores = scores;
+  return stu;
+}
+
+// 前端提交时解析成绩：支持 scores 对象，也兼容旧扁平字段
+function bodyScores(body) {
+  if (body.scores && typeof body.scores === 'object') {
+    const obj = {};
+    Object.keys(body.scores).forEach(k => { obj[k] = Math.max(0, Math.min(1000, Number(body.scores[k]) || 0)); });
+    return obj;
+  }
+  if (body.chinese !== undefined || body.math !== undefined || body.english !== undefined || body.science !== undefined) {
+    return {
+      chinese: Math.max(0, Number(body.chinese) || 0),
+      math: Math.max(0, Number(body.math) || 0),
+      english: Math.max(0, Number(body.english) || 0),
+      science: Math.max(0, Number(body.science) || 0)
+    };
+  }
+  return null; // 未提交成绩：不修改
+}
+
+// 读取数据时统一规范化（惰性迁移：任何一次写回即持久化新结构）
+function readStudents() {
+  try {
+    const list = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+    return Array.isArray(list) ? list.map(s => normalizeStudent(s)) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function readClasses() {
+  try {
+    const list = JSON.parse(fs.readFileSync(CLASSES_FILE, 'utf-8'));
+    if (!Array.isArray(list)) return [];
+    return list.map(c => Object.assign({}, c, {
+      students: Array.isArray(c.students) ? c.students.map(s => normalizeStudent(s)) : []
+    }));
+  } catch (e) {
+    return [];
+  }
+}
+
+// ===== 教师 / 考试 / 考勤 / 操行 / 宿舍数据读写 =====
+function readJsonFile(file, def) {
+  try {
+    const v = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    return Array.isArray(v) ? v : def;
+  } catch (e) { return def; }
+}
+function writeJsonFile(file, list) {
+  fs.writeFileSync(file, JSON.stringify(list, null, 2), 'utf-8');
+}
+const readTeachers = () => readJsonFile(TEACHERS_FILE, []);
+const writeTeachers = l => writeJsonFile(TEACHERS_FILE, l);
+const readExams = () => readJsonFile(EXAMS_FILE, []);
+const writeExams = l => writeJsonFile(EXAMS_FILE, l);
+const readAttendance = () => readJsonFile(ATTENDANCE_FILE, []);
+const writeAttendance = l => writeJsonFile(ATTENDANCE_FILE, l);
+const readConduct = () => readJsonFile(CONDUCT_FILE, []);
+const writeConduct = l => writeJsonFile(CONDUCT_FILE, l);
+const readDorms = () => readJsonFile(DORMS_FILE, []);
+const writeDorms = l => writeJsonFile(DORMS_FILE, l);
+
+// 教师档案规范化
+function normalizeTeacher(raw) {
+  const o = (raw && typeof raw === 'object') ? raw : {};
+  return {
+    id: o.id || genId(),
+    teacherNo: String(o.teacherNo || '').trim(),
+    name: String(o.name || '').trim(),
+    gender: o.gender === '女' ? '女' : '男',
+    subject: String(o.subject || '').trim(),   // 任教学科名
+    title: String(o.title || '').trim(),       // 职称/职务
+    phone: String(o.phone || '').trim(),
+    joinYear: String(o.joinYear || '').trim(),
+    classId: o.classId || '',                  // 班主任所在班级 id
+    remark: String(o.remark || '').trim()
+  };
+}
+// 全部学生（学生池 + 各班名单），供跨模块引用
+function allStudentsFlat() {
+  const pool = readStudents();
+  const allocated = [];
+  readClasses().forEach(c => {
+    (c.students || []).forEach(s => allocated.push(Object.assign({}, s, { classId: c.id, className: c.name, grade: c.grade || s.grade || '' })));
+  });
+  return { pool, allocated, all: [...pool, ...allocated] };
+}
+// 从全部学生中按 id 找学生
+function findStudentById(id) {
+  const { all } = allStudentsFlat();
+  return all.find(s => s.id === id) || null;
+}
+// 把学生从全部宿舍房间中移除（退宿）
+function removeFromDorms(studentId) {
+  const dorms = readDorms();
+  let changed = false;
+  dorms.forEach(r => {
+    const before = r.students ? r.students.length : 0;
+    r.students = (r.students || []).filter(id => String(id) !== String(studentId));
+    if ((r.students || []).length !== before) changed = true;
+  });
+  if (changed) writeDorms(dorms);
 }
 
 function writeSettings(settings) {
@@ -303,6 +499,26 @@ function sanitizeSettings(body) {
   }
   if (body.balanceSpecialty !== undefined) {
     s.balanceSpecialty = Math.min(5, Math.max(0, Number(body.balanceSpecialty) || 0));
+  }
+  if (Array.isArray(body.subjects)) {
+    if (!body.subjects.length) {
+      s.subjects = null; // 标记：提交了空科目数组（路由层据此返回校验错误）
+    } else {
+      const seen = new Set();
+      const arr = [];
+      body.subjects.forEach(sj => {
+        const rawKey = String((sj && sj.key) || '').replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '').slice(0, 12);
+        const key = rawKey || 'subject';
+        if (seen.has(key)) return;
+        seen.add(key);
+        arr.push({
+          key,
+          name: String((sj && sj.name) || '').trim().slice(0, 12) || '科目',
+          max: Math.min(1000, Math.max(10, Number((sj && sj.max)) || 100))
+        });
+      });
+      if (arr.length) s.subjects = arr;
+    }
   }
   return s;
 }
@@ -542,19 +758,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/students' && req.method === 'POST') {
     const body = await readBody(req);
     const list = readStudents();
-    const stu = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      studentId: (body.studentId || '').trim(),
-      grade: body.grade || '高一',
-      photo: body.photo || '',
-      name: (body.name || '').trim(),
-      gender: body.gender || '男',
-      chinese: Number(body.chinese) || 0,
-      math: Number(body.math) || 0,
-      english: Number(body.english) || 0,
-      science: Number(body.science) || 0,
-      specialty: body.specialty || ''
-    };
+    const stu = buildStudent(body);
     if (!stu.name) return sendJson(res, 400, { code: 1, msg: '姓名不能为空' });
     list.push(stu);
     writeStudents(list);
@@ -568,29 +772,25 @@ const server = http.createServer(async (req, res) => {
     const list = readStudents();
     const idx = list.findIndex(s => s.id === id);
     if (idx === -1) return sendJson(res, 404, { code: 1, msg: '学生不存在' });
-    list[idx] = {
-      ...list[idx],
-      studentId: body.studentId !== undefined ? body.studentId.trim() : list[idx].studentId,
-      grade: body.grade !== undefined ? body.grade : list[idx].grade,
-      photo: body.photo !== undefined ? body.photo : list[idx].photo,
-      name: body.name !== undefined ? body.name.trim() : list[idx].name,
-      gender: body.gender !== undefined ? body.gender : list[idx].gender,
-      chinese: body.chinese !== undefined ? Number(body.chinese) : list[idx].chinese,
-      math: body.math !== undefined ? Number(body.math) : list[idx].math,
-      english: body.english !== undefined ? Number(body.english) : list[idx].english,
-      science: body.science !== undefined ? Number(body.science) : list[idx].science,
-      specialty: body.specialty !== undefined ? body.specialty : list[idx].specialty
-    };
+    // 档案字段更新（白名单）
+    Object.assign(list[idx], pickArch(body));
+    list[idx].studentId = String(list[idx].studentId || '').trim();
+    if (body.name !== undefined) list[idx].name = String(body.name || '').trim();
+    if (body.gender !== undefined) list[idx].gender = body.gender === '女' ? '女' : '男';
+    if (body.grade !== undefined) list[idx].grade = String(body.grade || '');
+    const scores = bodyScores(body);
+    if (scores) list[idx].scores = scores;
     writeStudents(list);
     return sendJson(res, 200, { code: 0, data: list[idx] });
   }
 
-  // 删除学生
+  // 删除学生（含退宿联动）
   if (pathname.startsWith('/api/students/') && req.method === 'DELETE') {
     const id = pathname.split('/').pop();
     const list = readStudents();
     const next = list.filter(s => s.id !== id);
     writeStudents(next);
+    removeFromDorms(id);
     return sendJson(res, 200, { code: 0, msg: '已删除' });
   }
 
@@ -599,23 +799,15 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     const list = readStudents();
     const arr = Array.isArray(body) ? body : (body.list || []);
+    let count = 0;
     arr.forEach(s => {
-      list.push({
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        studentId: (s.studentId || '').trim(),
-        grade: s.grade || '高一',
-        photo: s.photo || '',
-        name: (s.name || '').trim(),
-        gender: s.gender || '男',
-        chinese: Number(s.chinese) || 0,
-        math: Number(s.math) || 0,
-        english: Number(s.english) || 0,
-        science: Number(s.science) || 0,
-        specialty: s.specialty || ''
-      });
+      const stu = buildStudent(s);
+      if (!stu.name) return;
+      list.push(stu);
+      count++;
     });
     writeStudents(list);
-    return sendJson(res, 200, { code: 0, msg: '已导入', count: arr.length });
+    return sendJson(res, 200, { code: 0, msg: '已导入', count });
   }
 
   // 清空所有学生：学生池与各班花名册一并清空（班级本身保留，避免「清空学生」后名单里还残留已分班学生）
@@ -624,11 +816,14 @@ const server = http.createServer(async (req, res) => {
     const classes = readClasses();
     classes.forEach(c => { c.students = []; });
     writeClasses(classes);
+    // 联动清理：退宿 + 操行记录
+    writeDorms(readDorms().map(r => Object.assign({}, r, { students: [] })));
+    writeConduct([]);
     return sendJson(res, 200, { code: 0, msg: '已清空' });
   }
 
   // ===== 班级管理 API =====
-  // 获取所有班级（含学生列表）
+  // 获取所有班级（含学生名单）
   if (pathname === '/api/classes' && req.method === 'GET') {
     return sendJson(res, 200, { code: 0, data: readClasses() });
   }
@@ -684,18 +879,12 @@ const server = http.createServer(async (req, res) => {
     if (allStu.some(s => s.studentId && String(s.studentId) === newStuId)) {
       return sendJson(res, 400, { code: 1, msg: '学号已存在' });
     }
-    cls.students[idx] = {
-      ...cls.students[idx],
-      studentId: body.studentId !== undefined ? String(body.studentId).trim() : cls.students[idx].studentId,
-      photo: body.photo !== undefined ? body.photo : cls.students[idx].photo,
-      name: body.name !== undefined ? String(body.name).trim() : cls.students[idx].name,
-      gender: body.gender !== undefined ? body.gender : cls.students[idx].gender,
-      chinese: body.chinese !== undefined ? Number(body.chinese) : cls.students[idx].chinese,
-      math: body.math !== undefined ? Number(body.math) : cls.students[idx].math,
-      english: body.english !== undefined ? Number(body.english) : cls.students[idx].english,
-      science: body.science !== undefined ? Number(body.science) : cls.students[idx].science,
-      specialty: body.specialty !== undefined ? body.specialty : cls.students[idx].specialty
-    };
+    Object.assign(cls.students[idx], pickArch(body));
+    if (body.name !== undefined) cls.students[idx].name = String(body.name || '').trim();
+    if (body.gender !== undefined) cls.students[idx].gender = body.gender === '女' ? '女' : '男';
+    cls.students[idx].studentId = String(cls.students[idx].studentId || '').trim();
+    const scores = bodyScores(body);
+    if (scores) cls.students[idx].scores = scores;
     writeClasses(classes);
     return sendJson(res, 200, { code: 0, data: cls.students[idx] });
   }
@@ -822,13 +1011,15 @@ const server = http.createServer(async (req, res) => {
     if (grades.includes(newName) && newName !== oldName) return sendJson(res, 400, { code: 1, msg: '该年级名称已存在' });
     grades[idx] = newName;
     writeGrades(grades);
-    // 更新学生和班级中的年级字段
+    // 更新学生 / 班级 / 考试 / 考勤中的年级字段
     const students = readStudents();
     students.forEach(s => { if (s.grade === oldName) s.grade = newName; });
     writeStudents(students);
     const classes = readClasses();
     classes.forEach(c => { if (c.grade === oldName) c.grade = newName; });
     writeClasses(classes);
+    writeExams(readExams().map(x => Object.assign({}, x, { grade: x.grade === oldName ? newName : x.grade })));
+    writeAttendance(readAttendance().map(x => Object.assign({}, x, { grade: x.grade === oldName ? newName : x.grade })));
     return sendJson(res, 200, { code: 0, msg: '已修改' });
   }
 
@@ -840,14 +1031,459 @@ const server = http.createServer(async (req, res) => {
     if (idx === -1) return sendJson(res, 404, { code: 1, msg: '年级不存在' });
     grades.splice(idx, 1);
     writeGrades(grades);
-    // 清空该年级的学生和班级的年级字段
+    // 清空该年级的学生 / 班级 / 考试 / 考勤的年级字段
     const students = readStudents();
     students.forEach(s => { if (s.grade === name) s.grade = ''; });
     writeStudents(students);
     const classes = readClasses();
     classes.forEach(c => { if (c.grade === name) c.grade = ''; });
     writeClasses(classes);
+    writeExams(readExams().map(x => Object.assign({}, x, { grade: x.grade === name ? '' : x.grade })));
+    writeAttendance(readAttendance().map(x => Object.assign({}, x, { grade: x.grade === name ? '' : x.grade })));
     return sendJson(res, 200, { code: 0, msg: '已删除' });
+  }
+
+  // ===== 教师管理 API =====
+  if (pathname === '/api/teachers' && req.method === 'GET') {
+    const classes = readClasses();
+    const list = readTeachers().map(t => {
+      const cls = t.classId ? classes.find(c => c.id === t.classId) : null;
+      return Object.assign({}, normalizeTeacher(t), {
+        className: cls ? cls.name : '',
+        classGrade: cls ? (cls.grade || '') : ''
+      });
+    });
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+
+  if (pathname === '/api/teachers' && req.method === 'POST') {
+    const body = await readBody(req);
+    const t = normalizeTeacher(body);
+    if (!t.name) return sendJson(res, 400, { code: 1, msg: '教师姓名不能为空' });
+    const list = readTeachers();
+    if (t.teacherNo && list.some(x => x.teacherNo === t.teacherNo)) {
+      return sendJson(res, 400, { code: 1, msg: '工号已存在' });
+    }
+    list.push(t);
+    writeTeachers(list);
+    return sendJson(res, 200, { code: 0, data: t });
+  }
+
+  if (pathname.startsWith('/api/teachers/') && (req.method === 'PUT' || req.method === 'DELETE')) {
+    const id = pathname.split('/').pop();
+    const list = readTeachers();
+    const idx = list.findIndex(x => x.id === id);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '教师不存在' });
+
+    if (req.method === 'DELETE') {
+      const t = list[idx];
+      // 若该教师是某班班主任则同步清空班级班主任
+      const classes = readClasses();
+      const cls = classes.find(c => c.id === t.classId || c.headTeacher === t.name);
+      if (cls && cls.headTeacher === t.name) {
+        cls.headTeacher = '';
+        writeClasses(classes);
+      }
+      list.splice(idx, 1);
+      writeTeachers(list);
+      return sendJson(res, 200, { code: 0, msg: '已删除' });
+    }
+
+    const body = await readBody(req);
+    if (body.teacherNo && body.teacherNo !== list[idx].teacherNo && list.some(x => x.teacherNo === body.teacherNo)) {
+      return sendJson(res, 400, { code: 1, msg: '工号已存在' });
+    }
+    list[idx] = normalizeTeacher(Object.assign({}, list[idx], body));
+    if (!list[idx].name) return sendJson(res, 400, { code: 1, msg: '教师姓名不能为空' });
+    writeTeachers(list);
+    return sendJson(res, 200, { code: 0, data: list[idx] });
+  }
+
+  // 设置 / 取消班主任：classId 传班级 id 或空字符串
+  if (pathname.startsWith('/api/teachers/') && pathname.endsWith('/head') && req.method === 'POST') {
+    const id = pathname.split('/')[3];
+    const body = await readBody(req);
+    const list = readTeachers();
+    const t = list.find(x => x.id === id);
+    if (!t) return sendJson(res, 404, { code: 1, msg: '教师不存在' });
+    const classes = readClasses();
+    const newClassId = String(body.classId || '');
+    const oldCls = classes.find(c => c.id === t.classId);
+    // 清空旧班主任关系
+    if (oldCls && oldCls.headTeacher === t.name) {
+      oldCls.headTeacher = '';
+    }
+    let target = null;
+    if (newClassId) {
+      target = classes.find(c => c.id === newClassId);
+      if (!target) return sendJson(res, 404, { code: 1, msg: '班级不存在' });
+      // 该班原有班主任若有对应教师记录，同步解除
+      const pre = readTeachers().find(x => x.id !== id && x.classId === newClassId);
+      if (pre) pre.classId = '';
+      target.headTeacher = t.name;
+    }
+    writeClasses(classes);
+    t.classId = newClassId;
+    writeTeachers(list);
+    return sendJson(res, 200, {
+      code: 0, msg: target ? `已将「${t.name}」设为「${target.name}」班主任` : '已取消班主任',
+      data: Object.assign({}, t, { className: target ? target.name : '' })
+    });
+  }
+
+  // ===== 考试与成绩管理 API =====
+  // 列表（不含完整成绩明细，附带参与人数）
+  if (pathname === '/api/exams' && req.method === 'GET') {
+    const list = readExams().map(x => Object.assign({}, x, {
+      stuCount: x.records ? Object.keys(x.records).length : 0
+    }));
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+
+  if (pathname === '/api/exams' && req.method === 'POST') {
+    const body = await readBody(req);
+    const name = String(body.name || '').trim();
+    if (!name) return sendJson(res, 400, { code: 1, msg: '考试名称不能为空' });
+    const x = {
+      id: genId(),
+      name,
+      type: String(body.type || '考试').trim().slice(0, 12),
+      grade: String(body.grade || ''),
+      date: String(body.date || new Date().toISOString().slice(0, 10)),
+      remark: String(body.remark || '').trim().slice(0, 200),
+      createdAt: new Date().toISOString(),
+      records: {}
+    };
+    const list = readExams();
+    list.unshift(x);
+    writeExams(list);
+    return sendJson(res, 200, { code: 0, data: x });
+  }
+
+  if (pathname.startsWith('/api/exams/') && req.method === 'GET') {
+    const id = pathname.split('/').pop();
+    const x = readExams().find(e => e.id === id);
+    if (!x) return sendJson(res, 404, { code: 1, msg: '考试不存在' });
+    return sendJson(res, 200, { code: 0, data: x });
+  }
+
+  if (pathname.startsWith('/api/exams/') && pathname.endsWith('/records') && req.method === 'PUT') {
+    const id = pathname.split('/')[3];
+    const body = await readBody(req);
+    const list = readExams();
+    const x = list.find(e => e.id === id);
+    if (!x) return sendJson(res, 404, { code: 1, msg: '考试不存在' });
+    x.records = x.records || {};
+    const arr = Array.isArray(body.list) ? body.list : [];
+    let count = 0;
+    arr.forEach(r => {
+      if (!r || !r.id) return;
+      const values = {};
+      Object.keys(r.values || {}).forEach(k => {
+        const n = Number(r.values[k]);
+        values[k] = (r.values[k] === '' || r.values[k] === null || r.values[k] === undefined) ? null : Math.max(0, Math.min(1000, n || 0));
+      });
+      x.records[String(r.id)] = values;
+      count++;
+    });
+    writeExams(list);
+    return sendJson(res, 200, { code: 0, msg: '成绩已保存', count });
+  }
+
+  // 某次考试批量录入（records 完整覆盖该次考试）：body { list:[{ id, name, values }] }
+  if (pathname.startsWith('/api/exams/') && pathname.endsWith('/records/set') && req.method === 'PUT') {
+    const id = pathname.split('/')[3];
+    const body = await readBody(req);
+    const list = readExams();
+    const x = list.find(e => e.id === id);
+    if (!x) return sendJson(res, 404, { code: 1, msg: '考试不存在' });
+    const out = {};
+    const arr = Array.isArray(body.list) ? body.list : [];
+    arr.forEach(r => {
+      if (!r || !r.id) return;
+      const values = {};
+      Object.keys(r.values || {}).forEach(k => {
+        const v = r.values[k];
+        values[k] = (v === '' || v === null || v === undefined) ? null : Math.max(0, Math.min(1000, Number(v) || 0));
+      });
+      out[String(r.id)] = values;
+    });
+    x.records = out;
+    writeExams(list);
+    return sendJson(res, 200, { code: 0, msg: '成绩已保存', count: arr.length });
+  }
+
+  // 将某次考试的成绩同步为学生「当前档案成绩」（参与分班参考）
+  if (pathname.startsWith('/api/exams/') && pathname.endsWith('/archive') && req.method === 'POST') {
+    const id = pathname.split('/')[3];
+    const body = await readBody(req);
+    const list = readExams();
+    const x = list.find(e => e.id === id);
+    if (!x) return sendJson(res, 404, { code: 1, msg: '考试不存在' });
+    const want = body.studentIds && Array.isArray(body.studentIds) ? new Set(body.studentIds.map(String)) : null;
+    let updated = 0;
+    const apply = (s) => {
+      if (want && !want.has(String(s.id))) return;
+      const rec = x.records && x.records[String(s.id)];
+      if (!rec) return;
+      s.scores = s.scores || {};
+      Object.keys(rec).forEach(k => { s.scores[k] = Math.max(0, Number(rec[k]) || 0); });
+      updated++;
+    };
+    const pool = readStudents();
+    pool.forEach(apply);
+    writeStudents(pool);
+    const classes = readClasses();
+    classes.forEach(c => (c.students || []).forEach(apply));
+    writeClasses(classes);
+    return sendJson(res, 200, { code: 0, msg: `已将 ${updated} 名学生的档案成绩更新为该场考试成绩` });
+  }
+
+  if (pathname.startsWith('/api/exams/') && (req.method === 'PUT' || req.method === 'DELETE')) {
+    const id = pathname.split('/').pop();
+    const list = readExams();
+    const idx = list.findIndex(e => e.id === id);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '考试不存在' });
+    if (req.method === 'DELETE') {
+      list.splice(idx, 1);
+      writeExams(list);
+      return sendJson(res, 200, { code: 0, msg: '已删除' });
+    }
+    const body = await readBody(req);
+    if (body.name !== undefined) list[idx].name = String(body.name || '').trim().slice(0, 40) || list[idx].name;
+    if (body.type !== undefined) list[idx].type = String(body.type || '').trim().slice(0, 12);
+    if (body.grade !== undefined) list[idx].grade = String(body.grade || '');
+    if (body.date !== undefined) list[idx].date = String(body.date || '').slice(0, 10);
+    if (body.remark !== undefined) list[idx].remark = String(body.remark || '').trim().slice(0, 200);
+    writeExams(list);
+    return sendJson(res, 200, { code: 0, data: list[idx], msg: '已更新' });
+  }
+
+  // ===== 考勤 API =====
+  // 查询：?date=YYYY-MM-DD&classId=&grade=&from=&to=  单条记录带 records
+  if (pathname === '/api/attendance' && req.method === 'GET') {
+    const u = url;
+    const date = u.searchParams.get('date') || '';
+    const classId = u.searchParams.get('classId') || '';
+    const grade = u.searchParams.get('grade') || '';
+    const from = u.searchParams.get('from') || '';
+    const to = u.searchParams.get('to') || '';
+    let list = readAttendance().slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    if (date) list = list.filter(x => x.date === date);
+    if (classId) list = list.filter(x => x.classId === classId);
+    if (grade) list = list.filter(x => x.grade === grade);
+    if (from) list = list.filter(x => x.date >= from);
+    if (to) list = list.filter(x => x.date <= to);
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+
+  // 新增 / 更新某日某班的考勤：body { date, grade, classId, className, records:[{id,status}] }
+  if (pathname === '/api/attendance' && req.method === 'POST') {
+    const body = await readBody(req);
+    const date = String(body.date || '').trim();
+    const classId = String(body.classId || '').trim();
+    if (!date || !classId) return sendJson(res, 400, { code: 1, msg: '日期与班级不能为空' });
+    const list = readAttendance();
+    const cls = readClasses().find(c => c.id === classId);
+    const idx = list.findIndex(x => x.date === date && x.classId === classId);
+    const arr = Array.isArray(body.records) ? body.records : [];
+    const records = arr
+      .filter(r => r && r.id)
+      .map(r => ({
+        id: String(r.id),
+        name: String(r.name || ''),
+        status: ATT_STATUS[r.status] !== undefined ? r.status : 'present'
+      }));
+    const doc = {
+      id: (list[idx] && list[idx].id) || genId(),
+      date,
+      grade: String(body.grade || (cls ? cls.grade : '')),
+      classId,
+      className: String(body.className || (cls ? cls.name : '')),
+      records,
+      updatedAt: new Date().toISOString()
+    };
+    if (idx === -1) list.unshift(doc);
+    else list[idx] = doc;
+    writeAttendance(list);
+    return sendJson(res, 200, { code: 0, data: doc, msg: '考勤已保存' });
+  }
+
+  if (pathname.startsWith('/api/attendance/') && req.method === 'DELETE') {
+    const id = pathname.split('/').pop();
+    writeAttendance(readAttendance().filter(x => x.id !== id));
+    return sendJson(res, 200, { code: 0, msg: '已删除' });
+  }
+
+  // ===== 操行（奖惩 / 评语）API =====
+  if (pathname === '/api/conduct' && req.method === 'GET') {
+    const u = url;
+    const studentId = u.searchParams.get('studentId') || '';
+    const type = u.searchParams.get('type') || '';
+    const kw = (u.searchParams.get('kw') || '').toLowerCase();
+    let list = readConduct().slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    if (studentId) list = list.filter(x => x.studentId === studentId);
+    if (type) list = list.filter(x => x.type === type);
+    if (kw) list = list.filter(x =>
+      (x.name || '').toLowerCase().includes(kw) ||
+      (x.title || '').toLowerCase().includes(kw) ||
+      (x.detail || '').toLowerCase().includes(kw) ||
+      (x.className || '').toLowerCase().includes(kw));
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+
+  if (pathname === '/api/conduct' && req.method === 'POST') {
+    const body = await readBody(req);
+    const studentId = String(body.studentId || '');
+    if (!studentId) return sendJson(res, 400, { code: 1, msg: '请选择学生' });
+    const title = String(body.title || '').trim();
+    if (!title) return sendJson(res, 400, { code: 1, msg: '请填写标题' });
+    const stu = findStudentById(studentId);
+    const item = {
+      id: genId(),
+      studentId,
+      name: stu ? stu.name : String(body.name || ''),
+      grade: stu ? stu.grade : String(body.grade || ''),
+      className: stu && stu.className ? stu.className : '',
+      type: CONDUCT_TYPE[body.type] ? body.type : 'comment',
+      date: String(body.date || new Date().toISOString().slice(0, 10)),
+      title,
+      detail: String(body.detail || '').trim(),
+      createdAt: new Date().toISOString()
+    };
+    const list = readConduct();
+    list.unshift(item);
+    writeConduct(list);
+    return sendJson(res, 200, { code: 0, data: item });
+  }
+
+  if (pathname.startsWith('/api/conduct/') && (req.method === 'PUT' || req.method === 'DELETE')) {
+    const id = pathname.split('/').pop();
+    const list = readConduct();
+    const idx = list.findIndex(x => x.id === id);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '记录不存在' });
+    if (req.method === 'DELETE') {
+      list.splice(idx, 1);
+      writeConduct(list);
+      return sendJson(res, 200, { code: 0, msg: '已删除' });
+    }
+    const body = await readBody(req);
+    if (body.title !== undefined) list[idx].title = String(body.title || '').trim();
+    if (body.type !== undefined && CONDUCT_TYPE[body.type]) list[idx].type = body.type;
+    if (body.date !== undefined) list[idx].date = String(body.date || '').slice(0, 10);
+    if (body.detail !== undefined) list[idx].detail = String(body.detail || '').trim();
+    writeConduct(list);
+    return sendJson(res, 200, { code: 0, data: list[idx], msg: '已更新' });
+  }
+
+  // ===== 宿舍管理 API =====
+  if (pathname === '/api/dorms' && req.method === 'GET') {
+    const list = readDorms().sort((a, b) =>
+      String(a.building).localeCompare(String(b.building), 'zh-Hans-CN', { numeric: true }) ||
+      String(a.roomNo).localeCompare(String(b.roomNo), 'zh-Hans-CN', { numeric: true }));
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+
+  if (pathname === '/api/dorms' && req.method === 'POST') {
+    const body = await readBody(req);
+    const roomNo = String(body.roomNo || '').trim();
+    if (!roomNo) return sendJson(res, 400, { code: 1, msg: '房号不能为空' });
+    const building = String(body.building || '未命名楼栋').trim();
+    const list = readDorms();
+    if (list.some(r => r.building === building && String(r.roomNo) === roomNo)) {
+      return sendJson(res, 400, { code: 1, msg: '该楼栋下已存在此房号' });
+    }
+    const item = {
+      id: genId(),
+      building,
+      roomNo,
+      capacity: Math.min(100, Math.max(1, Number(body.capacity) || 4)),
+      gender: DORM_GENDER[body.gender] ? body.gender : 'any',
+      students: []
+    };
+    list.push(item);
+    writeDorms(list);
+    return sendJson(res, 200, { code: 0, data: item });
+  }
+
+  if (pathname.startsWith('/api/dorms/') && req.method === 'PUT') {
+    const id = pathname.split('/').pop();
+    const list = readDorms();
+    const r = list.find(x => x.id === id);
+    if (!r) return sendJson(res, 404, { code: 1, msg: '房间不存在' });
+    const body = await readBody(req);
+    if (body.building !== undefined) r.building = String(body.building || '未命名楼栋').trim();
+    if (body.roomNo !== undefined) r.roomNo = String(body.roomNo || '').trim();
+    if (body.capacity !== undefined) {
+      const cap = Math.min(100, Math.max(1, Number(body.capacity) || 4));
+      if (cap < (r.students || []).length) return sendJson(res, 400, { code: 1, msg: '容量不能小于当前入住人数' });
+      r.capacity = cap;
+    }
+    if (DORM_GENDER[body.gender]) r.gender = body.gender;
+    writeDorms(list);
+    return sendJson(res, 200, { code: 0, data: r });
+  }
+
+  // 分配入住：body { studentIds: [id...] }
+  if (pathname.startsWith('/api/dorms/') && pathname.endsWith('/assign') && req.method === 'POST') {
+    const id = pathname.split('/')[3];
+    const body = await readBody(req);
+    const dorms = readDorms();
+    const r = dorms.find(x => x.id === id);
+    if (!r) return sendJson(res, 404, { code: 1, msg: '房间不存在' });
+    const ids = Array.isArray(body.studentIds) ? body.studentIds.map(String) : [];
+    if (!ids.length) return sendJson(res, 400, { code: 1, msg: '请选择学生' });
+    const cap = Number(r.capacity) || 4;
+    const occupied = (r.students || []).filter(x => !ids.includes(String(x))).length;
+    if (occupied + ids.length > cap) return sendJson(res, 400, { code: 1, msg: '房间容量不足' });
+    // 性别校验
+    ids.forEach(sid => {
+      const stu = findStudentById(sid);
+      if (!stu) return;
+      if (r.gender === 'male' && stu.gender !== '男') { r.genderErr = true; }
+      if (r.gender === 'female' && stu.gender !== '女') { r.genderErr = true; }
+    });
+    if (r.genderErr) {
+      delete r.genderErr;
+      return sendJson(res, 400, { code: 1, msg: r.gender === 'male' ? '该宿舍为男生宿舍，不能入住女生' : '该宿舍为女生宿舍，不能入住男生' });
+    }
+    // 学生已被安排到其他宿舍：自动迁出
+    dorms.forEach(x => {
+      if (x.id === id) return;
+      x.students = (x.students || []).filter(s => !ids.includes(String(s)));
+    });
+    r.students = Array.from(new Set([...(r.students || []).filter(s => !ids.includes(String(s))), ...ids]));
+    writeDorms(dorms);
+    return sendJson(res, 200, { code: 0, msg: `已安排 ${ids.length} 名学生入住` });
+  }
+
+  // 单人退宿
+  if (pathname.startsWith('/api/dorms/') && pathname.includes('/remove/') && req.method === 'POST') {
+    const parts = pathname.split('/');
+    const dormId = parts[3];
+    const stuId = parts[5];
+    const dorms = readDorms();
+    const r = dorms.find(x => x.id === dormId);
+    if (!r) return sendJson(res, 404, { code: 1, msg: '房间不存在' });
+    r.students = (r.students || []).filter(s => String(s) !== String(stuId));
+    writeDorms(dorms);
+    return sendJson(res, 200, { code: 0, msg: '已退宿' });
+  }
+
+  // 清空整间 / 删除房间
+  if (pathname.startsWith('/api/dorms/') && (pathname.endsWith('/clear') || req.method === 'DELETE')) {
+    const id = pathname.split('/')[3];
+    const list = readDorms();
+    const idx = list.findIndex(x => x.id === id);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '房间不存在' });
+    if (pathname.endsWith('/clear')) {
+      list[idx].students = [];
+      writeDorms(list);
+      return sendJson(res, 200, { code: 0, msg: '已清空房间' });
+    }
+    list.splice(idx, 1);
+    writeDorms(list);
+    return sendJson(res, 200, { code: 0, msg: '房间已删除' });
   }
 
   // ===== 分班持久化 API =====
@@ -943,11 +1579,21 @@ const server = http.createServer(async (req, res) => {
 
   // ===== 系统设置 API =====
   if (pathname === '/api/settings' && req.method === 'GET') {
-    return sendJson(res, 200, { code: 0, data: readSettings() });
+    const s = readSettings();
+    s.subjects = readSubjects(); // 始终返回生效科目
+    return sendJson(res, 200, { code: 0, data: s });
   }
   if (pathname === '/api/settings' && req.method === 'PUT') {
     const body = await readBody(req);
     const s = sanitizeSettings(body);
+    if (s.subjects === null) {
+      return sendJson(res, 400, { code: 1, msg: '至少需要保留一个科目' });
+    }
+    if (Array.isArray(s.subjects)) {
+      // 迁移学生旧成绩：若科目 key 集合不再包含旧的 chinese/math/english/science，
+      // 旧成绩字段在读取时已自动并入 scores，这里不做额外处理
+      s.subjects = s.subjects.length ? s.subjects : DEFAULT_SUBJECTS;
+    }
     writeSettings(s);
     return sendJson(res, 200, { code: 0, data: s, msg: '设置已保存' });
   }
@@ -961,12 +1607,17 @@ const server = http.createServer(async (req, res) => {
       grades: readGrades(),
       filters: readFilters(),
       classes: readClasses(),
-      students: readStudents()
+      students: readStudents(),
+      teachers: readTeachers(),
+      exams: readExams(),
+      attendance: readAttendance(),
+      conduct: readConduct(),
+      dorms: readDorms()
     };
     const body = JSON.stringify(payload, null, 2);
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="icbs-backup-' + new Date().toISOString().slice(0, 10) + '.json"'
+      'Content-Disposition': 'attachment; filename="sms-backup-' + new Date().toISOString().slice(0, 10) + '.json"'
     });
     return res.end(body);
   }
@@ -982,6 +1633,11 @@ const server = http.createServer(async (req, res) => {
     writeFilters(body.filters && typeof body.filters === 'object' ? body.filters : {});
     writeClasses(body.classes.map(c => Object.assign({}, c, { students: Array.isArray(c.students) ? c.students : [] })));
     writeStudents(body.students);
+    if (Array.isArray(body.teachers)) writeTeachers(body.teachers.map(normalizeTeacher));
+    if (Array.isArray(body.exams)) writeExams(body.exams);
+    if (Array.isArray(body.attendance)) writeAttendance(body.attendance);
+    if (Array.isArray(body.conduct)) writeConduct(body.conduct);
+    if (Array.isArray(body.dorms)) writeDorms(body.dorms);
     liveBoard = null;
     return sendJson(res, 200, { code: 0, msg: '恢复完成', classes: body.classes.length, students: body.students.length });
   }
@@ -989,7 +1645,8 @@ const server = http.createServer(async (req, res) => {
   // ===== 静态文件（含页面登录守卫）=====
   // 受保护页面：后台工作台与各功能页（大屏 result.html / 登录页无需登录）
   const PROTECTED_PAGES = ['/index.html', '/dashboard.html', '/students.html',
-    '/classes.html', '/grades.html', '/allocate.html', '/settings.html'];
+    '/classes.html', '/grades.html', '/allocate.html', '/settings.html',
+    '/teachers.html', '/exams.html', '/conduct.html', '/dorm.html'];
   const ADMIN_ONLY_PAGES = ['/settings.html'];
   const asPage = pathname === '/' ? '/index.html' : pathname;
   if (pathname === '/' || (asPage.endsWith('.html'))) {
@@ -1031,6 +1688,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`智能分班系统已启动: http://localhost:${PORT}`);
+  console.log(`学生管理系统已启动: http://localhost:${PORT}`);
   console.log(`按 Ctrl+C 停止服务`);
 });

@@ -22,8 +22,19 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// 学生当前总分：按生效科目配置求和
 function totalScore(s) {
-  return Number(s.chinese) + Number(s.math) + Number(s.english) + Number(s.science);
+  const r = window.subjTotal(s);
+  return r.total;
+}
+
+// 卡片摘要：展示前几个科目的一字简称 + 分数
+function scoreLine(s) {
+  const subs = (window.SUBJECTS || []).slice(0, 4);
+  return subs.map(sj => {
+    const v = window.stuScore(s, sj.key);
+    return v === null ? '' : (sj.name.slice(0, 1) + v);
+  }).filter(Boolean).join('·');
 }
 
 // 读取系统设置中的数值型参数（未设置时回退默认值）
@@ -229,7 +240,7 @@ function renderClassBlock(c, i) {
       <div class="card-photo">${photoInner}</div>
       <div class="card-body">
         <div class="card-name">${escapeHtml(s.name)}</div>
-        <div class="card-info">${escapeHtml(s.studentId || '')}<br/>语${s.chinese}·数${s.math} 英${s.english}·理${s.science}</div>
+        <div class="card-info">${escapeHtml(s.studentId || '')}<br/>${scoreLine(s)}</div>
       </div>
       <div class="card-gender">${s.gender === '男' ? '♂' : '♀'}</div>
       <div class="card-total">${totalScore(s)}</div>
@@ -313,7 +324,7 @@ function createCardElement(stu, idx) {
     <div class="card-photo">${photoInner}</div>
     <div class="card-body">
       <div class="card-name">${escapeHtml(stu.name)}</div>
-      <div class="card-info">${escapeHtml(stu.studentId || '')}<br/>语${stu.chinese}·数${stu.math} 英${stu.english}·理${stu.science}</div>
+      <div class="card-info">${escapeHtml(stu.studentId || '')}<br/>${scoreLine(stu)}</div>
     </div>
     <div class="card-gender">${stu.gender === '男' ? '♂' : '♀'}</div>
     <div class="card-total">${totalScore(stu)}</div>

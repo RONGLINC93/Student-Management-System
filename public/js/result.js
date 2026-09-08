@@ -55,7 +55,8 @@ function escapeHtml(s) {
 }
 
 function totalScore(s) {
-  return Number(s.chinese) + Number(s.math) + Number(s.english) + Number(s.science);
+  const r = window.subjTotal(s);
+  return r.total;
 }
 
 // live 快照是否仍有效（最近 6 秒内更新过）
@@ -475,10 +476,7 @@ function stageDetailHtml(s, clsName) {
   const avatar = s.photo
     ? `<span class="sd-avatar" style="background-image:url('${escapeHtml(s.photo)}')"></span>`
     : `<span class="sd-avatar ${g}">${escapeHtml((s.name || '?').slice(0, 1))}</span>`;
-  const scores = [
-    { k: '语文', v: s.chinese }, { k: '数学', v: s.math },
-    { k: '英语', v: s.english }, { k: '科学', v: s.science }
-  ];
+  const scores = (window.SUBJECTS || []).map(sj => ({ k: sj.name, v: window.stuScore(s, sj.key) }));
   return `
   ${avatar}
   <div class="sd-main">

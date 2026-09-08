@@ -73,11 +73,13 @@ body {
   transition: color .15s;
 }
 .board-body .board-foot a.board-site-link:hover { color: #fff; }
-.nav { display: flex; gap: 8px; }
+.nav { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.nav::-webkit-scrollbar { display: none; }
 .nav-item {
   color: rgba(255,255,255,.75);
   text-decoration: none;
-  padding: 8px 18px;
+  white-space: nowrap;
+  padding: 8px 12px;
   border-radius: 8px;
   font-size: 14px;
   transition: all .2s;
@@ -526,7 +528,7 @@ body {
   text-align: center;
 }
 
-/* 学生列表分页 */
+/* 学生档案分页 */
 .pagination {
   display: flex;
   align-items: center;

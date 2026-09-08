@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>登录 · 智能分班系统</title>
+  <title>登录 · 学生管理系统</title>
   <style>
     :root {
       --brand: #4f6df5;
@@ -130,18 +130,18 @@
           <svg data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg>
         </span>
         <div>
-          <h1 data-site-name>智能分班系统</h1>
-          <div class="lg-en">SMART CLASS ALLOCATION</div>
+          <h1 data-site-name>学生管理系统</h1>
+          <div class="lg-en">STUDENT MANAGEMENT SYSTEM</div>
         </div>
       </div>
       <div class="lg-title" data-site-slogan>
         均衡 · 公平 · 高效
-        <small>基于成绩、性别与特长综合权衡的智能均衡分班，搭配卡牌式分班直播大屏，让每个班级都同样优秀。</small>
+        <small>一站式学生管理：学籍档案、成绩统计、教师管理、考勤操行与宿舍安排全覆盖，配合均衡公平的分班与可视化大屏，让教务管理更高效。</small>
       </div>
       <div class="lg-points">
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>综合均衡 · S 型 · 随机三种策略</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>分班过程大屏实时直播</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>学生 / 班级 / 数据一键备份管理</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>学籍 / 成绩 / 考勤等模块一站式管理</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>均衡分班过程大屏实时直播</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>学生 / 班级 / 数据一键备份恢复</span>
       </div>
     </aside>
 
@@ -185,7 +185,7 @@
       fetch('/api/settings').then(function (r) { return r.json(); }).then(function (j) {
         var s = (j && j.data) || {};
         var name = String(s.schoolName || '').trim();
-        if (name && name !== '智能分班系统') {
+        if (name && name !== '学生管理系统') {
           var els = document.querySelectorAll('[data-site-name]');
           for (var i = 0; i < els.length; i++) els[i].textContent = name;
           document.title = '登录 · ' + name;

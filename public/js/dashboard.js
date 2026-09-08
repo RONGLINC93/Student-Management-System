@@ -30,20 +30,36 @@
     return label + ' · 更新于 ' + fmtTime(ts) + ' · 每 ' + (REFRESH_MS / 1000) + ' 秒自动刷新';
   }
 
+  // 生效科目（默认由 /js/site.js 注入）
+  function subs() { return window.SUBJECTS || []; }
+  function stuSc(s, key) {
+    var sc = (s && s.scores) || {};
+    var v = sc[key];
+    return (v === null || v === undefined || v === '') ? 0 : Number(v) || 0;
+  }
+  function fullMark() {
+    var m = 0;
+    subs().forEach(function (sj) { m += Number(sj.max) || 100; });
+    return m || 100;
+  }
+
   // 某批学生的成绩统计：仅统计有成绩（总分>0）的学生
   function scoreStat(list) {
-    var r = { n: 0, chinese: 0, math: 0, english: 0, science: 0, total: 0 };
+    var sums = {}, n = 0;
+    subs().forEach(function (sj) { sums[sj.key] = 0; });
+    sums.total = 0;
     (list || []).forEach(function (s) {
-      var c = Number(s.chinese) || 0;
-      var m = Number(s.math) || 0;
-      var e = Number(s.english) || 0;
-      var sc = Number(s.science) || 0;
-      var t = c + m + e + sc;
-      if (t <= 0) return;
-      r.n++;
-      r.chinese += c; r.math += m; r.english += e; r.science += sc; r.total += t;
+      var t = 0, any = false;
+      subs().forEach(function (sj) {
+        var v = stuSc(s, sj.key);
+        sums[sj.key] += v; t += v;
+        if (v > 0) any = true;
+      });
+      if (!any) return;
+      n++;
+      sums.total += t;
     });
-    return r;
+    return { n: n, sums: sums };
   }
 
   function render(data) {
@@ -53,20 +69,18 @@
     var live = data.live || null;
     var now = Date.now();
 
-    // 汇总全量学生：池 + 各班名单
+    // 汇总全量学生：池 + 各班名单（保留 scores 等完整档案）
     var allocated = [];
     classes.forEach(function (c) {
       (c.students || []).forEach(function (s) {
-        allocated.push({
-          id: s.id, name: s.name, grade: s.grade || c.grade || '',
-          gender: s.gender, chinese: s.chinese, math: s.math,
-          english: s.english, science: s.science, specialty: s.specialty,
+        allocated.push(Object.assign({}, s, {
+          grade: s.grade || c.grade || '',
           allocated: true, className: c.name, classId: c.id
-        });
+        }));
       });
     });
     var all = pool.map(function (s) {
-      return { id: s.id, name: s.name, grade: s.grade || '', gender: s.gender, chinese: s.chinese, math: s.math, english: s.english, science: s.science, specialty: s.specialty, allocated: false, className: '' };
+      return Object.assign({}, s, { allocated: false, className: '' });
     }).concat(allocated);
 
     var total = all.length;
@@ -80,11 +94,7 @@
 
     // 全校学科均分
     var st = scoreStat(all);
-    var avgTotal = st.n ? dec(st.total / st.n) : 0;
-    var avgC = st.n ? dec(st.chinese / st.n) : 0;
-    var avgM = st.n ? dec(st.math / st.n) : 0;
-    var avgE = st.n ? dec(st.english / st.n) : 0;
-    var avgSc = st.n ? dec(st.science / st.n) : 0;
+    var avgTotal = st.n ? dec(st.sums.total / st.n) : 0;
 
     // ---- 概览卡片 ----
     var specMap = {};
@@ -106,7 +116,7 @@
       statCard(waiting, '学生池待分', '待编入 ' + gradeLabel + ' 等班级', 'c-orange') +
       statCard(classes.length, '班级总数', teacherCount + ' 个班级有班主任', 'c-purple') +
       statCard(gradeList.length, '年级总数', '共 ' + gradeList.length + ' 个年级设置', 'c-rose') +
-      statCard(avgTotal, '平均总分', '(满分 400' + (st.n ? ' · ' + st.n + ' 人有成绩' : '') + ')', 'c-teal') +
+      statCard(avgTotal, '平均总分', '(满分 ' + fullMark() + (st.n ? ' · ' + st.n + ' 人有成绩' : '') + ')', 'c-teal') +
       statCard(capTotal, '班级总容量', '还可容纳 ' + Math.max(capTotal - assigned, 0) + ' 人', 'c-indigo') +
       statCard(specCount, '特长记录', topSpec(specMap) || '暂无特长', 'c-amber');
 
@@ -116,7 +126,7 @@
     $('#allotRingNum').textContent = Math.round(allotPct) + '%';
     $('#allotNote').textContent = total
       ? '已分班 ' + assigned + ' 人 · 学生池待分 ' + waiting + ' 人 · 共 ' + total + ' 人'
-      : '系统中暂无学生，请先到「学生列表」添加或批量导入';
+      : '系统中暂无学生，请先到「学生档案」添加或批量导入';
 
     var malePct = total ? male / total * 100 : 0;
     setRing($('#ringGender'), malePct, '#2563eb');
@@ -163,30 +173,41 @@
         '</td></tr>';
     }).join('') || '<tr><td colspan="5" class="dash-empty">暂无学生</td></tr>';
 
-    // ---- 全校学科均分 ----
+    // ---- 全校学科均分（按科目配置动态渲染）----
     $('#scoreMeta').textContent = st.n ? '（基于 ' + st.n + ' 名有成绩学生）' : '（暂无成绩数据）';
-    $('#sbjList').innerHTML = st.n ? [
-      sbjRow('语文', avgC, 'sb-blue'),
-      sbjRow('数学', avgM, 'sb-green'),
-      sbjRow('英语', avgE, 'sb-amber'),
-      sbjRow('科学', avgSc, 'sb-purple')
-    ].join('') : '<p class="dash-empty">暂无成绩数据</p>';
+    var colorCycle = ['sb-blue', 'sb-green', 'sb-amber', 'sb-purple', 'sb-teal'];
+    if (st.n) {
+      var sbHtml = '';
+      subs().forEach(function (sj, i) {
+        var avg = st.sums[sj.key] / st.n;
+        sbHtml += sbjRow(sj.name, avg, Number(sj.max) || 100, colorCycle[i % colorCycle.length]);
+      });
+      $('#sbjList').innerHTML = sbHtml;
+    } else {
+      $('#sbjList').innerHTML = '<p class="dash-empty">暂无成绩数据</p>';
+    }
 
-    // ---- 各年级学科均分表 ----
+    // ---- 各年级学科均分表（列随科目配置动态生成）----
+    var gsHead = $('#gradeScoreHead');
+    if (gsHead) {
+      gsHead.innerHTML = '<tr><th>年级</th>' + subs().map(function (sj) {
+        return '<th>' + esc(sj.name) + '</th>';
+      }).join('') + '<th>总分均分</th></tr>';
+    }
+    var gsSpan = 1 + subs().length + 1;
     $('#gradeScoreBody').innerHTML = keys.map(function (k) {
       var g = groups[k];
       var gs = scoreStat(g.students);
       if (!gs.n) {
         return '<tr><td><span class="roster-tag">' + esc(g.label) + '</span></td>' +
-          '<td colspan="5" class="dim">暂无成绩</td></tr>';
+          '<td colspan="' + gsSpan + '" class="dim">暂无成绩</td></tr>';
       }
-      return '<tr><td><span class="roster-tag">' + esc(g.label) + '</span></td>' +
-        '<td class="tc">' + dec(gs.chinese / gs.n) + '</td>' +
-        '<td class="tc">' + dec(gs.math / gs.n) + '</td>' +
-        '<td class="tc">' + dec(gs.english / gs.n) + '</td>' +
-        '<td class="tc">' + dec(gs.science / gs.n) + '</td>' +
-        '<td class="tc b c-blue2">' + dec(gs.total / gs.n) + '</td></tr>';
-    }).join('') || '<tr><td colspan="6" class="dash-empty">暂无学生</td></tr>';
+      var cells = subs().map(function (sj) {
+        return '<td class="tc">' + dec(gs.sums[sj.key] / gs.n) + '</td>';
+      }).join('');
+      return '<tr><td><span class="roster-tag">' + esc(g.label) + '</span></td>' + cells +
+        '<td class="tc b c-blue2">' + dec(gs.sums.total / gs.n) + '</td></tr>';
+    }).join('') || '<tr><td colspan="' + gsSpan + '" class="dash-empty">暂无学生</td></tr>';
 
     // ---- 各班人数与容量 ----
     renderCap(keys, groups);
@@ -232,12 +253,13 @@
       '</div>';
   }
 
-  function sbjRow(name, val, color) {
-    var w = Math.max(Math.min(Number(val) || 0, 100), 0);
+  function sbjRow(name, val, max, color) {
+    max = Number(max) || 100;
+    var w = Math.max(Math.min((Number(val) || 0) / max * 100, 100), 0);
     return '<div class="sbj-row">' +
       '<div class="sbj-head"><span class="sbj-name">' + name + '</span>' +
       '<span class="sbj-val">' + dec(val) + ' 分</span></div>' +
-      '<div class="sbj-bar"><i class="sbj-fill ' + color + '" style="width:' + w + '%"></i></div>' +
+      '<div class="sbj-bar"><i class="sbj-fill ' + color + '" style="width:' + dec(w) + '%"></i></div>' +
       '</div>';
   }
 

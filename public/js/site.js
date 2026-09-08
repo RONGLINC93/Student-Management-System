@@ -5,7 +5,7 @@
        logoDataUrl, schoolYear, slogan, schoolAddress, schoolPhone,
        schoolWebsite, balanceGender, balanceSpecialty, ... }）；
    2. 按配置应用到页面：
-      - 学校名称：替换 [data-site-name] 文本与标题中的“智能分班系统”
+      - 学校名称：替换 [data-site-name] 文本与标题中的“学生管理系统”
       - 校徽：将 [data-site-logo] 处的默认图标替换为校徽图片
       - 学年标签：写入 [data-site-year]（大屏副标题行胶囊）
       - 校训/地址/电话/官网：写入 [data-site-meta]（大屏页脚）
@@ -17,9 +17,67 @@
 (function () {
   'use strict';
 
-  var DEFAULT_BRAND = '智能分班系统';
+  var DEFAULT_BRAND = '学生管理系统';
 
   window.SITE = null;
+
+  // ===== 科目配置与成绩辅助（全站统一） =====
+  var DEFAULT_SUBJECTS = [
+    { key: 'chinese', name: '语文', max: 150 },
+    { key: 'math', name: '数学', max: 150 },
+    { key: 'english', name: '英语', max: 150 },
+    { key: 'science', name: '理综', max: 300 }
+  ];
+  window.SUBJECTS = DEFAULT_SUBJECTS.map(function (s) { return Object.assign({}, s); });
+
+  // 科目增删后供页面重建表格使用（订阅 cb-site-ready）
+  window.__subjectSeq = 0;
+
+  function refreshSubjects(s) {
+    var arr = (s && s.subjects && s.subjects.length) ? s.subjects : DEFAULT_SUBJECTS;
+    var list = arr.map(function (x) {
+      return {
+        key: String((x && x.key) || '').replace(/[^a-zA-Z0-9_]/g, '') || 'subject',
+        name: String((x && x.name) || '').trim() || '科目',
+        max: Math.max(10, Math.min(1000, Number(x && x.max) || 100))
+      };
+    }).filter(function (x) {
+      return !!x.key;
+    });
+    var seen = {};
+    list = list.filter(function (x) { if (seen[x.key]) return false; seen[x.key] = 1; return true; });
+    window.SUBJECTS = list;
+    window.__subjectSeq++;
+  }
+
+  // 读取学生某科成绩（无则返回 null）
+  function subjScore(stu, key) {
+    if (!stu || !stu.scores) return null;
+    var v = stu.scores[key];
+    return (v === '' || v === null || v === undefined) ? null : Number(v);
+  }
+  window.stuScore = subjScore;
+
+  // 总分（缺科按 0 计，兼容分班均衡；空白科不算入已考科数）
+  function subjTotal(stu) {
+    var sum = 0, hit = 0;
+    var list = window.SUBJECTS || [];
+    for (var i = 0; i < list.length; i++) {
+      var v = subjScore(stu, list[i].key);
+      if (v === null) continue;
+      sum += v;
+      hit++;
+    }
+    return { total: sum, count: hit };
+  }
+  window.subjTotal = subjTotal;
+
+  // 平均分（已考科目平均，无成绩科不计）
+  function subjAvgScore(stu) {
+    var r = subjTotal(stu);
+    return r.count ? r.total / r.count : 0;
+  }
+  window.subjAvg = subjAvgScore;
 
   function load() {
     return fetch('/api/settings')
@@ -127,6 +185,7 @@
 
   function apply() {
     var s = window.SITE || {};
+    refreshSubjects(s);
     applyBrand(String(s.schoolName || '').trim());
     applyLogo(s.logoDataUrl || '');
     applyYear(String(s.schoolYear || '').trim());

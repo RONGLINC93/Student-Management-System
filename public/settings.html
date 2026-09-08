@@ -3,13 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>智能分班系统 - 系统设置</title>
+  <title>学生管理系统 - 系统设置</title>
   <link rel="stylesheet" href="/css/style.css" />
   <style>
     .set-page { max-width: 1180px; margin: 0 auto; }
     .set-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
     .set-head h2 { font-size: 20px; }
     .set-head .dash-sub { color: var(--text-light); font-size: 13px; margin-top: 4px; }
+
+    /* 科目设置列表 */
+    .subj-rows { display: flex; flex-direction: column; gap: 8px; }
+    .subj-row { display: flex; align-items: center; gap: 8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:6px 10px; }
+    .subj-row .subj-key { width: 150px; font-size:12px; color:#64748b; background:#eef2f7; border:1px solid transparent; border-radius:6px; padding:6px 8px; }
+    .subj-row .subj-name { flex:1; min-width:120px; }
+    .subj-row .subj-max { width:76px; text-align:center; }
+    .subj-munit { color:#94a3b8; font-size:12px; }
+    .subj-row input[type=number]::-webkit-inner-spin-button { opacity:.6; }
+    .subj-row .subj-del { white-space:nowrap; }
 
     .set-card {
       background: var(--card-bg);
@@ -150,17 +160,21 @@
       <div class="logo">
         <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <div>
-          <h1 data-site-name>智能分班系统</h1>
-          <p class="subtitle">系统设置 · 学校信息 / 分班规则 / 数据管理 / 账号与安全</p>
+          <h1 data-site-name>学生管理系统</h1>
+          <p class="subtitle">系统设置 · 学校信息 / 科目设置 / 分班规则 / 数据管理 / 账号与安全</p>
         </div>
       </div>
       <nav class="nav">
         <a href="/" class="nav-item">数据总览</a>
-        <a href="/index.html?mod=students" class="nav-item">学生列表</a>
+        <a href="/students.html" class="nav-item">学生档案</a>
         <a href="/classes.html" class="nav-item">班级管理</a>
         <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/teachers.html" class="nav-item">教师管理</a>
+        <a href="/exams.html" class="nav-item">成绩管理</a>
+        <a href="/conduct.html" class="nav-item">考勤操行</a>
+        <a href="/dorm.html" class="nav-item">宿舍管理</a>
         <a href="/allocate.html" class="nav-item">智能分班</a>
-        <a href="/index.html?mod=settings" class="nav-item active">系统设置</a>
+        <a href="/settings.html" class="nav-item active">系统设置</a>
         <a class="site-web" data-site-web hidden target="_blank" rel="noopener" title="打开学校官网">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           <span>官网</span>
@@ -184,6 +198,10 @@
           <a class="set-nav-item" data-key="rules" href="#rules">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
             分班规则
+          </a>
+          <a class="set-nav-item" data-key="subjects" href="#subjects">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            科目设置
           </a>
           <a class="set-nav-item" data-key="data" href="#data">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
@@ -226,7 +244,7 @@
           <div class="set-field">
             <label class="set-label" for="setSchoolName">学校（机构）名称</label>
             <input type="text" id="setSchoolName" class="set-input" maxlength="40" autocomplete="off" placeholder="如：第一中学" />
-            <p class="set-tip">填写后，各功能页顶部大字、工作台品牌与浏览器标签会一并更新；留空保持默认“智能分班系统”。</p>
+            <p class="set-tip">填写后，各功能页顶部大字、工作台品牌与浏览器标签会一并更新；留空保持默认“学生管理系统”。</p>
           </div>
           <div class="set-field">
             <label class="set-label" for="setSchoolYear">学年标签</label>
@@ -290,6 +308,31 @@
         </div>
         <div class="set-card-foot">
           <button class="btn btn-primary btn-sm" id="btnSaveRule">保存分班规则</button>
+        </div>
+      </section>
+
+      <!-- 科目设置 -->
+      <section class="set-card" data-sec="subjects" hidden>
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">考试科目设置</div>
+            <div class="set-card-desc">定义学生档案成绩、考试成绩录入与各页统计使用的科目（含满分）。改动后会自动同步学生档案、成绩管理、数据总览与分班参考成绩。</div>
+          </div>
+        </div>
+        <div class="set-field">
+          <label class="set-label">科目列表</label>
+          <div id="subjRows" class="subj-rows"></div>
+          <div class="set-row" style="margin-top:10px">
+            <button class="btn btn-default btn-sm" id="btnAddSubject">+ 添加科目</button>
+            <button class="btn btn-primary btn-sm" id="btnSaveSubjects">保存科目设置</button>
+          </div>
+          <p class="set-tip" style="margin-top:8px">
+            提示：删除科目后，历史成绩与考试记录仍会保留在数据文件中，只是不再显示与统计；重新添加同名科目即可恢复展示。
+            默认科目建议保留「语文 / 数学 / 英语 / 理综」以便与原有分班参考成绩衔接。
+          </p>
         </div>
       </section>
 
@@ -456,7 +499,7 @@
 
       function fill(s) {
         S = s || {};
-        $el('setSchoolName').value = S.schoolName || '智能分班系统';
+        $el('setSchoolName').value = S.schoolName || '学生管理系统';
         $el('setSchoolYear').value = S.schoolYear || '';
         $el('setSlogan').value = S.slogan || '';
         $el('setAddress').value = S.schoolAddress || '';
@@ -468,6 +511,11 @@
         $el('genderVal').textContent = $el('setGenderW').value;
         $el('setSpecW').value = fmt(S.balanceSpecialty != null ? S.balanceSpecialty : 2);
         $el('specVal').textContent = $el('setSpecW').value;
+        // 科目设置
+        subjectDraft = (S.subjects && S.subjects.length ? S.subjects : (window.SUBJECTS || [])).map(function (s) {
+          return { key: String(s.key || ''), name: String(s.name || ''), max: Number(s.max) || 100 };
+        });
+        renderSubjectRows();
       }
 
       function load() {
@@ -501,7 +549,7 @@
       // 学校信息：保存（名称/校徽/学年/校训/地址/电话）
       $el('btnSaveSchool').addEventListener('click', function () {
         save({
-          schoolName: $el('setSchoolName').value.trim() || '智能分班系统',
+          schoolName: $el('setSchoolName').value.trim() || '学生管理系统',
           schoolYear: $el('setSchoolYear').value.trim(),
           slogan: $el('setSlogan').value.trim(),
           schoolAddress: $el('setAddress').value.trim(),
@@ -511,7 +559,7 @@
         }, '学校信息已保存');
       });
       $el('btnResetName').addEventListener('click', function () {
-        $el('setSchoolName').value = '智能分班系统';
+        $el('setSchoolName').value = '学生管理系统';
         toast('已恢复默认名称，点击「保存学校信息」生效');
       });
       $el('btnPickLogo').addEventListener('click', function () { $el('fileLogo').click(); });
@@ -594,7 +642,7 @@
       $el('btnDataManage').addEventListener('click', load);
 
       // ================= 二级侧边栏菜单：分组切换 =================
-      var NAV_KEYS = ['info', 'rules', 'data', 'account'];
+      var NAV_KEYS = ['info', 'rules', 'subjects', 'data', 'account'];
       function switchSec(key) {
         if (NAV_KEYS.indexOf(key) === -1) key = NAV_KEYS[0];
         var items = document.querySelectorAll('.set-nav-item');
@@ -621,7 +669,7 @@
           });
         }
         // 支持 #rules / #data / #account 直达指定分组
-        var m = /#(info|rules|data|account)/.exec(location.hash || '');
+        var m = /#(info|rules|subjects|data|account)/.exec(location.hash || '');
         switchSec(m ? m[1] : 'info');
       })();
 
@@ -631,6 +679,60 @@
           return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
         });
       }
+
+      // ================= 科目设置 =================
+      var subjectDraft = [];
+      function escAttr(v) {
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      }
+      function renderSubjectRows() {
+        if (!subjectDraft.length) {
+          $el('subjRows').innerHTML = '<p class="set-tip">暂无科目，点击「+ 添加科目」开始配置。</p>';
+          return;
+        }
+        $el('subjRows').innerHTML = subjectDraft.map(function (s, i) {
+          return '<div class="subj-row" data-i="' + i + '">' +
+            '<input type="text" class="subj-key" value="' + escAttr(s.key) + '" readonly title="科目标识（建议小写英文，新建后不可改）">' +
+            '<input type="text" class="subj-name" value="' + escAttr(s.name) + '" placeholder="科目名称，如：生物" maxlength="12">' +
+            '<input type="number" class="subj-max" value="' + (Number(s.max) || 100) + '" min="10" max="1000" step="1">' +
+            '<span class="subj-munit">满分(分)</span>' +
+            '<button type="button" class="btn btn-default btn-sm subj-del">删除</button>' +
+            '</div>';
+        }).join('');
+      }
+      function bindSubjectRows() {
+        var wrap = $el('subjRows');
+        if (!wrap) return;
+        wrap.onclick = function (e) {
+          var del = e.target.closest('.subj-del');
+          if (!del) return;
+          var idx = Number(del.closest('.subj-row').getAttribute('data-i'));
+          subjectDraft.splice(idx, 1);
+          renderSubjectRows();
+        };
+      }
+      $el('btnAddSubject').addEventListener('click', function () {
+        subjectDraft.push({ key: 'subject' + (subjectDraft.length + 1), name: '', max: 100 });
+        renderSubjectRows();
+      });
+      $el('btnSaveSubjects').addEventListener('click', function () {
+        // 读取当前行（含新增后未改名的行）
+        var rows = $el('subjRows').querySelectorAll('.subj-row');
+        var list = [];
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          var key = r.querySelector('.subj-key').value.trim();
+          var name = r.querySelector('.subj-name').value.trim();
+          var max = Number(r.querySelector('.subj-max').value) || 100;
+          if (!key) { toast('第 ' + (i + 1) + ' 行科目标识不能为空', 'error'); return; }
+          if (!name) { toast('请填写科目「' + key + '」的名称', 'error'); return; }
+          list.push({ key: key, name: name, max: max });
+        }
+        if (!list.length) { toast('至少需要一个科目', 'error'); return; }
+        save({ subjects: list }, '科目设置已保存');
+      });
+      bindSubjectRows();
+      renderSubjectRows();
 
       // —— 修改当前账号密码 ——
       $el('btnSavePwd').addEventListener('click', function () {
