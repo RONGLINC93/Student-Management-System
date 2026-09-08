@@ -7,12 +7,22 @@
   <link rel="stylesheet" href="/css/style.css" />
   <style>
     /* 学生档案弹窗宽一些，容纳档案 + 成绩字段 */
-    #stuModal .modal { max-width: 900px; }
+    #modalMask .modal { max-width: 900px; }
     .arch-group-title {
       grid-column: 1 / -1; font-size: 13px; color: #6b7280; font-weight: 600;
-      margin: 6px 0 -4px; padding-top: 8px; border-top: 1px dashed var(--border, #e5e7eb);
+      margin: 8px 0 12px; padding-top: 8px; border-top: 1px dashed var(--border, #e5e7eb);
     }
     .arch-group-title:first-of-type { border-top: none; padding-top: 0; }
+    /* 成绩网格：移出内联样式以支持响应式断点 */
+    .score-grid {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px 18px;
+    }
+    @media (max-width: 720px) {
+      .score-grid { grid-template-columns: 1fr; }
+    }
     .table-wrap { overflow-x: auto; }
     .student-table { min-width: 1080px; }
     /* 宿舍列：绿色入住胶囊 / 虚线空态 */
@@ -150,7 +160,15 @@
     .sdb-card.lv-full { border-left-color: #8b5cf6; }
     .sdb-top { display: flex; align-items: center; gap: 8px; }
     .sdb-title { font-size: 13px; font-weight: 700; color: var(--text); }
-    .sdb-state { margin-left: auto; }
+    .sdb-state {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 11px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; line-height: 1.5; white-space: nowrap;
+    }
+    .sdb-state::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 auto;
+    }
     .sdb-state.st-empty { background: #dcfce7; color: #15803d; }
     .sdb-state.st-part { background: #fef3c7; color: #b45309; }
     .sdb-state.st-full { background: #ede9fe; color: #6d28d9; }
@@ -369,7 +387,7 @@
           </div>
 
           <div class="arch-group-title" id="scoreTitle">当前成绩（用作分班 / 均衡参考，可来自某次考试“同步到档案”）</div>
-          <div id="scoreGrid" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:14px 18px;"></div>
+          <div id="scoreGrid" class="score-grid"></div>
 
           <div class="form-row form-row-full">
             <label class="form-label">特长</label>
