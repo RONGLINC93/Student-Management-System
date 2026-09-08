@@ -32,17 +32,15 @@ const authUrl = repoUrl.replace('https://', `https://x-access-token:${token}@`);
 // 输出时隐藏令牌
 const mask = (s) => s.split(token).join('******');
 
-// 提交作者身份：优先取 .env 中配置的 GIT_USER_NAME / GIT_USER_EMAIL
-const gitName = (env.GIT_USER_NAME || '').trim();
-const gitEmail = (env.GIT_USER_EMAIL || '').trim();
-const gitEnv = (gitName && gitEmail)
-  ? Object.assign({}, process.env, {
-      GIT_AUTHOR_NAME: gitName,
-      GIT_AUTHOR_EMAIL: gitEmail,
-      GIT_COMMITTER_NAME: gitName,
-      GIT_COMMITTER_EMAIL: gitEmail,
-    })
-  : process.env;
+// 提交作者身份（如需修改，直接改下面两行即可）
+const gitName = 'RONGLINC';
+const gitEmail = 'chenronglin1993@hotmail.com';
+const gitEnv = Object.assign({}, process.env, {
+  GIT_AUTHOR_NAME: gitName,
+  GIT_AUTHOR_EMAIL: gitEmail,
+  GIT_COMMITTER_NAME: gitName,
+  GIT_COMMITTER_EMAIL: gitEmail,
+});
 
 function git(args) {
   try {
