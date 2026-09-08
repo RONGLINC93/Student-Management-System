@@ -6,7 +6,7 @@
   <title>智能分班系统 - 系统设置</title>
   <link rel="stylesheet" href="/css/style.css" />
   <style>
-    .set-page { max-width: 980px; margin: 0 auto; }
+    .set-page { max-width: 1180px; margin: 0 auto; }
     .set-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
     .set-head h2 { font-size: 20px; }
     .set-head .dash-sub { color: var(--text-light); font-size: 13px; margin-top: 4px; }
@@ -42,6 +42,8 @@
     .set-row .range-input { flex: 1; min-width: 220px; }
     .set-split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     @media (max-width: 760px) { .set-split { grid-template-columns: 1fr; } }
+    .pw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    @media (max-width: 760px) { .pw-grid { grid-template-columns: 1fr; } }
     .set-tag { font-size: 13px; color: var(--primary); font-weight: 700; min-width: 64px; }
     .btn-danger { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
     .btn-danger:hover { background: var(--danger); color: #fff; }
@@ -105,6 +107,45 @@
     }
     .set-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,109,245,.12); }
     textarea.set-input { resize: vertical; min-height: 64px; }
+    /* ===== 二级侧边栏菜单 ===== */
+    .set-page { display: flex; align-items: flex-start; gap: 18px; }
+    .set-aside {
+      width: 218px; flex: none; position: sticky; top: 12px;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 16px; padding: 12px; box-shadow: var(--shadow);
+    }
+    .set-aside-head { padding: 6px 6px 12px; border-bottom: 1px dashed var(--border); margin-bottom: 10px; }
+    .set-aside-head b { font-size: 15px; color: var(--text); display: block; }
+    .set-aside-head p { font-size: 12px; color: var(--text-light); margin: 4px 0 0; line-height: 1.6; }
+    .set-nav { display: flex; flex-direction: column; gap: 3px; }
+    .set-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 10px; cursor: pointer;
+      color: var(--text); font-size: 13.5px; font-weight: 600;
+      text-decoration: none; user-select: none;
+      border: 1px solid transparent;
+      transition: background .15s, color .15s;
+    }
+    .set-nav-item svg { width: 16px; height: 16px; flex: none; color: var(--text-light); transition: color .15s; }
+    .set-nav-item:hover { background: rgba(79,109,245,.08); }
+    .set-nav-item.active {
+      background: linear-gradient(135deg, rgba(79,109,245,.14), rgba(123,92,245,.1));
+      color: var(--primary);
+    }
+    .set-nav-item.active svg { color: var(--primary); }
+    .set-nav-item:focus-visible { outline: 2px solid rgba(79,109,245,.5); outline-offset: 1px; }
+    .set-body { flex: 1; min-width: 0; }
+    .set-card[hidden] { display: none; }
+    .set-body .set-card { animation: setCardIn .22s ease; }
+    @keyframes setCardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @media (max-width: 900px) {
+      .set-page { flex-direction: column; }
+      .set-aside { width: 100%; position: static; padding: 8px; }
+      .set-aside-head { display: none; }
+      .set-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: thin; }
+      .set-nav-item { white-space: nowrap; flex: none; padding: 8px 12px; }
+      .set-nav-item svg { width: 15px; height: 15px; }
+    }
   </style>
 </head>
 <body>
@@ -114,7 +155,7 @@
         <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <div>
           <h1 data-site-name>智能分班系统</h1>
-          <p class="subtitle">系统设置 · 学校信息 / 分班规则 / 数据管理</p>
+          <p class="subtitle">系统设置 · 学校信息 / 分班规则 / 数据管理 / 账号与安全</p>
         </div>
       </div>
       <nav class="nav">
@@ -134,15 +175,34 @@
 
   <main class="container">
     <div class="set-page">
-      <div class="set-head">
-        <div>
-          <h2>系统设置</h2>
-          <p class="dash-sub">修改后即时生效：保存时自动通知已打开的工作台与功能页刷新</p>
+      <aside class="set-aside">
+        <div class="set-aside-head">
+          <b>系统设置</b>
+          <p>按分类管理：保存后即时生效，并自动通知已打开的工作台与功能页刷新</p>
         </div>
-      </div>
+        <nav class="set-nav" id="setNav" aria-label="设置分类">
+          <a class="set-nav-item active" data-key="info" href="#info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            学校信息
+          </a>
+          <a class="set-nav-item" data-key="rules" href="#rules">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+            分班规则
+          </a>
+          <a class="set-nav-item" data-key="data" href="#data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            数据管理
+          </a>
+          <a class="set-nav-item" data-key="account" href="#account">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            账号与安全
+          </a>
+        </nav>
+      </aside>
+      <div class="set-body">
 
       <!-- 学校信息 -->
-      <section class="set-card">
+      <section class="set-card" data-sec="info">
         <div class="set-card-head">
           <span class="set-card-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -210,7 +270,7 @@
       </section>
 
       <!-- 分班规则 -->
-      <section class="set-card">
+      <section class="set-card" data-sec="rules" hidden>
         <div class="set-card-head">
           <span class="set-card-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
@@ -238,7 +298,7 @@
       </section>
 
       <!-- 数据管理 -->
-      <section class="set-card">
+      <section class="set-card" data-sec="data" hidden>
         <div class="set-card-head">
           <span class="set-card-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
@@ -274,7 +334,7 @@
       </section>
 
       <!-- 账号与安全 -->
-      <section class="set-card">
+      <section class="set-card" data-sec="account" hidden>
         <div class="set-card-head">
           <span class="set-card-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -287,7 +347,7 @@
 
         <div class="set-field">
           <label class="set-label">修改当前账号密码</label>
-          <div class="set-split">
+          <div class="pw-grid">
             <div class="set-field">
               <label class="set-label" for="pwOld">当前密码</label>
               <input type="password" id="pwOld" class="set-input" autocomplete="current-password" maxlength="64" placeholder="输入当前登录密码" />
@@ -301,7 +361,7 @@
               <input type="password" id="pwNew2" class="set-input" autocomplete="new-password" maxlength="64" placeholder="再次输入新密码" />
             </div>
           </div>
-          <div class="set-row" style="justify-content:flex-start">
+          <div class="set-card-foot" style="margin-top:4px">
             <button class="btn btn-primary btn-sm" id="btnSavePwd">保存新密码</button>
           </div>
         </div>
@@ -332,6 +392,7 @@
           <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝。系统始终需保留至少一个管理员账号。</p>
         </div>
       </section>
+      </div><!-- /.set-body -->
     </div>
   </main>
 
@@ -535,6 +596,38 @@
       });
 
       $el('btnDataManage').addEventListener('click', load);
+
+      // ================= 二级侧边栏菜单：分组切换 =================
+      var NAV_KEYS = ['info', 'rules', 'data', 'account'];
+      function switchSec(key) {
+        if (NAV_KEYS.indexOf(key) === -1) key = NAV_KEYS[0];
+        var items = document.querySelectorAll('.set-nav-item');
+        for (var i = 0; i < items.length; i++) {
+          items[i].className = 'set-nav-item' + (items[i].getAttribute('data-key') === key ? ' active' : '');
+        }
+        for (var k = 0; k < NAV_KEYS.length; k++) {
+          var card = document.querySelector('.set-card[data-sec="' + NAV_KEYS[k] + '"]');
+          if (card) {
+            if (NAV_KEYS[k] === key) card.removeAttribute('hidden');
+            else card.setAttribute('hidden', '');
+          }
+        }
+        return key;
+      }
+      (function () {
+        var items = document.querySelectorAll('.set-nav-item');
+        for (var i = 0; i < items.length; i++) {
+          items[i].addEventListener('click', function (e) {
+            e.preventDefault();
+            var k = this.getAttribute('data-key');
+            switchSec(k);
+            try { location.hash = k; } catch (e2) {}
+          });
+        }
+        // 支持 #rules / #data / #account 直达指定分组
+        var m = /#(info|rules|data|account)/.exec(location.hash || '');
+        switchSec(m ? m[1] : 'info');
+      })();
 
       // ================= 账号与安全 =================
       function escU(t) {
