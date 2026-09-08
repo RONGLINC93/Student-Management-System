@@ -32,19 +32,9 @@ const authUrl = repoUrl.replace('https://', `https://x-access-token:${token}@`);
 // 输出时隐藏令牌
 const mask = (s) => s.split(token).join('******');
 
-// 提交作者身份（如需修改，直接改下面两行即可）
-const gitName = 'RONGLINC';
-const gitEmail = 'chenronglin1993@hotmail.com';
-const gitEnv = Object.assign({}, process.env, {
-  GIT_AUTHOR_NAME: gitName,
-  GIT_AUTHOR_EMAIL: gitEmail,
-  GIT_COMMITTER_NAME: gitName,
-  GIT_COMMITTER_EMAIL: gitEmail,
-});
-
 function git(args) {
   try {
-    return execFileSync('git', args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv }).toString().trim();
+    return execFileSync('git', args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim();
   } catch (e) {
     console.error('[错误] git 命令执行失败：');
     console.error(mask(((e.stdout || '') + (e.stderr || '')).toString().trim()));
