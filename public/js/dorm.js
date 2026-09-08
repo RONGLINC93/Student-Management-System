@@ -6,6 +6,9 @@ const GRADES_API = '/api/grades';
 const GENDER_TEXT = { any: '混合', male: '男生', female: '女生' };
 const STATE_TEXT = { empty: '空房', part: '部分入住', full: '满房' };
 
+/* 房态卡片中每个床位的小床图标（描边风格，颜色由 .bed 的 color 决定） */
+const BED_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>';
+
 let dorms = [];
 let allStudents = [];
 let gradesList = [];
@@ -172,8 +175,8 @@ function tileHtml(r) {
   const beds = Array.from({ length: c }, (_, i) => {
     const sid = (r.students || [])[i];
     const stu = sid ? sm[sid] : null;
-    if (!sid) return '<span class="bed"></span>';
-    return `<span class="bed on-${stu ? genderCls(stu.gender) : 'unknown'}"></span>`;
+    if (!sid) return `<span class="bed">${BED_ICON}</span>`;
+    return `<span class="bed on-${stu ? genderCls(stu.gender) : 'unknown'}">${BED_ICON}</span>`;
   }).join('');
   const free = freeOf(r);
   const freeText = sk === 'full' ? '' : `<div class="rt-free">空 ${free} 床</div>`;

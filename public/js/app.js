@@ -111,6 +111,9 @@ function dormStateKey(room) {
 }
 const DORM_STATE_LBL = { empty: '空房', part: '部分入住', full: '满房' };
 
+// 床位小床图标（颜色由外层 .bed-dots i 的 color 决定）
+const DORM_BED_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>';
+
 // 床位点阵 HTML：房间入住顺序即床位号，meId 命中时高亮该床位
 function dormBedsHtml(room, meId, size) {
   const cap = Number(room.capacity) || 1;
@@ -125,7 +128,7 @@ function dormBedsHtml(room, meId, size) {
       else cls = 'on on-u';
       if (meId !== undefined && String(sid) === String(meId)) cls += ' me';
     }
-    dots.push(`<i class="${cls}"></i>`);
+    dots.push(`<i class="${cls}">${DORM_BED_SVG}</i>`);
   }
   return `<span class="bed-dots ${size === 'mini' ? 'mini' : ''}">${dots.join('')}</span>`;
 }

@@ -117,14 +117,15 @@
     }
     .dm-act:hover { background: #e0e7ff; }
 
-    /* 床位点阵（表格小卡 / 选择弹窗卡片共用） */
-    .bed-dots { display: flex; flex-wrap: wrap; gap: 4px; }
-    .bed-dots i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #cbd5e1; background: #fff; box-sizing: border-box; }
-    .bed-dots.mini i { width: 9px; height: 9px; border-width: 1.5px; }
-    .bed-dots i.on-male { background: #3b82f6; border-color: #3b82f6; }
-    .bed-dots i.on-female { background: #ec4899; border-color: #ec4899; }
-    .bed-dots i.on-u { background: #94a3b8; border-color: #94a3b8; }
-    .bed-dots i.me { outline: 2px solid #6366f1; outline-offset: 1px; }
+    /* 床位点阵（表格小卡 / 选择弹窗卡片共用）：每个床位为一个小床图标 */
+    .bed-dots { display: flex; flex-wrap: wrap; gap: 3px 6px; }
+    .bed-dots i { width: 15px; height: 12px; display: inline-flex; font-style: normal; color: #c2ccd9; }
+    .bed-dots i svg { width: 100%; height: 100%; display: block; }
+    .bed-dots.mini i { width: 12px; height: 10px; }
+    .bed-dots i.on-male { color: #3b82f6; }
+    .bed-dots i.on-female { color: #ec4899; }
+    .bed-dots i.on-u { color: #94a3b8; }
+    .bed-dots i.me { outline: 2px solid #6366f1; outline-offset: 1px; border-radius: 4px; }
 
     /* ===== 宿舍选择弹窗：酒店式房态配色（空绿 / 部分橙 / 满紫） ===== */
     .dorm-room.lv-empty { background: #f0fdf4; border-top: 3px solid #22c55e; }
