@@ -3,7 +3,7 @@
     "id": "cls_mtl9fhaurntb",
     "name": "高一1班",
     "grade": "高一",
-    "headTeacher": "",
+    "headTeacher": "陈老师",
     "capacity": 50,
     "students": [
       {
@@ -13,12 +13,24 @@
         "photo": "",
         "name": "王强",
         "gender": "男",
-        "chinese": 78,
-        "math": 85,
-        "english": 72,
-        "science": 80,
         "specialty": "",
-        "_total": 315
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 78,
+          "math": 85,
+          "english": 72,
+          "science": 80
+        }
       },
       {
         "id": "mtlkhfhivmdv",
@@ -27,12 +39,24 @@
         "photo": "",
         "name": "张伟",
         "gender": "男",
-        "chinese": 88,
-        "math": 92,
-        "english": 85,
-        "science": 90,
         "specialty": "篮球",
-        "_total": 355
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 88,
+          "math": 92,
+          "english": 85,
+          "science": 90
+        }
       },
       {
         "id": "mtlkhfhilrnq",
@@ -41,12 +65,24 @@
         "photo": "",
         "name": "吴婷",
         "gender": "女",
-        "chinese": 94,
-        "math": 90,
-        "english": 96,
-        "science": 92,
         "specialty": "古筝",
-        "_total": 372
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 94,
+          "math": 90,
+          "english": 96,
+          "science": 92
+        }
       },
       {
         "id": "mtlkhfhi81bk",
@@ -55,12 +91,24 @@
         "photo": "",
         "name": "赵敏",
         "gender": "女",
-        "chinese": 90,
-        "math": 78,
-        "english": 88,
-        "science": 82,
         "specialty": "钢琴",
-        "_total": 338
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 90,
+          "math": 78,
+          "english": 88,
+          "science": 82
+        }
       },
       {
         "id": "mtlkhfhimfd4",
@@ -69,12 +117,24 @@
         "photo": "",
         "name": "杨帆",
         "gender": "男",
-        "chinese": 73,
-        "math": 68,
-        "english": 75,
-        "science": 71,
         "specialty": "足球",
-        "_total": 287
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 73,
+          "math": 68,
+          "english": 75,
+          "science": 71
+        }
       }
     ]
   },
@@ -92,12 +152,24 @@
         "photo": "",
         "name": "周磊",
         "gender": "男",
-        "chinese": 79,
-        "math": 88,
-        "english": 76,
-        "science": 83,
         "specialty": "",
-        "_total": 326
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 79,
+          "math": 88,
+          "english": 76,
+          "science": 83
+        }
       },
       {
         "id": "mtlkhfhijr4n",
@@ -106,12 +178,24 @@
         "photo": "",
         "name": "黄丽",
         "gender": "女",
-        "chinese": 91,
-        "math": 84,
-        "english": 89,
-        "science": 87,
         "specialty": "声乐",
-        "_total": 351
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 91,
+          "math": 84,
+          "english": 89,
+          "science": 87
+        }
       },
       {
         "id": "mtlkhfhiuu8s",
@@ -120,12 +204,24 @@
         "photo": "",
         "name": "李娜",
         "gender": "女",
-        "chinese": 95,
-        "math": 87,
-        "english": 93,
-        "science": 86,
         "specialty": "舞蹈",
-        "_total": 361
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 95,
+          "math": 87,
+          "english": 93,
+          "science": 86
+        }
       },
       {
         "id": "mtlkhfhifbt0",
@@ -134,12 +230,24 @@
         "photo": "",
         "name": "陈静",
         "gender": "女",
-        "chinese": 86,
-        "math": 80,
-        "english": 91,
-        "science": 79,
         "specialty": "绘画",
-        "_total": 336
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 86,
+          "math": 80,
+          "english": 91,
+          "science": 79
+        }
       },
       {
         "id": "mtlkhfhiqt1a",
@@ -148,12 +256,24 @@
         "photo": "",
         "name": "刘洋",
         "gender": "男",
-        "chinese": 82,
-        "math": 95,
-        "english": 80,
-        "science": 88,
         "specialty": "编程",
-        "_total": 345
+        "archNo": "",
+        "idCard": "",
+        "birthday": "",
+        "nation": "",
+        "nativePlace": "",
+        "address": "",
+        "guardian": "",
+        "guardianPhone": "",
+        "guardianRel": "",
+        "enrollDate": "",
+        "remark": "",
+        "scores": {
+          "chinese": 82,
+          "math": 95,
+          "english": 80,
+          "science": 88
+        }
       }
     ]
   },

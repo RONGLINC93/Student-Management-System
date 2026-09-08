@@ -3,7 +3,9 @@ const API = '/api/classes';
 const STU_API = '/api/students';
 const GRADES_API = '/api/grades';
 const FILTERS_API = '/api/filters';
+const TEA_API = '/api/teachers';
 let classes = [];
+let teacherList = []; // 教师列表，班主任下拉选项引用该列表
 let poolCount = 0;
 let rosterClassId = ''; // 当前打开花名册的班级 id（导出/退生以 id 精确对应，避免按班级名匹配出错）
 let gradesList = [];
@@ -105,11 +107,17 @@ async function loadFilters() {
 
 async function loadData() {
   try {
-    const [clsRes, stuRes] = await Promise.all([
-      fetch(API), fetch(STU_API)
+    const [clsRes, stuRes, teaRes] = await Promise.all([
+      fetch(API), fetch(STU_API), fetch(TEA_API).catch(() => null)
     ]);
     const clsJson = await clsRes.json();
     const stuJson = await stuRes.json();
+    if (teaRes && teaRes.ok) {
+      const teaJson = await teaRes.json();
+      teacherList = teaJson.data || [];
+    } else {
+      teacherList = [];
+    }
     classes = clsJson.data || [];
     poolCount = (stuJson.data || []).length;
     renderClasses();
@@ -192,13 +200,39 @@ function renderClasses() {
   }).join('');
 }
 
+// 班主任下拉：引用教师列表中的教师（以教师档案的班主任归属 classId 为准）
+// - 当前班级在任的班主任教师可被重新选中
+// - 已担任其他班级班主任的教师置灰不可选，避免一位教师兼任多班
+function renderHeadTeacherOptions(cls) {
+  const sel = $('#fHeadTeacher');
+  if (!sel) return;
+  const curId = cls ? cls.id : '';
+  const nameOf = {};
+  classes.forEach(c => { nameOf[c.id] = c.name; });
+  const curHead = teacherList.find(t => t.classId === curId);
+  let html = '<option value="">未设置</option>';
+  teacherList.forEach(t => {
+    if (t.classId === curId) return; // 当前在任班主任放在下拉首项
+    const subject = (t.subject || '').trim();
+    const label = t.name + (subject ? ' · ' + subject : '') + (t.classId ? '（现任' + (nameOf[t.classId] || '其他班') + '班主任）' : '');
+    html += `<option value="${escapeHtml(t.name)}" ${t.classId ? 'disabled' : ''}>${escapeHtml(label)}</option>`;
+  });
+  if (curHead) {
+    const subject = (curHead.subject || '').trim();
+    const label = curHead.name + (subject ? ' · ' + subject : '') + '（在任）';
+    html = `<option value="${escapeHtml(curHead.name)}">${escapeHtml(label)}</option>` + html;
+  }
+  sel.innerHTML = html;
+  sel.value = curHead ? curHead.name : '';
+}
+
 // ===== 班级编辑弹窗 =====
 function openModal(cls) {
   $('#modalTitle').textContent = cls ? '编辑班级' : '添加班级';
   $('#fId').value = cls ? cls.id : '';
   $('#fName').value = cls ? cls.name : '';
   $('#fGrade').value = cls ? cls.grade : (gradesList[0] || '');
-  $('#fHeadTeacher').value = cls ? cls.headTeacher : '';
+  renderHeadTeacherOptions(cls);
   $('#fCapacity').value = cls ? cls.capacity : 50;
   $('#modalMask').classList.add('show');
   setTimeout(() => $('#fName').focus(), 100);

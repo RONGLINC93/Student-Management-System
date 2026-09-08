@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": "cls_mtsfbej9cr6p",
+    "teacherNo": "T2024001",
+    "name": "陈老师",
+    "gender": "男",
+    "subject": "语文",
+    "title": "高级教师",
+    "phone": "",
+    "joinYear": "",
+    "classId": "cls_mtl9fhaurntb",
+    "remark": ""
+  }
+]

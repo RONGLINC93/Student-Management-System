@@ -822,6 +822,43 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, msg: '已清空' });
   }
 
+  // 班主任同步：以班级 headTeacher（教师姓名）为准校正教师档案的 classId，
+  // 使「班级管理」中选定的班主任与教师档案保持一致（与教师管理「任班主任」互为入口）。
+  // 一位教师只能担任一个班的班主任，原班归属会被同步解除。
+  function syncClassHeadTeacher(classId) {
+    const classes = readClasses();
+    const cls = classes.find(c => c.id === classId);
+    if (!cls) return;
+    const headName = cls.headTeacher || '';
+    const teachers = readTeachers();
+    let clsChanged = false;
+    let teaChanged = false;
+    // 解除不再担任本班班主任的教师
+    teachers.forEach(t => {
+      if (t.classId === classId && t.name !== headName) {
+        t.classId = '';
+        teaChanged = true;
+      }
+    });
+    // 将新任班主任教师（按姓名匹配）关联到本班；若其原在别班，先解除别班
+    if (headName) {
+      const t = teachers.find(x => x.name === headName);
+      if (t && t.classId !== classId) {
+        if (t.classId) {
+          const oldCls = classes.find(c => c.id === t.classId);
+          if (oldCls && oldCls.headTeacher === t.name) {
+            oldCls.headTeacher = '';
+            clsChanged = true;
+          }
+        }
+        t.classId = classId;
+        teaChanged = true;
+      }
+    }
+    if (teaChanged) writeTeachers(teachers);
+    if (clsChanged) writeClasses(classes);
+  }
+
   // ===== 班级管理 API =====
   // 获取所有班级（含学生名单）
   if (pathname === '/api/classes' && req.method === 'GET') {
@@ -855,6 +892,7 @@ const server = http.createServer(async (req, res) => {
     };
     list.push(cls);
     writeClasses(list);
+    syncClassHeadTeacher(cls.id); // 同步教师档案中的班主任归属
     return sendJson(res, 200, { code: 0, data: cls });
   }
 
@@ -904,7 +942,8 @@ const server = http.createServer(async (req, res) => {
       capacity: body.capacity !== undefined ? Number(body.capacity) : list[idx].capacity
     };
     writeClasses(list);
-    return sendJson(res, 200, { code: 0, data: list[idx] });
+    syncClassHeadTeacher(id); // 班主任变更后同步教师档案中的归属
+    return sendJson(res, 200, { code: 0, data: readClasses().find(c => c.id === id) });
   }
 
   // 删除班级（学生退回学生池）
@@ -920,6 +959,12 @@ const server = http.createServer(async (req, res) => {
     const next = classes.filter(c => c.id !== id);
     writeClasses(next);
     writeStudents(students);
+    // 解除该班班主任教师在教师档案中的归属
+    const teachers = readTeachers();
+    if (teachers.some(t => t.classId === id)) {
+      teachers.forEach(t => { if (t.classId === id) t.classId = ''; });
+      writeTeachers(teachers);
+    }
     return sendJson(res, 200, { code: 0, msg: '已删除，学生已退回学生池' });
   }
 
@@ -932,6 +977,12 @@ const server = http.createServer(async (req, res) => {
     });
     writeClasses([]);
     writeStudents(students);
+    // 清空全部教师档案中的班主任归属
+    const teachers = readTeachers();
+    if (teachers.some(t => t.classId)) {
+      teachers.forEach(t => { t.classId = ''; });
+      writeTeachers(teachers);
+    }
     return sendJson(res, 200, { code: 0, msg: '已清空所有班级，学生已退回学生池' });
   }
 
