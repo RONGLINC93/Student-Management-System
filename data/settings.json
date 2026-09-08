@@ -1,11 +1,11 @@
 {
-  "schoolName": "湖光中学",
+  "schoolName": "智能分班系统",
   "logoDataUrl": "",
   "schoolYear": "",
   "slogan": "",
   "schoolAddress": "",
   "schoolPhone": "",
-  "schoolWebsite": "",
+  "schoolWebsite": "https://admin",
   "balanceGender": 1.5,
   "balanceSpecialty": 2
 }

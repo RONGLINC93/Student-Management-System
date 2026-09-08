@@ -45,10 +45,6 @@
     .pw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
     @media (max-width: 760px) { .pw-grid { grid-template-columns: 1fr; } }
     .set-tag { font-size: 13px; color: var(--primary); font-weight: 700; min-width: 64px; }
-    .btn-danger { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
-    .btn-danger:hover { background: var(--danger); color: #fff; }
-    .btn-soft { background: #f3f4f6; color: var(--text); border: 1px solid var(--border); }
-    .btn-soft:hover { background: #e5e7eb; }
     .set-restore-tip { font-size: 12px; color: var(--text-light); margin-top: 10px; }
     .set-toast {
       position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%) translateY(20px);
@@ -219,7 +215,7 @@
             <div class="logo-preview" id="logoPreview"></div>
             <div class="logo-actions">
               <button type="button" class="btn btn-default btn-sm" id="btnPickLogo">选择图片上传</button>
-              <button type="button" class="btn btn-soft btn-sm" id="btnClearLogo">移除校徽</button>
+              <button type="button" class="btn btn-default btn-sm" id="btnClearLogo">移除校徽</button>
               <input type="file" id="fileLogo" accept="image/*" style="display:none" />
               <p class="set-tip">建议使用正方形 PNG（透明底更佳），上传后自动等比缩小到 300px 内，将替换各页面顶部、后台工作台与大屏的默认图标。</p>
             </div>
@@ -674,8 +670,8 @@
           '<div><select class="acc-role-sel">' + opts + '</select></div>' +
           '<div class="acc-created">' + (u.role === 'admin' ? '可操作全部功能与数据' : '仅查看，不可修改') + '</div>' +
           '<div class="acc-btns">' +
-          '<button class="btn btn-soft btn-sm acc-reset">重设密码</button>' +
-          (isMe ? '' : '<button class="btn btn-soft btn-sm acc-del" style="color:#e11d48">删除</button>') +
+          '<button class="btn-sm btn-edit acc-reset">重设密码</button>' +
+          (isMe ? '' : '<button class="btn-sm btn-del acc-del">删除</button>') +
           '</div>';
 
         var sel = row.querySelector('.acc-role-sel');

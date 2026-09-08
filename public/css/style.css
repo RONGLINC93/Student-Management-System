@@ -161,46 +161,57 @@ body {
 .stat-num { font-size: 30px; font-weight: 700; color: var(--primary); }
 .stat-label { font-size: 13px; color: var(--text-light); margin-top: 4px; }
 
-/* ========== 工具栏 ========== */
+/* ========== 工具栏（一体操作条） ========== */
 .toolbar {
-  background: var(--card-bg);
-  border-radius: 14px;
-  padding: 16px 20px;
+  background: #f7f9fc;
+  border-radius: 12px;
+  padding: 10px 16px;
   margin-bottom: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  box-shadow: var(--shadow);
+  gap: 10px 16px;
   border: 1px solid var(--border);
 }
 .search-input {
-  width: 280px;
+  width: 260px;
   max-width: 100%;
-  padding: 9px 14px;
-  border: 1px solid var(--border);
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
-  transition: border-color .2s;
+  background: #fff;
+  transition: border-color .2s, box-shadow .2s;
 }
-.search-input:focus { border-color: var(--primary); }
+.search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,109,245,.12); }
 .grade-filter {
-  padding: 9px 14px;
-  border: 1px solid var(--border);
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
   background: #fff;
   cursor: pointer;
-  transition: border-color .2s;
-  min-width: 120px;
+  transition: border-color .2s, box-shadow .2s;
+  min-width: 112px;
 }
-.grade-filter:focus { border-color: var(--primary); }
+.grade-filter:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,109,245,.12); }
 .grade-filter:hover { border-color: var(--primary); }
-.toolbar-left { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.toolbar-right { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 工具条内控件紧凑、统一、同高 */
+.toolbar-left { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.toolbar-right { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.toolbar .btn {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+.toolbar .btn-outline { padding: 0 13px; }
 
 /* ========== 按钮 ========== */
 .btn {
@@ -228,6 +239,31 @@ body {
 .btn-secondary:hover { background: #c7d2fe; }
 .btn-default { background: #f3f4f6; color: var(--text); }
 .btn-default:hover { background: #e5e7eb; }
+
+/* 描边按钮（工具栏次要操作，白底细框轻量风格） */
+.btn-outline {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid #d1d5db;
+  padding: 8px 16px;
+}
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #f5f7ff;
+}
+
+/* 幽灵按钮（弱操作 / 收纳类，无边框透明底） */
+.btn-ghost {
+  background: transparent;
+  color: #64748b;
+  border: 1px solid transparent;
+  padding: 8px 16px;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: var(--primary-dark);
+}
 
 /* 更多下拉菜单 */
 .dropdown { position: relative; display: inline-flex; }
@@ -353,7 +389,7 @@ body {
 }
 .status-allocated { background: #dcfce7; color: #166534; }
 .status-unallocated { background: #fee2e2; color: #991b1b; }
-.row-actions { display: flex; gap: 6px; }
+.row-actions { display: flex; gap: 6px; flex-wrap: nowrap; }
 .btn-sm {
   padding: 5px 10px;
   font-size: 12px;
@@ -361,13 +397,19 @@ body {
   border: none;
   cursor: pointer;
   transition: all .2s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.btn-view { background: #e0e7ff; color: var(--primary-dark); }
-.btn-view:hover { background: #c7d2fe; }
-.btn-edit { background: #fef3c7; color: #92400e; }
-.btn-edit:hover { background: #fde5a1; }
-.btn-del { background: #fee2e2; color: #dc2626; }
-.btn-del:hover { background: #fecaca; }
+.btn-view,
+.btn-edit,
+.btn-del {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-view:hover:not(:disabled),
+.btn-edit:hover:not(:disabled),
+.btn-del:hover:not(:disabled) { background: #f3f4f6; border-color: #d1d5db; }
 
 /* ========== 弹窗 ========== */
 .modal-mask {
