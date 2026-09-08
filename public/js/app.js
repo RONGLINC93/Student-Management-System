@@ -515,7 +515,7 @@ async function importTableData(file) {
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
   $('#btnBoard').onclick = () => window.open('/result.html', '_blank');
-  $('#btnAllocate').onclick = () => location.href = '/allocate.html';
+  $('#btnAllocate').onclick = () => goPage('/allocate.html');
   $('#btnClear').onclick = clearAll;
   $('#btnImport').onclick = batchImport;
   $('#btnDownloadTpl').onclick = downloadTemplate;

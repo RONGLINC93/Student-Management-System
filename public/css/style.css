@@ -2006,3 +2006,8 @@ tr.data-row.dragging { box-shadow: inset 0 0 0 2px var(--primary); }
   text-indent: 10px; /* 抵消末字字距，保持视觉居中 */
   color: rgba(255,255,255,.82);
 }
+
+/* ========== 后台工作台嵌入模式（各功能页被 iframe 打开时） ========== */
+/* 页面自带站点头部（logo + 导航）在工作台内隐藏，避免导航重复 */
+html.cb-embedded body > header.app-header { display: none; }
+

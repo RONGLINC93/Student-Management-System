@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能分班系统 - 学生列表</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg>
+        <div>
+          <h1>智能分班系统</h1>
+          <p class="subtitle">学生信息管理</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/students.html" class="nav-item active">学生列表</a>
+        <a href="/classes.html" class="nav-item">班级管理</a>
+        <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/allocate.html" class="nav-item">智能分班</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- 统计卡片 -->
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-label">总人数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statMale">0</div>
+        <div class="stat-label">男生</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statFemale">0</div>
+        <div class="stat-label">女生</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statAvg">0</div>
+        <div class="stat-label">平均总分</div>
+      </div>
+    </section>
+
+    <!-- 操作工具栏 -->
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <input type="text" id="searchInput" class="search-input" placeholder="搜索姓名/特长..." />
+        <select id="gradeFilter" class="grade-filter">
+          <option value="">全部年级</option>
+        </select>
+        <select id="statusFilter" class="grade-filter">
+          <option value="">全部状态</option>
+          <option value="unallocated">未分班</option>
+          <option value="allocated">已分班</option>
+        </select>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-primary" id="btnAdd"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加学生</button>
+        <button class="btn btn-primary" id="btnBoard" title="在另一块屏幕投屏查看实时分班结果"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> 投屏查看结果</button>
+        <button class="btn btn-primary" id="btnAllocate"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 开始分班</button>
+        <div class="dropdown" id="moreDropdown">
+          <button class="btn btn-primary" id="btnMore"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg> 更多 <svg class="btn-icon btn-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="dropdown-menu" id="moreMenu">
+            <button class="dropdown-item" id="btnImport"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 批量导入示例</button>
+            <button class="dropdown-item" id="btnDownloadTpl" title="下载 CSV 格式的示例表格，可用 Excel 编辑后导入"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg> 下载示例表格</button>
+            <button class="dropdown-item" id="btnImportFile" title="导入 CSV 表格文件（列：学号、年级、姓名、性别、语文、数学、英语、理综、特长）"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> 导入表格数据</button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item item-danger" id="btnClear"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 清空学生</button>
+          </div>
+        </div>
+        <input type="file" id="importFileInput" accept=".csv,text/csv" hidden />
+      </div>
+    </section>
+
+    <!-- 学生表格 -->
+    <section class="table-wrap">
+      <table class="student-table">
+        <thead>
+          <tr>
+            <th style="width:60px">照片</th>
+            <th class="sortable" data-sort="studentId">学号</th>
+            <th class="sortable" data-sort="grade">年级</th>
+            <th class="sortable" data-sort="className">班级</th>
+            <th class="sortable" data-sort="name">姓名</th>
+            <th class="sortable" data-sort="gender">性别</th>
+            <th class="sortable" data-sort="chinese">语文</th>
+            <th class="sortable" data-sort="math">数学</th>
+            <th class="sortable" data-sort="english">英语</th>
+            <th class="sortable" data-sort="science">理综</th>
+            <th class="sortable" data-sort="total">总分</th>
+            <th class="sortable" data-sort="specialty">特长</th>
+            <th class="sortable" data-sort="allocated">分班状态</th>
+            <th style="width:140px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="studentTbody">
+          <tr><td colspan="14" class="empty-tip">加载中...</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 分页 -->
+    <section class="pagination" id="pagination"></section>
+  </main>
+
+  <!-- 学生编辑弹窗 -->
+  <div class="modal-mask" id="modalMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">添加学生</h3>
+        <button class="modal-close" id="modalClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="modal-body" id="stuForm">
+        <input type="hidden" id="fId" />
+        <div class="form-row">
+          <label class="form-label">照片URL</label>
+          <input type="text" id="fPhoto" placeholder="留空使用默认头像" />
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label">学号 <span class="req">*</span></label>
+            <input type="text" id="fStudentId" required placeholder="请输入学号" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">年级</label>
+            <select id="fGrade">
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">姓名 <span class="req">*</span></label>
+            <input type="text" id="fName" required placeholder="请输入姓名" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">性别</label>
+            <select id="fGender">
+              <option value="男">男</option>
+              <option value="女">女</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">语文</label>
+            <input type="number" id="fChinese" min="0" max="150" value="0" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">数学</label>
+            <input type="number" id="fMath" min="0" max="150" value="0" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">英语</label>
+            <input type="number" id="fEnglish" min="0" max="150" value="0" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">理综</label>
+            <input type="number" id="fScience" min="0" max="300" value="0" />
+          </div>
+          <div class="form-row form-row-full">
+            <label class="form-label">特长</label>
+            <input type="text" id="fSpecialty" placeholder="如：篮球、钢琴、绘画..." />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="modalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast 提示 -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/dialog.js"></script>
+  <script src="/js/embed.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

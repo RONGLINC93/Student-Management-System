@@ -122,6 +122,16 @@
   </div>
   <div class="toast" id="toast"></div>
   <script src="/js/dialog.js"></script>
+  <script src="/js/embed.js"></script>
   <script src="/js/allocate.js"></script>
+  <script>
+    // 工作台切回本页时静默刷新：正在动画中 / 已有随机排位 / 已有结果时不打断
+    window.cbEmbedRefresh = function () {
+      if (isShuffling || isDealing) return;
+      if (cardEls && cardEls.length) return;
+      if (allocationResult && allocationResult.length) return;
+      if (typeof loadStudents === 'function') loadStudents();
+    };
+  </script>
 </body>
 </html>

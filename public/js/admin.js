@@ -1,0 +1,185 @@
+/* ============================================================
+   智能分班系统 · 后台工作台主逻辑
+   左侧菜单 -> 打开功能页选项卡；iframe 独立加载各功能页；
+   选项卡切换/关闭；切回时静默刷新，保证数据最新。
+   ============================================================ */
+(function () {
+  'use strict';
+
+  function $(s) { return document.querySelector(s); }
+
+  var IC = {
+    user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    classes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>',
+    grades: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+    allocate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+  };
+
+  var MODULES = {
+    students: { key: 'students', title: '学生列表', icon: IC.user, src: '/students.html', pinned: true },
+    classes:  { key: 'classes',  title: '班级管理', icon: IC.classes, src: '/classes.html', pinned: false },
+    grades:   { key: 'grades',   title: '年级管理', icon: IC.grades, src: '/grades.html', pinned: false },
+    allocate: { key: 'allocate', title: '智能分班', icon: IC.allocate, src: '/allocate.html', pinned: false }
+  };
+
+  var tabs = [];          // 已打开的选项卡
+  var activeKey = null;
+
+  var tabScroll = $('#tabScroll');
+  var workbench = $('#workbench');
+  var currentTitle = $('#currentTitle');
+  var btnRefresh = $('#btnRefresh');
+  var btnNewWin = $('#btnNewWin');
+
+  function sendTo(t, type) {
+    try {
+      if (t && t.frame && t.frame.contentWindow) {
+        t.frame.contentWindow.postMessage({ type: type }, location.origin);
+      }
+    } catch (e) {}
+  }
+
+  function getTab(key) {
+    for (var i = 0; i < tabs.length; i++) if (tabs[i].key === key) return tabs[i];
+    return null;
+  }
+
+  function closeTab(key) {
+    var t = getTab(key);
+    if (!t || t.pinned) return;
+    var idx = tabs.indexOf(t);
+    tabs.splice(idx, 1);
+    if (t.tabEl && t.tabEl.parentNode) t.tabEl.parentNode.removeChild(t.tabEl);
+    if (t.frame && t.frame.parentNode) t.frame.parentNode.removeChild(t.frame);
+    if (activeKey === key) {
+      var next = tabs[idx] || tabs[idx - 1] || tabs[0];
+      if (next) activate(next.key);
+      else if (getTab('students')) activate('students');
+    }
+  }
+
+  function activate(key) {
+    var t = getTab(key);
+    if (!t) return;
+    var prev = activeKey ? getTab(activeKey) : null;
+    if (prev && prev !== t) {
+      prev.tabEl.classList.remove('active');
+      prev.frame.classList.remove('active');
+    }
+    t.tabEl.classList.add('active');
+    t.frame.classList.add('active');
+    activeKey = key;
+
+    var m = MODULES[key];
+    currentTitle.textContent = m.title;
+    btnNewWin.href = m.src;
+    document.title = m.title + ' · 智能分班系统后台';
+    updateMenu();
+
+    // 已有内容的选项卡在切回时静默刷新数据
+    if (t.loaded) sendTo(t, 'icst-active');
+    else t.pendingActive = true;
+  }
+
+  function buildTab(m, t) {
+    var el = document.createElement('div');
+    el.className = 'worktab' + (m.pinned ? ' pinned' : '');
+    el.dataset.key = m.key;
+    el.title = m.title;
+
+    var closeHtml = m.pinned ? '' :
+      '<button class="wt-close" title="关闭选项卡">' + IC.close + '</button>';
+    el.innerHTML = '<span class="wt-icon">' + m.icon + '</span>' +
+      '<span class="wt-label"></span>' + closeHtml;
+    el.querySelector('.wt-label').textContent = m.title;
+    t.tabEl = el;
+
+    if (!m.pinned) {
+      el.querySelector('.wt-close').addEventListener('click', function (e) {
+        e.stopPropagation();
+        closeTab(m.key);
+      });
+    }
+    el.addEventListener('click', function () { activate(m.key); });
+    el.addEventListener('auxclick', function (e) {
+      if (e.button === 1) { e.preventDefault(); if (!m.pinned) closeTab(m.key); }
+    });
+    return el;
+  }
+
+  function openTab(key) {
+    var exist = getTab(key);
+    if (exist) { activate(key); return; }
+    var m = MODULES[key];
+    if (!m) return;
+
+    var t = { key: m.key, pinned: !!m.pinned, loaded: false, pendingActive: false, tabEl: null, frame: null };
+    tabs.push(t);
+    tabScroll.appendChild(buildTab(m, t));
+
+    var frame = document.createElement('iframe');
+    frame.className = 'work-frame';
+    frame.src = m.src;
+    frame.title = m.title;
+    frame.addEventListener('load', function () {
+      t.loaded = true;
+      if (t.pendingActive) {
+        t.pendingActive = false;
+        sendTo(t, 'icst-active');
+      }
+    });
+    t.frame = frame;
+    workbench.appendChild(frame);
+    activate(key);
+  }
+
+  function updateMenu() {
+    var items = document.querySelectorAll('.menu-item[data-mod]');
+    for (var i = 0; i < items.length; i++) {
+      items[i].classList.toggle('active', items[i].getAttribute('data-mod') === activeKey);
+    }
+  }
+
+  function moduleByUrl(href) {
+    var path = '';
+    try { path = new URL(href, location.origin).pathname; } catch (e) {
+      path = String(href).split('#')[0].split('?')[0];
+    }
+    switch (path) {
+      case '/index.html':
+      case '/students.html':
+      case '/': return 'students';
+      case '/classes.html': return 'classes';
+      case '/grades.html': return 'grades';
+      case '/allocate.html': return 'allocate';
+      default: return null;
+    }
+  }
+
+  // 接收子页面消息：点击了其他功能页链接 / 页面就绪
+  window.addEventListener('message', function (ev) {
+    if (!ev.data) return;
+    var d = ev.data;
+    if (d.type === 'icst-nav' && d.url) {
+      var key = moduleByUrl(d.url);
+      if (key) openTab(key);
+    }
+  });
+
+  // 左侧菜单点击
+  document.querySelectorAll('.menu-item[data-mod]').forEach(function (item) {
+    item.addEventListener('click', function () { openTab(item.getAttribute('data-mod')); });
+  });
+
+  // 顶栏：刷新当前页
+  btnRefresh.addEventListener('click', function () {
+    var t = activeKey ? getTab(activeKey) : null;
+    if (t && t.loaded) sendTo(t, 'icst-refresh');
+    else if (t) t.pendingActive = true;
+  });
+
+  // 启动：默认打开「学生列表」
+  openTab('students');
+})();
+
