@@ -306,15 +306,15 @@ body.admin-body {
 }
 .tab-bar.split #tabScroll {
   flex: none;
-  width: calc(50% - 3px);
+  width: calc(var(--split-ratio, 50%) - 3px);
 }
-/* 两栏之间的竖直分隔条，与内容区分隔条位置一致 */
+/* 两栏之间的竖直分隔条，与内容区分隔条位置一致（随可调比例移动） */
 .tab-bar.split::before {
   content: '';
   position: absolute;
   top: 7px;
   bottom: 0;
-  left: calc(50% - 3px);
+  left: calc(var(--split-ratio, 50%) - 3px);
   width: 6px;
   z-index: 5;
   pointer-events: none;
@@ -334,49 +334,67 @@ body.admin-body {
    重要：.work-frame 是 <iframe>（替换元素）。替换元素在 width/height 为
    auto 时会按固有尺寸（iframe 默认 300px）渲染，而不是自动拉伸。因此
    分屏时必须显式给出窗格宽度/高度（width / height），否则窗格会缩成
-   300px 并在右侧/下方留白。 */
+   300px 并在右侧/下方留白。
+   分隔位置由根变量 --split-ratio 控制（默认 50%），JS 拖动分隔条实时改写；
+   左右分屏时它表示主窗格占宽比例，上下分屏时表示上窗格占高比例，
+   选项卡条的分栏宽度用同一变量，保证两栏与内容窗格始终对齐。 */
+:root { --split-ratio: 50%; }
+
 .workbench.split .work-frame.active.split-main {
   left: 0; top: 0; bottom: 0;
-  width: calc(50% - 3px); height: 100%;
+  width: calc(var(--split-ratio, 50%) - 3px); height: 100%;
 }
 .workbench.split .work-frame.active.split-ref {
-  left: calc(50% + 3px); top: 0; bottom: 0;
-  width: calc(50% - 3px); height: 100%;
+  left: calc(var(--split-ratio, 50%) + 3px); top: 0; bottom: 0;
+  width: calc(100% - var(--split-ratio, 50%) - 3px); height: 100%;
 }
-.workbench.split::after {
-  content: '';
+/* 两窗格之间的可拖拽分隔条（宽屏为竖直条；替代原装饰伪元素） */
+.wb-divider {
+  display: none;
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
+  top: 0; bottom: 0;
+  left: var(--split-ratio, 50%);
   width: 6px;
   transform: translateX(-50%);
-  z-index: 5;
-  pointer-events: none;
+  z-index: 6;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
   background: linear-gradient(#e6eaf4, #cbd3e8);
   border-left: 1px solid #fff;
   border-right: 1px solid #fff;
 }
+.workbench.split .wb-divider { display: block; }
+.wb-divider:hover,
+.wb-divider.dragging {
+  background: linear-gradient(#cdd6f2, #9fb3e8);
+}
+.wb-divider.dragging { border-color: #eef2ff; }
 
-/* 中屏：左右分屏自动转为上下分屏 */
+/* 中屏：左右分屏自动转为上下分屏，分隔条随之变为水平条 */
 @media (max-width: 1099px) {
   .workbench.split .work-frame.active.split-main {
     top: 0; left: 0; right: 0;
-    width: 100%; height: calc(50% - 3px);
+    width: 100%; height: calc(var(--split-ratio, 50%) - 3px);
   }
   .workbench.split .work-frame.active.split-ref {
-    top: calc(50% + 3px); left: 0; right: 0;
-    width: 100%; height: calc(50% - 3px);
+    top: calc(var(--split-ratio, 50%) + 3px); left: 0; right: 0;
+    width: 100%; height: calc(100% - var(--split-ratio, 50%) - 3px);
   }
-  .workbench.split::after {
-    top: 50%; bottom: auto;
-    left: 0; right: 0;
+  .workbench.split .wb-divider {
+    top: var(--split-ratio, 50%);
+    bottom: auto; left: 0; right: 0;
     width: auto; height: 6px;
     transform: translateY(-50%);
+    cursor: row-resize;
     background: linear-gradient(90deg, #e6eaf4, #cbd3e8);
     border: 0;
     border-top: 1px solid #fff;
     border-bottom: 1px solid #fff;
+  }
+  .wb-divider:hover,
+  .wb-divider.dragging {
+    background: linear-gradient(90deg, #cdd6f2, #9fb3e8);
   }
 }
 
@@ -387,7 +405,7 @@ body.admin-body {
     width: 100%; height: 100%;
   }
   .workbench.split .work-frame.split-ref { display: none; }
-  .workbench.split::after { display: none; }
+  .workbench.split .wb-divider { display: none; }
 }
 
 /* ---------- 选项卡溢出收拢（“更多”下拉） ----------

@@ -176,7 +176,7 @@ function writeWorkbench(map) {
 const WORKBENCH_MAX_TABS = 30;
 function sanitizeWorkbenchState(b) {
   const src = (b && typeof b === 'object') ? b : {};
-  const out = { ts: Date.now(), tabs: [], splitOn: !!src.splitOn, activeKey: '', leftKey: '', rightKey: '' };
+  const out = { ts: Date.now(), tabs: [], splitOn: !!src.splitOn, activeKey: '', leftKey: '', rightKey: '', splitRatio: 0.5 };
   const keyOk = k => typeof k === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(k);
   const list = Array.isArray(src.tabs) ? src.tabs : [];
   const seen = new Set();
@@ -188,11 +188,16 @@ function sanitizeWorkbenchState(b) {
     out.tabs.push({ key: k, side: !!it.side });
   }
   if (!out.tabs.length) {
-    return { ts: out.ts, tabs: [], splitOn: false, activeKey: '', leftKey: '', rightKey: '' };
+    return { ts: out.ts, tabs: [], splitOn: false, activeKey: '', leftKey: '', rightKey: '', splitRatio: 0.5 };
   }
   if (keyOk(src.activeKey)) out.activeKey = src.activeKey;
   if (keyOk(src.leftKey)) out.leftKey = src.leftKey;
   if (keyOk(src.rightKey)) out.rightKey = src.rightKey;
+  // 分屏主窗格占比：仅接受 0.25~0.75 的有限数字，越界回退到默认 0.5
+  const ratio = Number(src.splitRatio);
+  if (isFinite(ratio) && ratio >= 0.25 && ratio <= 0.75) {
+    out.splitRatio = Math.round(ratio * 100) / 100;
+  }
   return out;
 }
 

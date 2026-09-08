@@ -53,11 +53,16 @@
   var leftKey = null;     // 分屏时左侧主窗格当前页签（主栏高亮跟随它）
   var rightKey = null;    // 分屏时右侧副窗格当前页签（副栏高亮跟随它）
   var lastFocusKey = null; // 上一次访问的功能页选项卡（数据总览等固定页不参与分屏）
+  var splitRatio = 0.5;   // 分屏时主窗格占比（拖动分隔条调整；左右=宽占比，上下=高占比）
+  var SPLIT_MIN = 0.25;   // 分隔条拖动的下限（主窗格最小占比）
+  var SPLIT_MAX = 0.75;   // 分隔条拖动的上限（副窗格最小占比）
+  var dividerDrag = null; // 内容区分隔条的拖拽状态（水平拖动调宽 / 垂直拖动调高）
 
   var tabBar = $('#tabBar');
   var tabScroll = $('#tabScroll');
   var tabSide = $('#tabSide');
   var workbench = $('#workbench');
+  var wbDivider = $('#wbDivider');   // 两窗格之间的可拖拽分隔条
   var currentTitle = $('#currentTitle');
   var btnRefresh = $('#btnRefresh');
   var btnNewWin = $('#btnNewWin');
@@ -123,6 +128,7 @@
       tabs: [],
       activeKey: activeKey,
       splitOn: !!splitOn,
+      splitRatio: Math.round(splitRatio * 100) / 100,  // 分屏主窗格占比（拖动分隔条调整）
       leftKey: splitOn ? leftKey : null,
       rightKey: splitOn ? rightKey : null
     };
@@ -168,11 +174,23 @@
     }, 600);
   }
 
+  // 把分屏比例写入根 CSS 变量（内容窗格与选项卡条分栏共用，保证彼此对齐）
+  function applySplitRatio() {
+    var pct = Math.round(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, splitRatio)) * 10000) / 100;
+    document.documentElement.style.setProperty('--split-ratio', pct + '%');
+  }
+
   // 按服务端记忆恢复工作台：依次打开页签 → 应用左右归属 → 应用分屏/当前页
   function restoreWbState(st) {
     if (!st || !st.tabs || !st.tabs.length) return false;
     wbSuspended = true;
     try {
+      // 恢复记忆的分割比例（旧快照无此字段时维持默认 50%）
+      if (typeof st.splitRatio === 'number' && isFinite(st.splitRatio)) {
+        splitRatio = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, st.splitRatio));
+      } else {
+        splitRatio = 0.5;
+      }
       var keys = [];
       var sides = {};
       var seen = {};
@@ -220,6 +238,7 @@
         activeKey = ak ? ak.key : leftKey;
       }
       barSplitOn = false;   // 强制按记忆的分屏/单栏重建一次选项卡条
+      applySplitRatio();    // 恢复后应用记忆的分割比例
       layoutPanes();
       return true;
     } finally {
@@ -1209,6 +1228,58 @@
     if (resizeTimer) clearTimeout(resizeTimer);
     resizeTimer = setTimeout(layoutPanes, 120);
   });
+
+  /* ===== 两窗格之间可拖拽分隔条 =====
+     拖动分隔条实时改写根变量 --split-ratio：
+       - 左右分屏（>=1100px）水平拖动调节左右窗格宽度；
+       - 上下分屏（760-1099px）垂直拖动调节上下窗格高度；
+     释放后防抖保存到服务端。窄屏（<760px）分隔条隐藏，不会触发本拖拽。 */
+  if (wbDivider) {
+    wbDivider.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || !splitOn) return;
+      var r = workbench.getBoundingClientRect();
+      dividerDrag = {
+        l: r.left, t: r.top, w: r.width || 1, h: r.height || 1
+      };
+      wbDivider.classList.add('dragging');
+      document.body.style.cursor = isSideBySide() ? 'col-resize' : 'row-resize';
+      try { wbDivider.setPointerCapture(e.pointerId); } catch (err) {}
+      e.preventDefault();
+    });
+  }
+  // 拖动分隔条时按帧节流重算两栏溢出收拢：栏随比例变宽/变窄后，
+  // 放得下的页签即时展开、放不下的即时收起进“更多”，与内容窗格保持同步观感
+  var dividerRecalcQueued = false;
+  function recalcOverflowSoon() {
+    if (dividerRecalcQueued) return;
+    dividerRecalcQueued = true;
+    requestAnimationFrame(function () {
+      dividerRecalcQueued = false;
+      recalcOverflowAll();
+    });
+  }
+  function stopDividerDrag() {
+    if (!dividerDrag) return;
+    dividerDrag = null;
+    if (wbDivider) wbDivider.classList.remove('dragging');
+    document.body.style.cursor = '';
+    recalcOverflowAll();    // 松手后按最终栏宽收尾一次（同时清掉排队的 rAF 结果）
+    scheduleWbSave();       // 拖动结束，保存新比例
+  }
+  document.addEventListener('pointermove', function (e) {
+    var dd = dividerDrag;
+    if (!dd) return;
+    var p = isSideBySide()
+      ? (e.clientX - dd.l) / dd.w   // 左右分屏：按横向位置换算主窗格宽占比
+      : (e.clientY - dd.t) / dd.h;  // 上下分屏：按纵向位置换算上窗格高占比
+    p = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, p));
+    if (Math.abs(p - splitRatio) < 0.001) return;
+    splitRatio = p;
+    applySplitRatio();
+    recalcOverflowSoon();   // 拖动中：让放不下/放得下的页签即时收拢/展开
+  });
+  document.addEventListener('pointerup', stopDividerDrag);
+  document.addEventListener('pointercancel', stopDividerDrag);
 
   // 关闭/刷新页面时确保工作台状态已写入服务端（keepalive 保证请求送达）
   window.addEventListener('pagehide', saveWbNow);
