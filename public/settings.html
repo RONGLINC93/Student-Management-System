@@ -723,10 +723,22 @@
       function bindSubjectRows() {
         var wrap = $el('subjRows');
         if (!wrap) return;
-        wrap.onclick = function (e) {
+        wrap.onclick = async function (e) {
           var del = e.target.closest('.subj-del');
           if (!del) return;
           var idx = Number(del.closest('.subj-row').getAttribute('data-i'));
+          var s = subjectDraft[idx];
+          var label = (s && s.name && String(s.name).trim()) || (s ? s.key : '') || '该科目';
+          var msg = '确定删除科目「' + label + '」？' +
+            '删除后该科目将不再用于录入与统计，历史成绩与考试记录仍保留在数据文件中；' +
+            '若误删可点击「+ 添加科目」重新添加同名科目恢复展示。';
+          var ok;
+          if (typeof window.confirmDlg === 'function') {
+            ok = await window.confirmDlg(msg, { title: '删除科目', okText: '删除', danger: true });
+          } else {
+            ok = window.confirm(msg);
+          }
+          if (!ok) return;
           subjectDraft.splice(idx, 1);
           renderSubjectRows();
         };
