@@ -1,6 +1,6 @@
 {
   "admin": {
-    "ts": 1788940092639,
+    "ts": 1788941410595,
     "tabs": [
       {
         "key": "dashboard",
@@ -40,7 +40,7 @@
       }
     ],
     "splitOn": false,
-    "activeKey": "settings",
+    "activeKey": "dashboard",
     "leftKey": "",
     "rightKey": "",
     "splitRatio": 0.75

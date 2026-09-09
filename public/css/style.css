@@ -1344,6 +1344,23 @@ tr.data-row.dragging { box-shadow: inset 0 0 0 2px var(--primary); }
 }
 .dialog-btns { display: flex; justify-content: center; gap: 12px; margin-top: 26px; }
 .dialog-btns .btn { min-width: 100px; }
+/* 严格验证区：高危操作需输入固定验证短语后才可执行 */
+.dialog-verify { display: none; margin: 18px auto 0; max-width: 300px; text-align: left; }
+.dialog-verify.on { display: block; }
+.dialog-verify-hint {
+  margin: 0 0 8px; font-size: 13px; line-height: 1.6; color: #9a3412;
+  word-break: break-word;
+}
+.dialog-verify-hint b { color: var(--danger); }
+.dialog-verify-input {
+  width: 100%; box-sizing: border-box; padding: 9px 12px;
+  border: 1px solid #fdba74; border-radius: 8px;
+  font-size: 14px; text-align: center; outline: none; background: #fff;
+  transition: border-color .15s, box-shadow .15s;
+}
+.dialog-verify-input:focus { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(220,38,38,.12); }
+.dialog-verify-tip { min-height: 16px; margin: 6px 2px 0; font-size: 12px; line-height: 1.5; color: #b45309; }
+.dialog-verify-tip.ok { color: #16a34a; }
 
 /* ========== 实时结果大屏（result.html 投屏看板） ========== */
 .board-header {

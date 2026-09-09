@@ -1027,19 +1027,6 @@ function renderStuDormBox() {
     </div>`;
 }
 
-async function clearAll() {
-  const allocated = allStudents.filter(s => s.allocated).length;
-  const tip = `确定清空所有学生？\n将清空学生池（${allStudents.length - allocated} 人）与各班花名册（${allocated} 人），班级本身会保留。\n此操作不可恢复！`;
-  if (!(await confirmDlg(tip, { title: '清空学生', okText: '清空', danger: true }))) return;
-  try {
-    await fetch(API, { method: 'DELETE' });
-    toast('已清空（学生池与班级名单）', 'success');
-    await loadStudents();
-  } catch (e) {
-    toast('清空失败：' + e.message, 'error');
-  }
-}
-
 async function batchImport() {
   const subs = window.SUBJECTS || [];
   const subDemo = (subs[0] && subs[1] && subs[2] && subs[3])
@@ -1264,7 +1251,6 @@ function renderColMenu() {
 // ===== 事件绑定 =====
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
-  $('#btnClear').onclick = clearAll;
   $('#btnImport').onclick = batchImport;
   $('#btnDownloadTpl').onclick = downloadTemplate;
   $('#btnImportFile').onclick = () => $('#importFileInput').click();

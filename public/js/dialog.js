@@ -24,6 +24,7 @@
   let mask = null;
   let resolver = null;
   let hasCancel = false;
+  let verifyPhrase = ''; // 严格验证模式：需输入的验证短语（空字符串 = 普通确认）
 
   function ensureDom() {
     if (mask) return;
@@ -34,6 +35,11 @@
         <div class="dialog-icon-circle" aria-hidden="true"></div>
         <h3 class="dialog-title" hidden></h3>
         <p class="dialog-msg"></p>
+        <div class="dialog-verify">
+          <p class="dialog-verify-hint"></p>
+          <input class="dialog-verify-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <div class="dialog-verify-tip"></div>
+        </div>
         <div class="dialog-btns">
           <button class="btn btn-default dialog-cancel" type="button">取消</button>
           <button class="btn btn-primary dialog-ok" type="button">确定</button>
@@ -42,9 +48,24 @@
     document.body.appendChild(mask);
     mask.querySelector('.dialog-cancel').addEventListener('click', () => closeDialog(false));
     mask.querySelector('.dialog-ok').addEventListener('click', () => closeDialog(true));
+    mask.querySelector('.dialog-verify-input').addEventListener('input', syncVerifyState);
     mask.addEventListener('click', (e) => {
       if (e.target === mask && hasCancel) closeDialog(false);
     });
+  }
+
+  // 严格验证状态同步：输入文字与验证短语一致才放行「确定」按钮
+  function syncVerifyState() {
+    if (!mask) return;
+    const input = mask.querySelector('.dialog-verify-input');
+    const tip = mask.querySelector('.dialog-verify-tip');
+    const ok = mask.querySelector('.dialog-ok');
+    const pass = !!verifyPhrase && input.value.trim() === verifyPhrase;
+    ok.disabled = !!verifyPhrase && !pass;
+    if (!verifyPhrase) return;
+    tip.className = 'dialog-verify-tip' + (pass ? ' ok' : '');
+    tip.textContent = pass ? '验证通过，可点击按钮执行操作。'
+      : (input.value ? '验证文字不一致，操作按钮暂未启用。' : '请在上方输入验证文字后继续。');
   }
 
   function closeDialog(value) {
@@ -85,12 +106,29 @@
     ok.classList.toggle('btn-danger', !!opts.danger);
     ok.classList.toggle('btn-primary', !opts.danger);
 
+    // 严格验证模式：需输入固定验证短语，「确定」才可用
+    const verify = mask.querySelector('.dialog-verify');
+    const verifyInput = mask.querySelector('.dialog-verify-input');
+    const verifyHint = mask.querySelector('.dialog-verify-hint');
+    verifyPhrase = (opts.phrase && String(opts.phrase).trim()) || '';
+    if (verifyPhrase) {
+      verify.classList.add('on');
+      verifyHint.textContent = '本操作不可恢复，请输入「' + verifyPhrase + '」以完成验证：';
+      verifyInput.value = '';
+      verifyInput.placeholder = '请输入：' + verifyPhrase;
+      syncVerifyState();
+    } else {
+      verify.classList.remove('on');
+      ok.disabled = false;
+    }
+
     mask.classList.add('show');
-    setTimeout(() => ok.focus(), 50);
+    if (verifyPhrase) setTimeout(() => verifyInput.focus(), 60);
+    else setTimeout(() => ok.focus(), 50);
 
     const onKey = (e) => {
       if (e.key === 'Escape' && hasCancel) closeDialog(false);
-      else if (e.key === 'Enter') closeDialog(true);
+      else if (e.key === 'Enter' && !ok.disabled) closeDialog(true);
     };
     document.addEventListener('keydown', onKey);
     mask._keyHandler = onKey;
@@ -117,6 +155,20 @@
       okText: opts.okText || '确定',
       cancelText: opts.cancelText || '取消',
       title: opts.title || '操作确认'
+    }, opts, { message }));
+  };
+
+  // 严格验证确认类：适用于「清空全部数据」等高危不可逆操作，
+  // 必须手动输入指定验证短语（默认「确认清空」）后「确定」按钮才会放行
+  window.confirmStrictDlg = function (message, opts = {}) {
+    return openDialog(Object.assign({
+      type: 'warning',
+      showCancel: true,
+      okText: '清空',
+      cancelText: '取消',
+      title: '操作确认',
+      danger: true,
+      phrase: '确认清空'
     }, opts, { message }));
   };
 

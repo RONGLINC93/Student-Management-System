@@ -286,17 +286,6 @@ async function deleteClass(id) {
   }
 }
 
-async function clearAll() {
-  if (!(await confirmDlg('确定清空所有班级？\n所有学生将退回学生池。', { title: '清空班级', okText: '清空', danger: true }))) return;
-  try {
-    await fetch(API, { method: 'DELETE' });
-    toast('已清空所有班级', 'success');
-    await loadData();
-  } catch (e) {
-    toast('清空失败：' + e.message, 'error');
-  }
-}
-
 // ===== 花名册弹窗 =====
 function openRoster(cls) {
   rosterClassId = cls.id;
@@ -659,7 +648,6 @@ async function persistClassOrder() {
 // ===== 事件绑定 =====
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
-  $('#btnClearAll').onclick = clearAll;
   $('#modalClose').onclick = closeModal;
   $('#modalCancel').onclick = closeModal;
   $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') closeModal(); };
