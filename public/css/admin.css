@@ -276,7 +276,7 @@ body.admin-body {
 }
 .work-frame.active { display: block; }
 
-/* ---------- 选项卡条最右端：独立“并列”按钮 ---------- */
+/* ---------- 选项卡条最右端：独立“并列”按钮（无背景无边框，hover/开启仅变色） ---------- */
 .tab-split-btn {
   flex: none;
   align-self: center;
@@ -286,21 +286,69 @@ body.admin-body {
   width: 34px;
   height: 34px;
   margin-left: 8px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #fff;
+  border: 0;
+  background: transparent;
   color: var(--text-2);
   cursor: pointer;
-  transition: all .18s;
+  transition: color .18s;
 }
 .tab-split-btn svg { width: 16px; height: 16px; }
-.tab-split-btn:hover:not(:disabled) {
-  color: var(--brand);
-  border-color: var(--brand);
-  background: #eef2ff;
-}
-.tab-split-btn.on { color: var(--brand); border-color: var(--brand); background: #eef2ff; }
+.tab-split-btn:hover:not(:disabled) { color: var(--brand); }
+.tab-split-btn.on { color: var(--brand); }
 .tab-split-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 选项卡条最右端：页签操作“三个点”下拉（无背景无边框，hover/开启仅变色） */
+.tab-dots-btn {
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color .18s;
+}
+.tab-dots-btn svg { width: 17px; height: 17px; }
+.tab-dots-btn:hover,
+.tab-dots-btn.on { color: var(--brand); }
+
+.tab-menu {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(30, 41, 82, .18);
+}
+.tab-menu[hidden] { display: none; }
+.tab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab-menu-item svg { width: 14px; height: 14px; flex: none; }
+.tab-menu-item:hover:not(:disabled) { background: #eef2ff; color: var(--brand); }
+.tab-menu-item.danger:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
+.tab-menu-item:disabled { opacity: .4; cursor: not-allowed; }
 
 /* 右侧副窗格组的页签：浅底与主栏区分；高亮只给本栏当前页（.active）。
    两栏高亮互不干预——主栏高亮左窗格当前页，副栏高亮右窗格当前页 */

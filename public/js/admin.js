@@ -74,6 +74,8 @@
   var btnNewWin = $('#btnNewWin');
   var btnExitSplit = $('#btnExitSplit');
   var btnSplit = $('#btnSplit');
+  var btnTabMenu = $('#btnTabMenu');   // 选项卡条右端“三个点”按钮
+  var tabMenu = $('#tabMenu');         // 该按钮弹开的页签操作下拉
 
   // 侧边栏「宿舍管理」菜单项及其待审核角标
   var dormItem = document.querySelector('.menu-item[data-mod="dorm"]');
@@ -103,8 +105,14 @@
       });
     })(overflowCtrls[oi]);
   }
-  // 点击按钮/菜单外部、按 Esc：收起所有溢出菜单
+  // 点击按钮/菜单外部、按 Esc：收起所有下拉菜单（含“更多”溢出菜单与“三个点”页签操作菜单）
   document.addEventListener('pointerdown', function (e) {
+    // 页签操作“三个点”下拉：点按钮/菜单内部不收起，其余一律收起
+    if (tabMenu && !tabMenu.hidden) {
+      var inBtn = btnTabMenu && (btnTabMenu === e.target || (btnTabMenu.contains && btnTabMenu.contains(e.target)));
+      var inMenu = e.target && tabMenu.contains && tabMenu.contains(e.target);
+      if (!inBtn && !inMenu) closeTabMenu();
+    }
     for (var j = 0; j < overflowCtrls.length; j++) {
       var c = overflowCtrls[j];
       if (e.target && c.btn && (c.btn === e.target || (c.btn.contains && c.btn.contains(e.target)))) continue;
@@ -114,6 +122,7 @@
   }, true);
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
+      closeTabMenu();
       for (var k = 0; k < overflowCtrls.length; k++) overflowCtrls[k].closeMenu();
     }
   });
@@ -889,6 +898,86 @@
     layoutPanes();
   }
 
+  // 关闭全部页签：仅保留固定页（“数据总览”），同时退出并列显示回到单窗格
+  function closeAllTabs() {
+    var keep = [];
+    for (var i = 0; i < tabs.length; i++) {
+      var t = tabs[i];
+      if (t.pinned) {
+        t.side = false;       // 固定页回到主窗格组
+        keep.push(t);
+        continue;
+      }
+      if (t.tabEl && t.tabEl.parentNode) t.tabEl.parentNode.removeChild(t.tabEl);
+      if (t.frame && t.frame.parentNode) t.frame.parentNode.removeChild(t.frame);
+    }
+    if (!keep.length) {       // 兜底：无固定页时重新打开“数据总览”
+      tabs = [];
+      splitOn = false;
+      rightKey = null;
+      leftKey = null;
+      openTab('dashboard');
+      return;
+    }
+    tabs = keep;
+    splitOn = false;          // 只剩单窗格内容，退出分屏
+    rightKey = null;
+    lastFocusKey = null;
+    focusTab(keep[0].key);    // 切回“数据总览”（内部会刷新标题/布局并保存状态）
+  }
+
+  // ===== 页签操作下拉（选项卡条右端“三个点”） =====
+  // 菜单项按当前页签状态启用/禁用：固定页“数据总览”不可关；
+  // 打开时贴近按钮右下角定位，超出视口自动翻到按钮上方。
+  function hasCloseableTabs() {
+    for (var i = 0; i < tabs.length; i++) {
+      if (!tabs[i].pinned) return true;
+    }
+    return false;
+  }
+
+  // 刷新当前操作页（顶栏刷新按钮与下拉菜单“刷新当前页”共用）
+  function refreshActiveTab() {
+    var t = activeKey ? getTab(activeKey) : null;
+    if (!t) return;
+    if (t.loaded) sendTo(t, 'icst-refresh');
+    else t.pendingActive = true;
+  }
+
+  function syncTabMenuStates() {
+    if (!tabMenu) return;
+    var cur = activeKey ? getTab(activeKey) : null;
+    var it = tabMenu.querySelector('[data-act="refresh"]');
+    if (it) it.disabled = !cur;
+    it = tabMenu.querySelector('[data-act="close-current"]');
+    if (it) it.disabled = !cur || !!cur.pinned;
+    it = tabMenu.querySelector('[data-act="close-all"]');
+    if (it) it.disabled = !hasCloseableTabs();
+  }
+
+  function openTabMenu() {
+    if (!tabMenu || !btnTabMenu || !tabMenu.hidden) return;
+    syncTabMenuStates();
+    tabMenu.hidden = false;
+    btnTabMenu.classList.add('on');
+    var r = btnTabMenu.getBoundingClientRect();
+    tabMenu.style.visibility = 'hidden';
+    var mw = tabMenu.offsetWidth;
+    var mh = tabMenu.offsetHeight;
+    var left = Math.min(r.right - mw, window.innerWidth - mw - 8);
+    left = Math.max(8, left);
+    var top = r.bottom + 6;
+    if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+    tabMenu.style.left = left + 'px';
+    tabMenu.style.top = top + 'px';
+    tabMenu.style.visibility = '';
+  }
+
+  function closeTabMenu() {
+    if (tabMenu) tabMenu.hidden = true;
+    if (btnTabMenu) btnTabMenu.classList.remove('on');
+  }
+
   function buildTab(m, t) {
     var el = document.createElement('div');
     el.className = 'worktab' + (m.pinned ? ' pinned' : '');
@@ -1057,17 +1146,38 @@
   });
 
   // 顶栏：刷新当前页
-  btnRefresh.addEventListener('click', function () {
-    var t = activeKey ? getTab(activeKey) : null;
-    if (t && t.loaded) sendTo(t, 'icst-refresh');
-    else if (t) t.pendingActive = true;
-  });
+  btnRefresh.addEventListener('click', refreshActiveTab);
 
   // 顶栏：退出并列显示（还原单窗格）
   if (btnExitSplit) btnExitSplit.addEventListener('click', function () { exitSplit(); });
 
   // 选项卡条最右端：独立“并列”按钮（数据总览等固定页不参与分屏）
   if (btnSplit) btnSplit.addEventListener('click', toggleSplitStandalone);
+
+  // 选项卡条最右端：页签操作“三个点”按钮 —— 点击展开/收起下拉
+  if (btnTabMenu) {
+    btnTabMenu.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (tabMenu && tabMenu.hidden) openTabMenu(); else closeTabMenu();
+    });
+  }
+  // 下拉菜单项：刷新当前页 / 关闭当前页签 / 关闭全部页签
+  if (tabMenu) {
+    tabMenu.addEventListener('click', function (e) {
+      var item = e.target && e.target.closest ? e.target.closest('.tab-menu-item') : null;
+      if (!item || item.disabled) return;
+      closeTabMenu();
+      var act = item.getAttribute('data-act');
+      if (act === 'refresh') {
+        refreshActiveTab();
+      } else if (act === 'close-current') {
+        var cur = activeKey ? getTab(activeKey) : null;
+        if (cur && !cur.pinned) closeTab(cur.key);
+      } else if (act === 'close-all') {
+        closeAllTabs();
+      }
+    });
+  }
 
   // 站点配置加载完成（如学校名称变更）后刷新顶部标题
   window.addEventListener('cb-site-ready', setTopTitle);

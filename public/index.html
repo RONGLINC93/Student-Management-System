@@ -137,6 +137,24 @@
         <button class="tab-split-btn" id="btnSplit" title="并列显示：与最近访问的功能页左右同屏" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></svg>
         </button>
+        <button class="tab-dots-btn" id="btnTabMenu" title="页签操作" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5.5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18.5" cy="12" r="1.5"/></svg>
+        </button>
+      </div>
+
+      <div class="tab-menu" id="tabMenu" hidden>
+        <button type="button" class="tab-menu-item" data-act="refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <span>刷新当前页</span>
+        </button>
+        <button type="button" class="tab-menu-item" data-act="close-current">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span>关闭当前页签</span>
+        </button>
+        <button type="button" class="tab-menu-item danger" data-act="close-all">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="16" rx="2"/><rect x="8" y="2" width="14" height="16" rx="2"/><line x1="10" y1="10" x2="15" y2="15"/><line x1="15" y1="10" x2="10" y2="15"/></svg>
+          <span>关闭全部页签</span>
+        </button>
       </div>
 
       <main class="workbench" id="workbench">
