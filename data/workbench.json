@@ -1,17 +1,21 @@
 {
   "admin": {
-    "ts": 1788941410595,
+    "ts": 1788944712182,
     "tabs": [
       {
         "key": "dashboard",
         "side": false
       },
       {
-        "key": "students",
+        "key": "notice",
         "side": false
       },
       {
-        "key": "teachers",
+        "key": "leaves",
+        "side": false
+      },
+      {
+        "key": "analysis",
         "side": false
       },
       {
@@ -19,30 +23,14 @@
         "side": false
       },
       {
-        "key": "exams",
-        "side": false
-      },
-      {
         "key": "classes",
-        "side": false
-      },
-      {
-        "key": "settings",
-        "side": false
-      },
-      {
-        "key": "dorm",
-        "side": false
-      },
-      {
-        "key": "conduct",
         "side": false
       }
     ],
     "splitOn": false,
-    "activeKey": "dashboard",
+    "activeKey": "notice",
     "leftKey": "",
     "rightKey": "",
-    "splitRatio": 0.75
+    "splitRatio": 0.51
   }
 }

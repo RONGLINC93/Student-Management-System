@@ -271,6 +271,14 @@
       width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 9px; outline: none;
     }
     .form-field input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(18,184,134,.13); }
+    .form-field select, .form-field textarea {
+      width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 9px; outline: none;
+      background: #fff; font-family: inherit;
+    }
+    .form-field textarea { min-height: 78px; resize: vertical; line-height: 1.6; }
+    .form-field select:focus, .form-field textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(18,184,134,.13); }
+    .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 520px) { .two-cols { grid-template-columns: 1fr; } }
 
     /* 提示 */
     .toast {
@@ -288,6 +296,36 @@
     .gone-box .big { font-size: 44px; }
     .gone-box h2 { margin: 12px 0 8px; }
     .gone-box p { color: var(--muted); font-size: 13.5px; line-height: 1.8; }
+
+    /* ===== 通知公告（学生端）===== */
+    .ann-item { border: 1px solid #eef1f4; border-radius: 12px; margin-bottom: 8px; overflow: hidden; }
+    .ann-item.pinned { border-color: #fde68a; background: #fffdf5; }
+    .ann-head { cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 11px 13px; flex-wrap: wrap; }
+    .ann-head:hover { background: #fbfdfc; }
+    .ann-title { font-size: 13.5px; font-weight: 600; flex: 1; min-width: 160px; line-height: 1.5; color: var(--ink); }
+    .ann-arrow { flex: none; width: 14px; height: 14px; color: #9ca3af; transition: transform .2s; }
+    .ann-item.open .ann-arrow { transform: rotate(180deg); }
+    .ann-detail { display: none; padding: 0 13px 12px; }
+    .ann-item.open .ann-detail { display: block; }
+    .ann-content { font-size: 13px; color: var(--ink-2); line-height: 1.85; white-space: pre-line; background: #fbfcfd; border: 1px solid #f1f3f5; border-radius: 8px; padding: 8px 12px; }
+    .ann-meta { font-size: 11.5px; color: #9ca3af; margin-top: 8px; }
+
+    /* ===== 我的请假（学生端）===== */
+    .l-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -2px 0 12px; font-size: 12.5px; color: var(--muted); }
+    .l-sum b { color: var(--ink); }
+    .l-item { border: 1px solid #eef1f4; border-radius: 12px; padding: 10px 13px; margin-bottom: 8px; }
+    .l-item .l-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .l-item .l-top b { font-size: 13.5px; }
+    .l-date { font-size: 12.5px; color: var(--ink-2); }
+    .l-days { font-size: 12px; color: var(--muted); }
+    .l-item .l-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 6px; line-height: 1.7; word-break: break-all; }
+    .l-item .l-sub.warn { color: #b45309; }
+    .l-item .l-meta { font-size: 11px; color: #9ca3af; margin-top: 5px; }
+    .cancel-mini {
+      margin-left: auto; border: 1px solid #fecaca; background: #fff; color: #dc2626;
+      border-radius: 999px; font-size: 11.5px; padding: 3px 11px; cursor: pointer;
+    }
+    .cancel-mini:hover { background: #fef2f2; }
 
     .hidden { display: none !important; }
     /* 恢复 hidden 属性语义：避免被 .force-cover/.board-banner 等 display 声明覆盖 */
@@ -351,6 +389,15 @@
       <!-- 统计卡 -->
       <section class="stats" id="statsRow"></section>
 
+      <!-- 通知公告 -->
+      <section class="card" id="annCard" hidden>
+        <div class="card-head">
+          <div class="t"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>通知公告</div>
+          <span class="more" id="annMore"></span>
+        </div>
+        <div class="card-body" id="annBody"><div class="empty-zone"><div class="big">🔔</div><div>公告加载中…</div></div></div>
+      </section>
+
       <!-- 大屏直播 banner -->
       <section class="board-banner" id="boardBanner" hidden>
         <div class="live"><div class="ring">
@@ -394,6 +441,15 @@
             <div class="card-body" id="profileBody"></div>
           </div>
         </div>
+      </section>
+
+      <!-- 我的请假 -->
+      <section class="card" id="leaveCard" hidden>
+        <div class="card-head">
+          <div class="t"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M9 16l2 2 4-4"/></svg></span>我的请假</div>
+          <button type="button" class="btn soft" data-act="open-leave">在线请假</button>
+        </div>
+        <div class="card-body" id="leaveBody"><div class="empty-zone"><div class="big">⏳</div><div>请假记录加载中…</div></div></div>
       </section>
     </div>
   </main>
@@ -452,12 +508,52 @@
     </div>
   </div>
 
+  <!-- ===== 在线请假弹窗 ===== -->
+  <div class="mask" id="leaveMask">
+    <div class="modal" style="width:480px;">
+      <button type="button" class="m-close" data-act="close-leave">✕</button>
+      <h3>在线请假</h3>
+      <p class="msub">提交后由班主任 / 管理员审批。审批通过后将自动记入对应日期考勤（请假）。学籍状态非「在籍」时不可提交。</p>
+      <div class="err-box-mini" id="lvErr"></div>
+      <div class="form-field">
+        <label for="lvType">请假类型</label>
+        <select id="lvType"><option>病假</option><option>事假</option><option>公假</option><option>其他</option></select>
+      </div>
+      <div class="two-cols">
+        <div class="form-field"><label for="lvStart">开始日期</label><input type="date" id="lvStart" /></div>
+        <div class="form-field"><label for="lvEnd">结束日期</label><input type="date" id="lvEnd" /></div>
+      </div>
+      <div id="lvTip" style="margin:-4px 0 12px;font-size:12.5px;color:#6b7280;"></div>
+      <div class="form-field">
+        <label for="lvReason">请假事由</label>
+        <textarea id="lvReason" maxlength="300" placeholder="请简要填写请假原因，便于班主任审批。"></textarea>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn outline" data-act="close-leave">取消</button>
+        <button type="button" class="btn grad" id="btnLvSubmit">提交申请</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
     (function () {
       'use strict';
-      var G = { me: null, settings: {}, roomSel: null, boardUrl: '/result.html', grade: '' };
+      var G = { me: null, settings: {}, roomSel: null, boardUrl: '/result.html', grade: '', myLeaves: [] };
+
+      function p2(n) { return n < 10 ? '0' + n : '' + n; }
+      function localDateStr() { var d = new Date(); return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
+      function daysBetween(a, b) {
+        if (!a || !b || String(a) > String(b)) return 0;
+        return Math.round((new Date(String(b) + 'T00:00:00') - new Date(String(a) + 'T00:00:00')) / 86400000) + 1;
+      }
+      function fmtDT(iso) {
+        if (!iso) return '';
+        var d = new Date(iso);
+        if (isNaN(d)) return String(iso);
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+      }
 
       function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -518,6 +614,7 @@
             document.getElementById('viewGone').hidden = true;
             document.getElementById('viewDash').hidden = false;
             renderAll(u.profile);
+            loadExtras();
             if (u.must) openForcePwd();
           })
           .catch(function (e) {
@@ -532,6 +629,7 @@
         document.getElementById('forceCover').hidden = true;
         document.getElementById('pwdMask').classList.remove('show');
         document.getElementById('dormMask').classList.remove('show');
+        document.getElementById('leaveMask').classList.remove('show');
         loadMe();
       }
 
@@ -685,6 +783,166 @@
           '</div>';
       }
 
+      /* ================= 通知公告 & 我的请假（学生自助） ================= */
+      function loadExtras() {
+        fetch('/api/student/leaves')
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (j.code === 0) renderLeaves(j.data || []);
+            else toast((j && j.msg) || '请假记录加载失败');
+          })
+          .catch(function () {});
+        fetch('/api/student/announcements')
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (j.code === 0) renderAnn(j.data || []);
+          })
+          .catch(function () {});
+      }
+
+      function reloadLeaves() {
+        fetch('/api/student/leaves')
+          .then(function (r) { return r.json(); })
+          .then(function (j) { if (j.code === 0) renderLeaves(j.data || []); })
+          .catch(function () {});
+      }
+
+      function leaveStatus(x) {
+        if (x.status === 'approved') return { cls: 'ok', label: '已批准' };
+        if (x.status === 'rejected') return { cls: 'no', label: '已驳回' };
+        return { cls: 'run', label: '待审批' };
+      }
+
+      function leaveItem(x) {
+        var st = leaveStatus(x);
+        var meta = [];
+        if (x.createdAt) meta.push('提交于 ' + fmtDT(x.createdAt));
+        if (x.reviewer) meta.push('处理人：' + esc(x.reviewer));
+        if (x.status !== 'pending' && x.reviewedAt) meta.push('处理于 ' + fmtDT(x.reviewedAt));
+        var h = '<div class="l-item">' +
+          '<div class="l-top"><span class="tag ' + st.cls + '">' + st.label + '</span>' +
+          '<b>' + esc(x.type) + '</b>' +
+          '<span class="l-date">' + esc(x.startDate) + ' ~ ' + esc(x.endDate) + '</span>' +
+          '<span class="l-days">' + (x.days || daysBetween(x.startDate, x.endDate)) + ' 天</span>' +
+          (x.status === 'pending' ? '<button type="button" class="cancel-mini" data-act="cancel-leaf" data-id="' + esc(x.id) + '">撤销</button>' : '') +
+          '</div>';
+        if (x.reason) h += '<div class="l-sub">事由：' + esc(x.reason) + '</div>';
+        if (x.reviewNote) h += '<div class="l-sub' + (x.status === 'rejected' ? ' warn' : '') + '">审批意见：' + esc(x.reviewNote) + '</div>';
+        if (meta.length) h += '<div class="l-meta">' + meta.join(' · ') + '</div>';
+        return h + '</div>';
+      }
+
+      function renderLeaves(list) {
+        G.myLeaves = list;
+        document.getElementById('leaveCard').hidden = false;
+        var counts = { pending: 0, approved: 0, rejected: 0 };
+        list.forEach(function (x) { if (counts[x.status] !== undefined) counts[x.status]++; });
+        var sum = '<span>累计 <b>' + list.length + '</b> 次申请</span>';
+        if (counts.pending) sum += '<span class="tag run">待审批 ' + counts.pending + '</span>';
+        if (counts.approved) sum += '<span class="tag ok">已批准 ' + counts.approved + '</span>';
+        if (counts.rejected) sum += '<span class="tag no">已驳回 ' + counts.rejected + '</span>';
+        var body = '<div class="l-sum">' + sum + '</div>';
+        if (!list.length) {
+          body += '<div class="empty-zone"><div class="big">🗓️</div>' +
+            '<div>您还没有请假记录。</div>' +
+            '<div style="font-size:12.5px;color:#94a3b8;">如需请假（病假 / 事假等），点击右上「在线请假」提交，审批通过后自动记入考勤。</div></div>';
+        } else {
+          body += list.slice(0, 12).map(leaveItem).join('');
+          if (list.length > 12) body += '<div style="text-align:center;font-size:11.5px;color:#9ca3af;margin-top:4px;">仅显示最近 12 条，如需更早记录请联系班主任。</div>';
+        }
+        document.getElementById('leaveBody').innerHTML = body;
+      }
+
+      function scopeTag(s) {
+        if (s === '全校') return '<span class="tag g">全校</span>';
+        if (s === '年级') return '<span class="tag ok">年级</span>';
+        return '<span class="tag no">班级</span>';
+      }
+      function annItem(a) {
+        var badge = a.pinned ? '<span class="tag run">置顶</span>' : '';
+        badge += scopeTag(a.scopeLabel);
+        var meta = (a.author ? '发布：' + esc(a.author) + ' · ' : '') + fmtDT(a.createdAt) + (a.validTo ? ' · 截止：' + esc(a.validTo) : '');
+        return '<div class="ann-item' + (a.pinned ? ' pinned' : '') + '">' +
+          '<div class="ann-head" data-act="toggle-ann" data-id="' + esc(a.id) + '">' +
+          badge + '<span class="ann-title">' + esc(a.title) + '</span>' +
+          '<svg class="ann-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' +
+          '</div>' +
+          '<div class="ann-detail"><div class="ann-content">' + esc(a.content) + '</div>' +
+          '<div class="ann-meta">' + meta + '</div></div>' +
+          '</div>';
+      }
+      function renderAnn(list) {
+        var card = document.getElementById('annCard');
+        if (!list.length) { card.hidden = true; return; }
+        card.hidden = false;
+        document.getElementById('annMore').textContent = '共 ' + list.length + ' 条';
+        var show = list.slice(0, 30);
+        document.getElementById('annBody').innerHTML = show.map(annItem).join('') +
+          (list.length > 30 ? '<div style="text-align:center;font-size:11.5px;color:#9ca3af;margin-top:4px;">仅显示最近 30 条公告，更早公告请联系班主任或教务处。</div>' : '');
+      }
+      function toggleAnn(el) {
+        var it = el.closest('.ann-item');
+        if (it) it.classList.toggle('open');
+      }
+
+      function openLeaveModal() {
+        hideErr('lvErr');
+        var t = localDateStr();
+        document.getElementById('lvType').selectedIndex = 0;
+        document.getElementById('lvStart').value = t;
+        document.getElementById('lvEnd').value = t;
+        document.getElementById('lvReason').value = '';
+        updateLvTip();
+        document.getElementById('leaveMask').classList.add('show');
+      }
+      function closeLeaveModal() { document.getElementById('leaveMask').classList.remove('show'); }
+      function updateLvTip() {
+        var s = document.getElementById('lvStart').value;
+        var e = document.getElementById('lvEnd').value;
+        var tip = document.getElementById('lvTip');
+        if (!s || !e) { tip.textContent = ''; return; }
+        tip.textContent = s > e ? '结束日期不能早于开始日期'
+          : '共请假 ' + daysBetween(s, e) + ' 天' + (daysBetween(s, e) > 3 ? '（超过 3 天，建议先与班主任沟通）' : '');
+      }
+      function doLeaveSubmit() {
+        var type = document.getElementById('lvType').value;
+        var s = document.getElementById('lvStart').value;
+        var e = document.getElementById('lvEnd').value;
+        var reason = document.getElementById('lvReason').value.trim();
+        if (!s || !e) { showErr('lvErr', '请选择请假起止日期'); return; }
+        if (s > e) { showErr('lvErr', '结束日期不能早于开始日期'); return; }
+        if (!reason) { showErr('lvErr', '请填写请假事由，便于班主任审批'); return; }
+        hideErr('lvErr');
+        var btn = document.getElementById('btnLvSubmit');
+        btn.disabled = true;
+        fetch('/api/student/leaves', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: type, startDate: s, endDate: e, reason: reason })
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (res.ok && res.j.code === 0) {
+              document.getElementById('leaveMask').classList.remove('show');
+              toast((res.j && res.j.msg) || '请假申请已提交，等待审批');
+              reloadLeaves();
+            } else {
+              showErr('lvErr', (res.j && res.j.msg) || '提交失败，请重试');
+            }
+          })
+          .catch(function () { showErr('lvErr', '网络异常，请稍后重试'); })
+          .then(function () { btn.disabled = false; });
+      }
+      function cancelLeaf(id) {
+        if (!window.confirm('确定撤销这条请假申请吗？撤销后如需请假请重新提交。')) return;
+        fetch('/api/student/leaves/' + encodeURIComponent(id), { method: 'DELETE' })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            toast((j && j.msg) || (j && j.code === 0 ? '已撤销' : '操作失败'));
+            reloadLeaves();
+          })
+          .catch(function () { toast('网络异常，请稍后重试'); });
+      }
+
       /* ================= 强制改密 / 改密弹窗 ================= */
       function openForcePwd() {
         document.getElementById('forceCover').hidden = false;
@@ -799,6 +1057,10 @@
         if (act === 'cancel-apply') { doCancelApply(); return; }
         if (act === 'close-pwd') { document.getElementById('pwdMask').classList.remove('show'); return; }
         if (act === 'close-dorm') { document.getElementById('dormMask').classList.remove('show'); return; }
+        if (act === 'open-leave') { openLeaveModal(); return; }
+        if (act === 'close-leave') { closeLeaveModal(); return; }
+        if (act === 'toggle-ann') { toggleAnn(el); return; }
+        if (act === 'cancel-leaf') { cancelLeaf(el.getAttribute('data-id')); return; }
         if (act === 'goto-class-help' || act === 'help-dorm') {
           toast('如需确认分班 / 宿舍安排，可联系班主任：' + ((G.me.profile && G.me.profile.headTeacher && G.me.profile.headTeacher.name) || '学校教务处'));
           return;
@@ -815,6 +1077,11 @@
           if (lab) lab.classList.add('sel');
         }
       });
+
+      // 在线请假：日期联动提示
+      document.getElementById('lvStart').addEventListener('change', updateLvTip);
+      document.getElementById('lvEnd').addEventListener('change', updateLvTip);
+      document.getElementById('btnLvSubmit').addEventListener('click', doLeaveSubmit);
 
       document.getElementById('btnBoard').addEventListener('click', function () { window.open(G.boardUrl, '_blank', 'noopener'); });
       document.getElementById('btnBoard2').addEventListener('click', function () { window.open(G.boardUrl, '_blank', 'noopener'); });
@@ -856,7 +1123,7 @@
       function maskHide(mask) {
         if (mask.id !== 'pwdMask' || !G.me || !G.me.must) mask.classList.remove('show');
       }
-      [document.getElementById('pwdMask'), document.getElementById('dormMask')].forEach(function (mask) {
+      [document.getElementById('pwdMask'), document.getElementById('dormMask'), document.getElementById('leaveMask')].forEach(function (mask) {
         mask.addEventListener('click', function (e) { if (e.target === mask) maskHide(mask); });
       });
 

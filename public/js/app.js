@@ -459,6 +459,7 @@ function renderRowMenuItems(s) {
     <button type="button" class="row-menu-item" data-mact="edit"><span class="menu-ico">${ICON_EDIT}</span>编辑档案</button>
     <button type="button" class="row-menu-item" data-mact="assign"><span class="menu-ico">${alloc ? ICON_SWAP : ICON_ASSIGN}</span>${assignTxt}</button>
     <button type="button" class="row-menu-item" data-mact="resetpwd"><span class="menu-ico">${ICON_KEY}</span>重置登录密码</button>
+    <button type="button" class="row-menu-item" data-mact="enroll"><span class="menu-ico">${ICON_EDIT}</span>学籍异动…</button>
     ${delBlock}`;
 }
 
@@ -469,7 +470,10 @@ function studentCellHtml(s, col) {
   if (k === 'studentId') return `<td class="stu-id">${escapeHtml(s.studentId || '—')}</td>`;
   if (k === 'grade') return `<td><span class="grade-text">${escapeHtml(s.grade || '—')}</span></td>`;
   if (k === 'className') return `<td>${s.className ? `<span class="class-chip">${escapeHtml(s.className)}</span>` : '<span class="empty-cell">—</span>'}</td>`;
-  if (k === 'name') return `<td><strong class="stu-name">${escapeHtml(s.name)}</strong></td>`;
+  if (k === 'name') {
+    const st = s.status && s.status !== 'active' ? s.status : '';
+    return `<td><strong class="stu-name">${escapeHtml(s.name)}</strong>${st ? enrollChipHtml(st) : ''}</td>`;
+  }
   if (k === 'gender') return `<td><span class="gender-tag ${s.gender === '男' ? 'gender-male' : 'gender-female'}">${escapeHtml(s.gender || '—')}</span></td>`;
   if (k.startsWith('score:')) {
     const v = stuScoreOf(s, k.slice(6));
@@ -638,10 +642,12 @@ async function saveStudent(e) {
 }
 
 async function deleteStudent(id) {
-  if (!(await confirmDlg('确定删除该学生？相关入住宿舍会自动退宿。', { title: '删除学生', okText: '删除', danger: true }))) return;
+  if (!(await confirmDlg('删除后将移入「回收站」可恢复（已入住宿舍会自动退宿）。确定删除？', { title: '删除学生', okText: '删除', danger: true }))) return;
   try {
-    await fetch(`${API}/${id}`, { method: 'DELETE' });
-    toast('已删除', 'success');
+    const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+    const json = await res.json().catch(() => ({}));
+    if (json.code !== 0) throw new Error(json.msg || '删除失败');
+    toast(json.msg || '已移入回收站', 'success');
     await loadStudents();
   } catch (e) {
     toast('删除失败：' + e.message, 'error');
@@ -1306,6 +1312,7 @@ function bindEvents() {
     if (act === 'edit') openModal(stu);
     else if (act === 'assign') openAssignDlg(stu);
     else if (act === 'resetpwd') resetStudentPassword(stu.id, stu);
+    else if (act === 'enroll') openEnrollDlg(stu);
     else if (act === 'del') deleteStudent(stu.id);
   });
 
@@ -1476,6 +1483,169 @@ window.cbEmbedRefresh = function () {
   p.then(() => { loadStudents(); });
 };
 
+// ===== 学籍异动 / 回收站（学生档案增强，仅 students.html 含相关元素）=====
+const ENROLL_STATUS = { active: '在籍', leave: '休学', quit: '退学', transfer: '转出', graduate: '毕业' };
+function enrollLabel(st) { return ENROLL_STATUS[st] || st || '在籍'; }
+function enrollChipHtml(st) {
+  if (!st || st === 'active') return '';
+  const cls = { leave: 'enroll-leave', quit: 'enroll-quit', transfer: 'enroll-transfer', graduate: 'enroll-graduate' }[st] || '';
+  return ` <span class="enroll-chip ${cls}">${enrollLabel(st)}</span>`;
+}
+let enrollStu = null;
+function openEnrollDlg(stu) {
+  if (!document.getElementById('enrollMask')) {
+    toast('学籍异动需在「学生档案」页面操作', 'error');
+    return;
+  }
+  enrollStu = stu;
+  const st = ENROLL_STATUS[stu.status] ? stu.status : 'active';
+  const info = document.getElementById('enrollInfo');
+  if (info) {
+    info.innerHTML = `<strong>${escapeHtml(stu.name || '')}</strong> ${stu.className ? `（${escapeHtml(stu.className)}）` : '（待分班）'} · 现状态：${enrollLabel(st)}`;
+  }
+  document.getElementById('enrollStatus').innerHTML = Object.keys(ENROLL_STATUS)
+    .map(k => `<option value="${k}" ${k === st ? 'selected' : ''}>${ENROLL_STATUS[k]}</option>`).join('');
+  document.getElementById('enrollNote').value = '';
+  renderEnrollHistory(stu);
+  document.getElementById('enrollMask').classList.add('show');
+}
+function renderEnrollHistory(stu) {
+  const box = document.getElementById('enrollHistory');
+  if (!box) return;
+  const arr = (stu.history || []).slice().reverse();
+  if (!arr.length) {
+    box.innerHTML = '<div class="enroll-empty">暂无学籍异动记录（学籍档案的增删改不会自动记录）</div>';
+    return;
+  }
+  box.innerHTML = arr.map(h => {
+    const t = h.at ? new Date(h.at).toLocaleString('zh-CN', { hour12: false }) : '';
+    const who = h.op ? ` · ${escapeHtml(h.op)}` : '';
+    const note = h.note ? ` · ${escapeHtml(h.note)}` : '';
+    return `<div class="enroll-item"><div class="enroll-flow">${escapeHtml(h.from || '—')} → ${escapeHtml(h.to || '—')}</div><div class="enroll-meta">${escapeHtml(t)}${who}${note}</div></div>`;
+  }).join('');
+}
+async function doEnrollSave() {
+  if (!enrollStu) return;
+  const st = document.getElementById('enrollStatus').value;
+  const note = document.getElementById('enrollNote').value.trim();
+  try {
+    const res = await fetch(`${API}/${encodeURIComponent(enrollStu.id)}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: st, note })
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.code !== 0) throw new Error(json.msg || '保存失败');
+    toast(json.msg || '学籍状态已更新', 'success');
+    document.getElementById('enrollMask').classList.remove('show');
+    await loadStudents();
+  } catch (e) {
+    toast(e.message || '保存失败', 'error');
+  }
+}
+
+let trashListCache = [];
+function renderTrashList() {
+  const box = document.getElementById('trashList');
+  if (!box) return;
+  const kw = (document.getElementById('trashKw').value || '').trim().toLowerCase();
+  const list = trashListCache.filter(t => !kw || [t.name, t.studentId, t.grade, t.className, t.sourceClassName]
+    .some(v => String(v || '').toLowerCase().includes(kw)));
+  if (!list.length) {
+    box.innerHTML = `<div class="empty-tip">回收站是空的${kw ? '，或没有匹配的结果' : ''}</div>`;
+    return;
+  }
+  box.innerHTML = list.map(t => {
+    const when = t.deletedAt ? new Date(t.deletedAt).toLocaleString('zh-CN', { hour12: false }) : '';
+    const from = t.sourceClassName || (t.deletedFrom === 'pool' ? '待分班池' : '—');
+    return `<div class="trash-item">
+      <div><div class="trash-main"><strong>${escapeHtml(t.name || '')}</strong> <span class="dim">${escapeHtml(t.studentId || '')}</span>${escapeHtml(t.gender ? ' · ' + t.gender : '')}</div>
+      <div class="trash-sub">删除于 ${escapeHtml(when)} · 原在：${escapeHtml(from)} · ${escapeHtml(t.grade || '—')}</div></div>
+      <div class="trash-actions">
+        <button type="button" class="btn btn-sm btn-primary" data-act="restore" data-id="${escapeHtml(t.id)}">恢复</button>
+        <button type="button" class="btn btn-sm btn-danger" data-act="purge" data-id="${escapeHtml(t.id)}">彻底删除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function openTrashDlg() {
+  try {
+    const res = await fetch('/api/trash');
+    const json = await res.json().catch(() => ({}));
+    if (json.code !== 0) throw new Error(json.msg || '加载失败');
+    trashListCache = json.data || [];
+    document.getElementById('trashCount').textContent = trashListCache.length;
+    renderTrashList();
+    document.getElementById('trashMask').classList.add('show');
+  } catch (e) {
+    toast(e.message || '加载失败', 'error');
+  }
+}
+async function onTrashBody(e) {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  if (btn.dataset.act === 'restore') {
+    if (!(await confirmDlg('恢复后学生将回到待分班池；若原班级仍存在且有容量，会尽量放回原班。确定恢复？', { title: '恢复学生', okText: '恢复' }))) return;
+    try {
+      const res = await fetch(`/api/trash/${encodeURIComponent(id)}/restore`, { method: 'POST' });
+      const json = await res.json().catch(() => ({}));
+      if (json.code !== 0) throw new Error(json.msg || '恢复失败');
+      toast(json.msg || '已恢复', 'success');
+      trashListCache = trashListCache.filter(x => x.id !== id);
+      document.getElementById('trashCount').textContent = trashListCache.length;
+      renderTrashList();
+      await loadStudents();
+    } catch (err) { toast(err.message || '恢复失败', 'error'); }
+  } else if (btn.dataset.act === 'purge') {
+    if (!(await confirmDlg('彻底删除后不可恢复（不会自动删除该生的学生账号）。确定彻底删除？', { title: '彻底删除', okText: '彻底删除', danger: true }))) return;
+    try {
+      const res = await fetch(`/api/trash/${encodeURIComponent(id)}/purge`, { method: 'POST' });
+      const json = await res.json().catch(() => ({}));
+      if (json.code !== 0) throw new Error(json.msg || '操作失败');
+      toast(json.msg || '已彻底删除', 'success');
+      trashListCache = trashListCache.filter(x => x.id !== id);
+      document.getElementById('trashCount').textContent = trashListCache.length;
+      renderTrashList();
+    } catch (err) { toast(err.message || '操作失败', 'error'); }
+  }
+}
+async function clearTrash() {
+  if (!trashListCache.length) return;
+  if (!(await confirmDlg(`回收站中共 ${trashListCache.length} 条记录，清空后不可恢复。确定清空？`, { title: '清空回收站', okText: '清空', danger: true }))) return;
+  try {
+    const res = await fetch('/api/trash/clear', { method: 'POST' });
+    const json = await res.json().catch(() => ({}));
+    if (json.code !== 0) throw new Error(json.msg || '操作失败');
+    toast(json.msg || '回收站已清空', 'success');
+    trashListCache = [];
+    document.getElementById('trashCount').textContent = '0';
+    renderTrashList();
+  } catch (err) { toast(err.message || '操作失败', 'error'); }
+}
+function initEnrollTrashUI() {
+  const enrollMask = document.getElementById('enrollMask');
+  const trashMask = document.getElementById('trashMask');
+  if (enrollMask) {
+    const hide = () => enrollMask.classList.remove('show');
+    $('#enrollX').onclick = hide;
+    $('#enrollCancel').onclick = hide;
+    $('#btnEnrollSave').onclick = doEnrollSave;
+    enrollMask.addEventListener('click', e => { if (e.target === enrollMask) hide(); });
+  }
+  const btnTrash = document.getElementById('btnTrash');
+  if (btnTrash && trashMask) {
+    const hideT = () => trashMask.classList.remove('show');
+    btnTrash.onclick = openTrashDlg;
+    $('#trashClose').onclick = hideT;
+    $('#trashMaskCancel').onclick = hideT;
+    $('#btnTrashClear').onclick = clearTrash;
+    $('#trashKw').oninput = renderTrashList;
+    $('#trashList').addEventListener('click', onTrashBody);
+    trashMask.addEventListener('click', e => { if (e.target === trashMask) hideT(); });
+  }
+}
+
 // 初始化
 renderHeader();
 bindEvents();
@@ -1483,3 +1653,4 @@ renderColMenu();
 Promise.all([loadGradeOptions(), loadFilters()]).then(() => {
   loadStudents();
 });
+initEnrollTrashUI();

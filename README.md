@@ -1,18 +1,22 @@
 # 学生管理系统
 
-一个基于纯 Node.js（零依赖）的全功能学生管理系统，覆盖 **学籍档案、班级 / 年级、教师档案、多科目成绩、考勤操行、宿舍安排** 等教务管理模块，并内置「随机排位 + 均衡编班」的智能分班与投屏直播大屏。所有数据以 JSON 文件本地持久化，无需数据库，开箱即用。
+一个基于纯 Node.js（零依赖）的全功能学生管理系统，覆盖 **学籍档案、班级 / 年级、教师档案、多科目成绩、考勤操行、请假、通知公告、成绩分析、宿舍安排、学籍异动 / 回收站** 等教务管理模块，并内置「随机排位 + 均衡编班」的智能分班与投屏直播大屏，同时提供面向学生的自助中心。所有数据以 JSON 文件本地持久化，无需数据库，开箱即用。
 
 ## 模块总览
 
 - **数据总览**（dashboard.html）：全校概况、分班进度、各班容量、学科均分、特长分布
-- **学生档案**（students.html）：学籍字段（档案编号 / 身份证 / 生日 / 民族户籍 / 住址 / 监护人等）+ 各科成绩，批量 CSV 导入导出
+- **学生档案**（students.html）：学籍字段（档案编号 / 身份证 / 生日 / 民族户籍 / 住址 / 监护人等）+ 各科成绩、学籍状态（休学 / 转出 / 毕业等）与异动记录、误删回收站（可恢复 / 彻底删除），批量 CSV 导入导出
 - **班级 / 年级**（classes.html / grades.html）：容量设置、花名册、卡片拖拽排序、删除班级学生自动退回池
 - **教师管理**（teachers.html）：教师档案、任教学科、班主任与班级联动（一个班级只对应一名班主任）
 - **成绩管理**（exams.html）：多场次考试、可配置科目成绩录入、班级均分 / 最高 / 排名统计、个人成绩单、批量载入档案成绩、成绩归档为档案成绩、CSV 导出
 - **考勤操行**（conduct.html）：按日考勤登记（全出勤快捷、逐人状态）、历史记录查询回填、奖惩与评语
+- **请假管理**（leaves.html）：学生在线请假 + 后台代登记，审批通过自动同步写入对应日期考勤（leave），支持统计、筛选与 CSV 导出
+- **通知公告**（announcements.html）：后台发布 / 编辑 / 删除，可面向全校 / 指定年级 / 指定班级，支持置顶与截止时间，学生中心即时查看
+- **成绩分析**（analysis.html）：单场分析（均分 / 及格率 / 优秀率 / 分数段）、同年级班级对比、学业预警、个人成绩趋势
 - **宿舍管理**（dorm.html）：楼栋房间卡片流、性别 / 容量 / 年级筛选、安排入住、退宿 / 清空 / 自动迁宿
 - **智能分班**（allocate.html）：S 型 / 综合均衡（成绩 + 性别 + 特长）/ 随机三种策略与排位动画
 - **分班结果大屏**（result.html）：深色投屏页，分班过程实时直播、班级花名册展开、LIVE 状态点亮
+- **学生中心**（student.html）：学生凭学号自助登录，查看分班 / 宿舍 / 学籍档案，在线请假并跟踪审批进度、查看面向本人发布的公告
 - **后台工作台**（index.html）：选项卡式管理全部模块，支持拖拽排序、深链定位（`?mod=exams`）
 - **系统设置**（settings.html）：学校信息 / 校徽、可配置考试科目（增删改 + 满分）、分班规则、备份恢复、账号安全
 
@@ -52,13 +56,16 @@ npm start
 │   ├── exams.json         # 考试场次与成绩记录
 │   ├── attendance.json    # 考勤记录
 │   ├── conduct.json       # 操行（奖惩 / 评语）记录
-│   └── dormitories.json   # 宿舍房间与入住名单
+│   ├── dormitories.json   # 宿舍房间与入住名单
+│   ├── leaves.json        # 请假申请（学生在线 / 后台登记 / 审批）
+│   ├── announcements.json # 通知公告（全校 / 年级 / 班级）
+│   └── students_trash.json# 学生回收站（软删除归档，可恢复）
 ├── docs/screenshots/      # README 界面截图
 └── public/
     ├── index.html / js/admin.js      # 后台工作台（侧栏菜单 + 选项卡）
-    ├── login.html                    # 登录页
+    ├── login.html                    # 后台登录页
     ├── dashboard.html / js/dashboard.js
-    ├── students.html  / js/app.js    # 学生档案
+    ├── students.html  / js/app.js    # 学生档案（学籍状态 / 回收站）
     ├── classes.html    / js/classes.js
     ├── grades.html     / js/grades.js
     ├── teachers.html   / js/teachers.js
@@ -67,6 +74,11 @@ npm start
     ├── dorm.html       / js/dorm.js
     ├── allocate.html   / js/allocate.js
     ├── result.html     / js/result.js
+    ├── leaves.html     / js/leaves.js       # 请假管理
+    ├── announcements.html / js/announcements.js  # 通知公告
+    ├── analysis.html   / js/analysis.js     # 成绩分析
+    ├── slogin.html                          # 学生登录页
+    ├── student.html                         # 学生中心（分班/宿舍/请假/公告）
     ├── css/style.css   / css/admin.css
     └── js/             # site.js（全站配置注入 / 科目与成绩辅助）
                          # embed.js（工作台 iframe 嵌入桥接）
@@ -79,12 +91,16 @@ REST 接口均支持 GET / POST / PUT / DELETE，统一返回 `{ code, data, msg
 
 | 分类 | 路径前缀 | 说明 |
 |---|---|---|
-| 学生 | `/api/students` | 档案增删改、批量导入、清空 |
+| 学生 | `/api/students` | 档案增删改（删除进回收站）、批量导入、清空、`/:id/status` 学籍异动 |
 | 班级 / 年级 | `/api/classes`、`/api/grades` | 增删改、排序、退班/整班退回 |
 | 教师 | `/api/teachers` | 档案增删改、`/head` 设 / 撤班主任（联动班级） |
 | 考试 | `/api/exams` | 场次增删改、`/records` 成绩录入、`/records/set` 按成绩表覆盖、`/archive` 归档为档案成绩 |
 | 考勤 | `/api/attendance` | 按日 / 按班保存与查询、删除 |
 | 操行 | `/api/conduct` | 奖惩评语增删改、按学生查询 |
+| 请假 | `/api/leaves` | 请假增删改、`/:id/review` 审批（通过自动写考勤） |
+| 公告 | `/api/announcements` | 公告发布 / 编辑 / 删除 |
+| 回收站 | `/api/trash` | 查看、`/:id/restore` 恢复、`/:id/purge` 彻底删除、清空 |
+| 学生自助 | `/api/student/*` | 独立会话：`/me` 聚合档案、`/leaves` 在线请假与撤销、`/announcements` 我的公告 |
 | 宿舍 | `/api/dorms` | 房间增删改、`/assign` 入住、`/remove/:stuId` 退宿、清空 / 自动迁宿 |
 | 分班 / 大屏 | `/api/allocate`、`/api/live`、`/api/board` | 提交分班结果、直播快照、大屏聚合 |
 | 设置 / 账号 | `/api/settings`、`/api/auth/*`、`/api/filters` | 系统设置、登录与改密、前端偏好 |

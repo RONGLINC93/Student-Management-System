@@ -19,6 +19,9 @@ const ATTENDANCE_FILE = path.join(__dirname, 'data', 'attendance.json');   // �
 const CONDUCT_FILE = path.join(__dirname, 'data', 'conduct.json');         // 操行（奖惩/评语）
 const DORMS_FILE = path.join(__dirname, 'data', 'dormitories.json');       // 宿舍房间
 const DORM_APPS_FILE = path.join(__dirname, 'data', 'dorm_applications.json'); // 学生住宿申请
+const LEAVES_FILE = path.join(__dirname, 'data', 'leaves.json');               // 请假申请（学生在线申请 / 后台审批）
+const ANNOUNCEMENTS_FILE = path.join(__dirname, 'data', 'announcements.json'); // 通知公告（面向全校 / 年级 / 班级）
+const TRASH_FILE = path.join(__dirname, 'data', 'students_trash.json');        // 学生回收站（删除后软归档，可恢复）
 
 // 会话：Cookie 内 HMAC 签名（无服务端 session），Path=/ 以便所有页面共享
 const AUTH_COOKIE = 'icbs_auth';        // 后台工作台（管理员 / 查看）
@@ -89,8 +92,8 @@ if (!fs.existsSync(WORKBENCH_FILE)) {
 if (!fs.existsSync(SETTINGS_FILE)) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
 }
-['teachers', 'exams', 'attendance', 'conduct', 'dormitories', 'dormApps'].forEach(name => {
-  const f = { teachers: TEACHERS_FILE, exams: EXAMS_FILE, attendance: ATTENDANCE_FILE, conduct: CONDUCT_FILE, dormitories: DORMS_FILE, dormApps: DORM_APPS_FILE }[name];
+['teachers', 'exams', 'attendance', 'conduct', 'dormitories', 'dormApps', 'leaves', 'announcements', 'trash'].forEach(name => {
+  const f = { teachers: TEACHERS_FILE, exams: EXAMS_FILE, attendance: ATTENDANCE_FILE, conduct: CONDUCT_FILE, dormitories: DORMS_FILE, dormApps: DORM_APPS_FILE, leaves: LEAVES_FILE, announcements: ANNOUNCEMENTS_FILE, trash: TRASH_FILE }[name];
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf-8');
 });
 
@@ -237,6 +240,15 @@ function normalizeStudent(raw) {
   out.gender = out.gender === '女' ? '女' : '男';
   out.studentId = String(out.studentId || '').trim();
   out.photo = String(out.photo || '');
+  // 学籍状态（active 在籍 / leave 休学 / quit 退学 / transfer 转出 / graduate 毕业）与异动流水
+  out.status = ['active', 'leave', 'quit', 'transfer', 'graduate'].indexOf(o.status) !== -1 ? o.status : 'active';
+  out.history = Array.isArray(o.history) ? o.history.map(h => ({
+    at: String(h.at || ''),
+    from: String(h.from || ''),
+    to: String(h.to || ''),
+    note: String(h.note || ''),
+    op: String(h.op || '')
+  })) : [];
   // 旧固定成绩字段迁移
   if (o.scores === undefined || o.scores === null) {
     const legacy = ['chinese', 'math', 'english', 'science'];
@@ -335,6 +347,12 @@ const readDorms = () => readJsonFile(DORMS_FILE, []);
 const writeDorms = l => writeJsonFile(DORMS_FILE, l);
 const readDormApps = () => readJsonFile(DORM_APPS_FILE, []);
 const writeDormApps = l => writeJsonFile(DORM_APPS_FILE, l);
+const readLeaves = () => readJsonFile(LEAVES_FILE, []);
+const writeLeaves = l => writeJsonFile(LEAVES_FILE, l);
+const readAnnouncements = () => readJsonFile(ANNOUNCEMENTS_FILE, []);
+const writeAnnouncements = l => writeJsonFile(ANNOUNCEMENTS_FILE, l);
+const readTrash = () => readJsonFile(TRASH_FILE, []);
+const writeTrash = l => writeJsonFile(TRASH_FILE, l);
 
 // 教师档案规范化
 function normalizeTeacher(raw) {
@@ -1242,6 +1260,46 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, data: stu });
   }
 
+  // 学籍异动：更新学生状态（在籍 / 休学 / 退学 / 转出 / 毕业）并记录流水
+  const statusMatch = pathname.match(/^\/api\/students\/([^/]+)\/status$/);
+  if (statusMatch && req.method === 'PUT') {
+    const sid = statusMatch[1];
+    const body = await readBody(req);
+    const me = authUser(req);
+    const VALID = ['active', 'leave', 'quit', 'transfer', 'graduate'];
+    const LABEL = { active: '在籍', leave: '休学', quit: '退学', transfer: '转出', graduate: '毕业' };
+    const next = String(body.status || '').trim();
+    if (VALID.indexOf(next) === -1) return sendJson(res, 400, { code: 1, msg: '无效的学籍状态' });
+    const note = String(body.note || '').trim().slice(0, 200);
+    const now = new Date().toISOString();
+    const apply = function (s) {
+      const old = VALID.indexOf(s.status) !== -1 ? s.status : 'active';
+      if (old === next) return false;
+      s.status = next;
+      if (!Array.isArray(s.history)) s.history = [];
+      s.history.push({ at: now, from: LABEL[old], to: LABEL[next], note, op: (me && me.username) || '' });
+      if (s.history.length > 200) s.history = s.history.slice(-200);
+      return true;
+    };
+    const list = readStudents();
+    const pi = list.findIndex(s => s.id === sid);
+    if (pi !== -1) {
+      if (!apply(list[pi])) return sendJson(res, 200, { code: 0, msg: '学籍状态未变化' });
+      writeStudents(list);
+      return sendJson(res, 200, { code: 0, data: { status: list[pi].status }, msg: '学籍状态已更新为「' + LABEL[next] + '」' });
+    }
+    const classes = readClasses();
+    let hit = null;
+    classes.forEach(function (c) {
+      const s = (c.students || []).find(x => x.id === sid);
+      if (s) hit = s;
+    });
+    if (!hit) return sendJson(res, 404, { code: 1, msg: '未找到该学生档案' });
+    if (!apply(hit)) return sendJson(res, 200, { code: 0, msg: '学籍状态未变化' });
+    writeClasses(classes);
+    return sendJson(res, 200, { code: 0, data: { status: hit.status }, msg: '学籍状态已更新为「' + LABEL[next] + '」' });
+  }
+
   // 更新学生
   if (pathname.startsWith('/api/students/') && req.method === 'PUT') {
     const id = pathname.split('/').pop();
@@ -1261,14 +1319,37 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, data: list[idx] });
   }
 
-  // 删除学生（含退宿联动）
+  // 删除学生：移入回收站（学生池 / 班级名单 / 宿舍联动），可随时恢复
   if (pathname.startsWith('/api/students/') && req.method === 'DELETE') {
-    const id = pathname.split('/').pop();
+    const id = decodeURIComponent(pathname.split('/').pop());
+    if (!id) return sendJson(res, 400, { code: 1, msg: '无效的学生编号' });
+    const trash = readTrash();
+    const now = new Date().toISOString();
     const list = readStudents();
-    const next = list.filter(s => s.id !== id);
-    writeStudents(next);
-    removeFromDorms(id);
-    return sendJson(res, 200, { code: 0, msg: '已删除' });
+    const pi = list.findIndex(s => s.id === id);
+    if (pi !== -1) {
+      const stu = list[pi];
+      trash.push(Object.assign({}, stu, { deletedAt: now, deletedFrom: 'pool', sourceClassId: '', sourceClassName: '' }));
+      list.splice(pi, 1);
+      writeStudents(list);
+      writeTrash(trash);
+      removeFromDorms(id);
+      return sendJson(res, 200, { code: 0, msg: '已将「' + (stu.name || id) + '」移入回收站，可在「回收站」中恢复' });
+    }
+    const classes = readClasses();
+    for (const c of classes) {
+      const si = (c.students || []).findIndex(s => s.id === id);
+      if (si !== -1) {
+        const stu = c.students[si];
+        trash.push(Object.assign({}, stu, { deletedAt: now, deletedFrom: 'class', sourceClassId: c.id, sourceClassName: c.name }));
+        c.students.splice(si, 1);
+        writeClasses(classes);
+        writeTrash(trash);
+        removeFromDorms(id);
+        return sendJson(res, 200, { code: 0, msg: '已将「' + (stu.name || id) + '」移入回收站并退出' + (c.name || '原班级') + '，可恢复' });
+      }
+    }
+    return sendJson(res, 404, { code: 1, msg: '未找到该学生档案' });
   }
 
   // 批量导入
@@ -1287,16 +1368,22 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, msg: '已导入', count });
   }
 
-  // 清空所有学生：学生池与各班花名册一并清空（班级本身保留，避免「清空学生」后名单里还残留已分班学生）
+  // 清空所有学生：学生池与各班花名册一并移入回收站（班级本身保留，可恢复；避免「清空学生」后名单里还残留已分班学生）
   if (pathname === '/api/students' && req.method === 'DELETE') {
+    const trash = readTrash();
+    const now = new Date().toISOString();
+    const list = readStudents();
+    list.forEach(s => trash.push(Object.assign({}, s, { deletedAt: now, deletedFrom: 'pool', sourceClassId: '', sourceClassName: '' })));
     writeStudents([]);
     const classes = readClasses();
+    classes.forEach(c => (c.students || []).forEach(s => trash.push(Object.assign({}, s, { deletedAt: now, deletedFrom: 'class', sourceClassId: c.id, sourceClassName: c.name }))));
     classes.forEach(c => { c.students = []; });
     writeClasses(classes);
+    writeTrash(trash);
     // 联动清理：退宿 + 操行记录
     writeDorms(readDorms().map(r => Object.assign({}, r, { students: [] })));
     writeConduct([]);
-    return sendJson(res, 200, { code: 0, msg: '已清空' });
+    return sendJson(res, 200, { code: 0, msg: '已清空（全部学生已进入回收站，可在回收站中恢复）' });
   }
 
   // 班主任同步：以班级 headTeacher（教师姓名）为准校正教师档案的 classId，
@@ -2321,11 +2408,383 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, msg: '恢复完成', classes: body.classes.length, students: body.students.length });
   }
 
+  // ============ 补充模块：通知公告 · 请假管理 · 学生回收站 ============
+  const LEAF_TYPES = ['病假', '事假', '公假', '其他'];
+  const p2n = n => (n < 10 ? '0' + n : '' + n);
+  const todayLocalStr = () => { const d = new Date(); return d.getFullYear() + '-' + p2n(d.getMonth() + 1) + '-' + p2n(d.getDate()); };
+  const nextDateStr = ds => { const x = new Date(ds + 'T00:00:00'); x.setDate(x.getDate() + 1); return x.getFullYear() + '-' + p2n(x.getMonth() + 1) + '-' + p2n(x.getDate()); };
+  const dateSeqArr = (start, end) => {
+    if (!start || !end || String(start) > String(end)) return [];
+    const out = [];
+    let cur = String(start);
+    let guard = 0;
+    while (cur <= String(end) && guard < 1000) { out.push(cur); cur = nextDateStr(cur); guard++; }
+    return out;
+  };
+  const isDateStr = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+
+  // 审批通过 → 请假自动同步写入对应班级考勤（当天无考勤则新建；已有则不覆盖手工记录，只补漏）
+  const applyLeaveToAttendance = function (leaf) {
+    if (!leaf || !leaf.classId) return;
+    const list = readAttendance();
+    const days = dateSeqArr(leaf.startDate, leaf.endDate);
+    let changed = false;
+    const now = new Date().toISOString();
+    days.forEach(function (d) {
+      let doc = list.find(x => x.date === d && x.classId === leaf.classId);
+      if (!doc) {
+        doc = { id: genId(), date: d, grade: leaf.grade || '', classId: leaf.classId, className: leaf.className || '', records: [], updatedAt: now };
+        list.unshift(doc);
+        changed = true;
+      }
+      const recs = doc.records || [];
+      if (!recs.some(r => String(r.id) === String(leaf.sid))) {
+        recs.push({ id: String(leaf.sid), name: String(leaf.name || ''), status: 'leave' });
+        doc.records = recs;
+        doc.updatedAt = now;
+        changed = true;
+      }
+    });
+    if (changed) writeAttendance(list);
+  };
+  const validateLeavePayload = function (body) {
+    const t = String(body.type || '').trim();
+    if (LEAF_TYPES.indexOf(t) === -1) return '请假类型不正确';
+    const s = String(body.startDate || '').trim();
+    const e = String(body.endDate || '').trim();
+    if (!isDateStr(s) || !isDateStr(e)) return '请假起止日期格式不正确';
+    if (s > e) return '结束日期不能早于开始日期';
+    return '';
+  };
+
+  // ---------- 通知公告（后台发布 / 编辑 / 删除）----------
+  if (pathname === '/api/announcements' && req.method === 'GET') {
+    const list = readAnnouncements().slice().sort((a, b) => (Number(b.pinned) || 0) - (Number(a.pinned) || 0) || String(b.createdAt).localeCompare(String(a.createdAt)));
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+  if (pathname === '/api/announcements' && req.method === 'POST') {
+    const body = await readBody(req);
+    const title = String(body.title || '').trim();
+    if (!title) return sendJson(res, 400, { code: 1, msg: '请填写公告标题' });
+    const content = String(body.content || '').trim();
+    if (!content) return sendJson(res, 400, { code: 1, msg: '请填写公告内容' });
+    const me = authUser(req);
+    const now = new Date().toISOString();
+    const item = {
+      id: genId(),
+      title: title.slice(0, 100),
+      content,
+      scopeType: ['all', 'grade', 'class'].indexOf(body.scopeType) !== -1 ? body.scopeType : 'all',
+      scopeValue: String(body.scopeValue || '').trim().slice(0, 40),
+      pinned: !!body.pinned,
+      validTo: isDateStr(body.validTo) ? String(body.validTo).trim() : '',
+      author: (me && (me.nickname || me.username)) || '管理员',
+      createdAt: now,
+      updatedAt: now
+    };
+    const list = readAnnouncements();
+    list.unshift(item);
+    writeAnnouncements(list);
+    return sendJson(res, 200, { code: 0, data: item, msg: '公告已发布' });
+  }
+  const annMatch = pathname.match(/^\/api\/announcements\/([^/]+)$/);
+  if (annMatch && req.method === 'DELETE') {
+    const list = readAnnouncements();
+    const idx = list.findIndex(a => a.id === annMatch[1]);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '公告不存在或已被删除' });
+    list.splice(idx, 1);
+    writeAnnouncements(list);
+    return sendJson(res, 200, { code: 0, msg: '公告已删除' });
+  }
+  if (annMatch && req.method === 'PUT') {
+    const body = await readBody(req);
+    const list = readAnnouncements();
+    const idx = list.findIndex(a => a.id === annMatch[1]);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '公告不存在或已被删除' });
+    const a = list[idx];
+    if (body.title !== undefined) a.title = String(body.title || '').trim().slice(0, 100);
+    if (body.content !== undefined) a.content = String(body.content || '').trim();
+    if (body.scopeType !== undefined && ['all', 'grade', 'class'].indexOf(body.scopeType) !== -1) a.scopeType = body.scopeType;
+    if (body.scopeValue !== undefined) a.scopeValue = String(body.scopeValue || '').trim().slice(0, 40);
+    if (body.pinned !== undefined) a.pinned = !!body.pinned;
+    if (body.validTo !== undefined) a.validTo = isDateStr(body.validTo) ? String(body.validTo).trim() : '';
+    a.updatedAt = new Date().toISOString();
+    writeAnnouncements(list);
+    return sendJson(res, 200, { code: 0, data: a, msg: '公告已更新' });
+  }
+
+  // ---------- 请假管理（后台：列表 / 代登记 / 编辑 / 删除 / 审批）----------
+  if (pathname === '/api/leaves' && req.method === 'GET') {
+    const q = url.searchParams;
+    const status = q.get('status') || '';
+    const kw = (q.get('kw') || '').trim().toLowerCase();
+    let list = readLeaves().slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    if (status) list = list.filter(x => x.status === status);
+    if (kw) list = list.filter(x => [x.no, x.name, x.grade, x.className, x.type, x.reason, x.reviewNote].some(v => String(v || '').toLowerCase().includes(kw)));
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+  if (pathname === '/api/leaves' && req.method === 'POST') {
+    const body = await readBody(req);
+    const sid = String(body.studentId || '');
+    const stu = sid ? findStudentById(sid) : null;
+    if (!stu) return sendJson(res, 400, { code: 1, msg: '请选择请假学生' });
+    const err = validateLeavePayload(body);
+    if (err) return sendJson(res, 400, { code: 1, msg: err });
+    const type = String(body.type).trim();
+    const s = String(body.startDate).trim();
+    const e = String(body.endDate).trim();
+    const me = authUser(req);
+    const now = new Date().toISOString();
+    const item = {
+      id: genId(),
+      sid: stu.id,
+      no: stu.studentId || '',
+      name: stu.name || '',
+      gender: stu.gender || '',
+      grade: stu.grade || '',
+      className: stu.className || '',
+      classId: stu.classId || '',
+      type,
+      startDate: s,
+      endDate: e,
+      days: dateSeqArr(s, e).length,
+      reason: String(body.reason || '').trim().slice(0, 300),
+      status: 'pending',
+      source: 'admin',
+      submitter: (me && (me.nickname || me.username)) || '管理员',
+      createdAt: now,
+      updatedAt: now,
+      reviewer: '',
+      reviewNote: '',
+      reviewedAt: ''
+    };
+    const list = readLeaves();
+    list.unshift(item);
+    writeLeaves(list);
+    return sendJson(res, 200, { code: 0, data: item, msg: '已为「' + item.name + '」登记请假（待审批）' });
+  }
+  const leafReviewMatch = pathname.match(/^\/api\/leaves\/([^/]+)\/review$/);
+  if (leafReviewMatch && req.method === 'POST') {
+    const body = await readBody(req);
+    const action = body.action === 'approve' ? 'approved' : body.action === 'reject' ? 'rejected' : '';
+    if (!action) return sendJson(res, 400, { code: 1, msg: '审批操作不正确' });
+    const me = authUser(req);
+    const list = readLeaves();
+    const idx = list.findIndex(x => x.id === leafReviewMatch[1]);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '该请假申请不存在' });
+    const leaf = list[idx];
+    if (leaf.status !== 'pending') return sendJson(res, 400, { code: 1, msg: '该申请已处理，请勿重复审批' });
+    leaf.status = action;
+    leaf.reviewer = (me && (me.nickname || me.username)) || (me && me.username) || '';
+    leaf.reviewNote = String(body.note || '').trim().slice(0, 200);
+    leaf.reviewedAt = new Date().toISOString();
+    leaf.updatedAt = leaf.reviewedAt;
+    if (action === 'approved') applyLeaveToAttendance(leaf);
+    writeLeaves(list);
+    return sendJson(res, 200, { code: 0, data: leaf, msg: action === 'approved' ? '已批准，请假已同步写入该班考勤' : '已驳回该请假申请' });
+  }
+  const leafMatch = pathname.match(/^\/api\/leaves\/([^/]+)$/);
+  if (leafMatch && req.method === 'PUT') {
+    const body = await readBody(req);
+    const list = readLeaves();
+    const idx = list.findIndex(x => x.id === leafMatch[1]);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '请假记录不存在' });
+    const leaf = list[idx];
+    if (leaf.status !== 'pending') return sendJson(res, 400, { code: 1, msg: '已处理的申请不可修改，如需变更请删除后重新登记' });
+    if (body.type !== undefined && LEAF_TYPES.indexOf(String(body.type)) !== -1) leaf.type = String(body.type);
+    const s = body.startDate !== undefined ? String(body.startDate).trim() : leaf.startDate;
+    const e = body.endDate !== undefined ? String(body.endDate).trim() : leaf.endDate;
+    if (isDateStr(s) && isDateStr(e) && s <= e) {
+      leaf.startDate = s;
+      leaf.endDate = e;
+      leaf.days = dateSeqArr(s, e).length;
+    }
+    if (body.reason !== undefined) leaf.reason = String(body.reason || '').trim().slice(0, 300);
+    leaf.updatedAt = new Date().toISOString();
+    writeLeaves(list);
+    return sendJson(res, 200, { code: 0, data: leaf, msg: '请假已更新' });
+  }
+  if (leafMatch && req.method === 'DELETE') {
+    const list = readLeaves();
+    const idx = list.findIndex(x => x.id === leafMatch[1]);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '请假记录不存在' });
+    list.splice(idx, 1);
+    writeLeaves(list);
+    return sendJson(res, 200, { code: 0, msg: '请假记录已删除' });
+  }
+
+  // ---------- 学生回收站（后台：查看 / 恢复 / 彻底删除 / 清空）----------
+  if (pathname === '/api/trash' && req.method === 'GET') {
+    return sendJson(res, 200, { code: 0, data: readTrash() });
+  }
+  const trashRestoreMatch = pathname.match(/^\/api\/trash\/([^/]+)\/restore$/);
+  if (trashRestoreMatch && req.method === 'POST') {
+    const id = trashRestoreMatch[1];
+    const trash = readTrash();
+    const idx = trash.findIndex(t => t.id === id);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '回收站中不存在该学生' });
+    const rec = trash[idx];
+    const me = authUser(req) || {};
+    const now = new Date().toISOString();
+    let restoredInto = '';
+    if (rec.sourceClassId) {
+      const classes = readClasses();
+      const cls = classes.find(c => c.id === rec.sourceClassId && String(c.grade || '') === String(rec.grade || ''));
+      if (cls) {
+        const occ = (cls.students || []).length;
+        const cap = Number(cls.capacity) || 0;
+        if (cap <= 0 || occ < cap) {
+          const copy = Object.assign({}, rec);
+          delete copy.deletedAt; delete copy.deletedFrom; delete copy.sourceClassId; delete copy.sourceClassName;
+          copy.status = 'active';
+          if (!Array.isArray(copy.history)) copy.history = [];
+          copy.history.push({ at: now, from: '删除', to: '在籍', note: '从回收站恢复，回到 ' + cls.name, op: me.username || '' });
+          if (!Array.isArray(cls.students)) cls.students = [];
+          cls.students.push(copy);
+          writeClasses(classes);
+          restoredInto = cls.name;
+        }
+      }
+    }
+    if (!restoredInto) {
+      const students = readStudents();
+      const copy = Object.assign({}, rec);
+      delete copy.deletedAt; delete copy.deletedFrom; delete copy.sourceClassId; delete copy.sourceClassName;
+      copy.status = 'active';
+      if (!Array.isArray(copy.history)) copy.history = [];
+      copy.history.push({
+        at: now, from: '删除', to: '在籍',
+        note: rec.sourceClassName ? '从回收站恢复（原班 ' + rec.sourceClassName + ' 无法恢复，已回到待分班池）' : '从回收站恢复',
+        op: me.username || ''
+      });
+      students.push(copy);
+      writeStudents(students);
+      restoredInto = '待分班池';
+    }
+    trash.splice(idx, 1);
+    writeTrash(trash);
+    return sendJson(res, 200, { code: 0, msg: '已恢复「' + (rec.name || '') + '」至' + restoredInto });
+  }
+  const trashPurgeMatch = pathname.match(/^\/api\/trash\/([^/]+)\/purge$/);
+  if (trashPurgeMatch && req.method === 'POST') {
+    const list = readTrash();
+    const idx = list.findIndex(t => t.id === trashPurgeMatch[1]);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '回收站中不存在该学生' });
+    const name = list[idx].name || '';
+    list.splice(idx, 1);
+    writeTrash(list);
+    return sendJson(res, 200, { code: 0, msg: '已彻底删除' + (name ? '「' + name + '」' : '该学生') + '，不可恢复' });
+  }
+  if (pathname === '/api/trash/clear' && req.method === 'POST') {
+    const n = readTrash().length;
+    writeTrash([]);
+    return sendJson(res, 200, { code: 0, msg: '回收站已清空（' + n + ' 条）' });
+  }
+
+  // ---------- 学生自助端：查看我的公告 / 我的请假 / 在线请假 ----------
+  if (pathname === '/api/student/announcements' && req.method === 'GET') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生中心' });
+    const stu = findStudentByNo(s.username);
+    const grade = (stu && stu.grade) || '';
+    const className = (stu && stu.className) || '';
+    const today = todayLocalStr();
+    const list = readAnnouncements()
+      .filter(function (a) {
+        if (a.validTo && String(a.validTo) < today) return false;
+        if (a.scopeType === 'grade') return !!grade && String(grade) === String(a.scopeValue);
+        if (a.scopeType === 'class') return !!className && String(className) === String(a.scopeValue);
+        return true;
+      })
+      .sort(function (a, b) { return (Number(b.pinned) || 0) - (Number(a.pinned) || 0) || String(b.createdAt).localeCompare(String(a.createdAt)); })
+      .slice(0, 100)
+      .map(function (a) {
+        return {
+          id: a.id,
+          title: a.title,
+          content: a.content,
+          pinned: !!a.pinned,
+          validTo: a.validTo || '',
+          createdAt: a.createdAt,
+          author: a.author || '',
+          scopeLabel: a.scopeType === 'grade' ? '年级' : (a.scopeType === 'class' ? '班级' : '全校')
+        };
+      });
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+  if (pathname === '/api/student/leaves' && req.method === 'GET') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生中心' });
+    const stu = findStudentByNo(s.username);
+    if (!stu) return sendJson(res, 404, { code: 1, msg: '未找到学生档案' });
+    const list = readLeaves().filter(x => x.sid === stu.id).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+  if (pathname === '/api/student/leaves' && req.method === 'POST') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生中心' });
+    const stu = findStudentByNo(s.username);
+    if (!stu) return sendJson(res, 404, { code: 1, msg: '未找到学生档案' });
+    if (stu.status && stu.status !== 'active') return sendJson(res, 403, { code: 1, msg: '当前学籍状态（非在籍）不可在线请假，请联系班主任或管理员' });
+    const body = await readBody(req);
+    const err = validateLeavePayload(body);
+    if (err) return sendJson(res, 400, { code: 1, msg: err });
+    const type = String(body.type).trim();
+    const s0 = String(body.startDate).trim();
+    const e0 = String(body.endDate).trim();
+    const now = new Date().toISOString();
+    const dup = readLeaves().some(function (x) {
+      return x.sid === stu.id && x.status === 'pending' && !(x.endDate < s0 || x.startDate > e0);
+    });
+    if (dup) return sendJson(res, 400, { code: 1, msg: '该时间段内已有待审批的请假申请，请勿重复提交' });
+    const item = {
+      id: genId(),
+      sid: stu.id,
+      no: stu.studentId || '',
+      name: stu.name || '',
+      gender: stu.gender || '',
+      grade: stu.grade || '',
+      className: stu.className || '',
+      classId: stu.classId || '',
+      type,
+      startDate: s0,
+      endDate: e0,
+      days: dateSeqArr(s0, e0).length,
+      reason: String(body.reason || '').trim().slice(0, 300),
+      status: 'pending',
+      source: 'student',
+      submitter: stu.name || '',
+      createdAt: now,
+      updatedAt: now,
+      reviewer: '',
+      reviewNote: '',
+      reviewedAt: ''
+    };
+    const list = readLeaves();
+    list.unshift(item);
+    writeLeaves(list);
+    return sendJson(res, 200, { code: 0, data: item, msg: '请假申请已提交，等待班主任 / 管理员审批' });
+  }
+  const myLeafCancel = pathname.match(/^\/api\/student\/leaves\/([^/]+)$/);
+  if (myLeafCancel && req.method === 'DELETE') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生中心' });
+    const stu = findStudentByNo(s.username);
+    const list = readLeaves();
+    const idx = list.findIndex(x => x.id === myLeafCancel[1] && x.sid === (stu && stu.id));
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '未找到可撤销的请假申请' });
+    if (list[idx].status !== 'pending') return sendJson(res, 400, { code: 1, msg: '已处理的申请不可撤销' });
+    list.splice(idx, 1);
+    writeLeaves(list);
+    return sendJson(res, 200, { code: 0, msg: '请假申请已撤销' });
+  }
+
   // ===== 静态文件（含页面登录守卫）=====
   // 受保护页面：后台工作台与各功能页（大屏 result.html / 登录页无需登录）
   const PROTECTED_PAGES = ['/index.html', '/dashboard.html', '/students.html',
     '/classes.html', '/grades.html', '/allocate.html', '/settings.html',
-    '/teachers.html', '/exams.html', '/conduct.html', '/dorm.html'];
+    '/teachers.html', '/exams.html', '/conduct.html', '/dorm.html',
+    '/analysis.html', '/leaves.html', '/announcements.html'];
   const ADMIN_ONLY_PAGES = ['/settings.html'];
   // 学生自助端页面（独立会话，走 icbs_stu_auth）
   const STUDENT_PAGES = ['/student.html'];
