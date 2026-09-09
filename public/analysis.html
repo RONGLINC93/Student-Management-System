@@ -6,29 +6,54 @@
   <title>学生管理系统 - 成绩分析</title>
   <link rel="stylesheet" href="/css/style.css" />
   <style>
-    /* ===== 页内标签栏：与「考勤操行」「成绩管理」保持同一风格 ===== */
-    .an-tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid #eef2f7; margin: 0 0 14px; }
+    /* ===== 二级侧边栏导航：与「系统设置」保持一致风格 ===== */
+    .an-page { display: flex; align-items: flex-start; gap: 18px; }
+    .an-aside {
+      width: 218px; flex: none; position: sticky; top: 12px;
+      background: #fff; border: 1px solid var(--border, #e5e7eb);
+      border-radius: 16px; padding: 12px; box-shadow: 0 1px 2px rgba(17,24,39,.04);
+    }
+    .an-aside-head { padding: 6px 6px 12px; border-bottom: 1px dashed var(--border, #e5e7eb); margin-bottom: 10px; }
+    .an-aside-head b { font-size: 15px; color: var(--text, #1f2937); display: block; }
+    .an-aside-head p { font-size: 12px; color: var(--text-light, #6b7280); margin: 4px 0 0; line-height: 1.6; }
+    .an-nav { display: flex; flex-direction: column; gap: 3px; }
     .an-tab {
-      border: none; background: none; font-family: inherit;
-      padding: 9px 16px; cursor: pointer; font-size: 14px; color: #6b7280;
-      border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s;
+      display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+      padding: 9px 12px; border: 1px solid transparent; border-radius: 10px; cursor: pointer;
+      background: none; font-family: inherit; font-size: 13.5px; font-weight: 600;
+      color: var(--text, #1f2937); user-select: none; transition: background .15s, color .15s;
     }
-    .an-tab:hover { color: #374151; }
-    .an-tab.active { color: var(--primary, #2563eb); border-color: var(--primary, #2563eb); font-weight: 600; }
+    .an-tab svg { width: 16px; height: 16px; flex: none; color: var(--text-light, #6b7280); transition: color .15s; }
+    .an-tab:hover { background: rgba(79,109,245,.08); }
+    .an-tab.active {
+      background: linear-gradient(135deg, rgba(79,109,245,.14), rgba(123,92,245,.1));
+      color: var(--primary, #4f6df5);
+    }
+    .an-tab.active svg { color: var(--primary, #4f6df5); }
+    .an-tab:focus-visible { outline: 2px solid rgba(79,109,245,.5); outline-offset: 1px; }
+    .an-body { flex: 1; min-width: 0; }
+    @media (max-width: 900px) {
+      .an-page { flex-direction: column; }
+      .an-aside { width: 100%; position: static; padding: 8px; }
+      .an-aside-head { display: none; }
+      .an-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: thin; }
+      .an-tab { white-space: nowrap; flex: none; padding: 8px 12px; }
+      .an-tab svg { width: 15px; height: 15px; }
+    }
 
-    /* ===== 工具条：统一控件尺寸 / 圆角 / 聚焦态 ===== */
-    .an-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-    .an-bar label { font-size: 13px; color: #6b7280; }
-    .an-bar select,
-    .an-bar input[type="number"] {
-      height: 36px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 8px;
+    /* ===== 页内操作条：全部复用全局 .toolbar（同「学生档案」等页面），仅适配内部控件 ===== */
+    .an-body .toolbar .toolbar-left label { font-size: 13px; color: #6b7280; white-space: nowrap; }
+    .an-body .toolbar input[type="number"] {
+      height: 34px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 8px;
       background: #fff; font-size: 13px; color: #1f2937; outline: none;
-      transition: border-color .15s, box-shadow .15s;
+      transition: border-color .2s, box-shadow .2s;
     }
-    .an-bar select:focus,
-    .an-bar input[type="number"]:focus { border-color: var(--primary, #2563eb); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
-    .an-bar .sel-w260 { min-width: 260px; }
-    .an-bar .meta { font-size: 12px; color: #9ca3af; max-width: 440px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .an-body .toolbar input[type="number"]:focus {
+      border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,109,245,.12);
+    }
+    .an-body .toolbar #examSel,
+    .an-body .toolbar #trendStu { min-width: 260px; }
+    .an-body .toolbar .meta { font-size: 12px; color: #9ca3af; max-width: 440px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* ===== 白卡分区 ===== */
     .an-card { background: #fff; border: 1px solid var(--line, #e5e7eb); border-radius: 12px; overflow: hidden; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(17,24,39,.04); }
@@ -103,19 +128,40 @@
   </header>
 
   <main class="container">
-    <div class="an-tabs" id="anTabs">
-      <button class="an-tab active" data-tab="overview" type="button">单场分析</button>
-      <button class="an-tab" data-tab="compare" type="button">班级对比</button>
-      <button class="an-tab" data-tab="warn" type="button">学业预警</button>
-      <button class="an-tab" data-tab="trend" type="button">个人趋势</button>
-    </div>
-
-    <!-- 通用考试场次工具条 -->
-    <div class="an-bar">
-      <label for="examSel">考试场次</label>
-      <select id="examSel" class="sel-w260"><option value="">（请选择考试）</option></select>
-      <span class="meta" id="examMeta"></span>
-    </div>
+    <div class="an-page">
+      <aside class="an-aside">
+        <div class="an-aside-head">
+          <b>成绩分析</b>
+          <p>按分析类型查看对应维度</p>
+        </div>
+        <nav class="an-nav" id="anTabs" aria-label="分析类型">
+          <button class="an-tab active" data-tab="overview" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            单场分析
+          </button>
+          <button class="an-tab" data-tab="compare" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/></svg>
+            班级对比
+          </button>
+          <button class="an-tab" data-tab="warn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            学业预警
+          </button>
+          <button class="an-tab" data-tab="trend" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            个人趋势
+          </button>
+        </nav>
+      </aside>
+      <div class="an-body">
+    <!-- 考试场次工具条：复用全局 .toolbar（与「学生档案」等页面同款结构） -->
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <label for="examSel">考试场次</label>
+        <select id="examSel" class="grade-filter"><option value="">（请选择考试）</option></select>
+        <span class="meta" id="examMeta"></span>
+      </div>
+    </section>
 
     <!-- ===== 单场分析 ===== -->
     <section id="tab-overview">
@@ -171,10 +217,12 @@
 
     <!-- ===== 学业预警 ===== -->
     <section id="tab-warn" hidden>
-      <div class="an-bar">
-        <label for="warnLine">预警线（总分百分比 %）</label>
-        <input type="number" id="warnLine" value="60" min="1" max="100" style="width:90px" />
-        <span class="meta warn-line" id="warnNote"></span>
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <label for="warnLine">预警线（总分百分比 %）</label>
+          <input type="number" id="warnLine" value="60" min="1" max="100" style="width:90px" />
+          <span class="meta warn-line" id="warnNote"></span>
+        </div>
       </div>
       <div class="an-card">
         <div class="table-wrap">
@@ -188,11 +236,13 @@
 
     <!-- ===== 个人趋势 ===== -->
     <section id="tab-trend" hidden>
-      <div class="an-bar">
-        <label for="trendStu">学生</label>
-        <input type="text" id="stuSearch" class="search-input" placeholder="姓名 / 学号筛选" style="width:200px" />
-        <select id="trendStu" class="sel-w260"><option value="">（请选择学生）</option></select>
-        <span class="meta" id="trendNote"></span>
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <label for="trendStu">学生</label>
+          <input type="text" id="stuSearch" class="search-input" placeholder="姓名 / 学号筛选" style="width:200px" />
+          <select id="trendStu" class="grade-filter"><option value="">（请选择学生）</option></select>
+          <span class="meta" id="trendNote"></span>
+        </div>
       </div>
       <div class="an-card">
         <div class="card-h">
@@ -205,6 +255,8 @@
         </div>
       </div>
     </section>
+      </div>
+    </div>
   </main>
 
   <div class="toast" id="toast"></div>
