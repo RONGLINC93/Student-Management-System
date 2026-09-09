@@ -13,7 +13,7 @@ let lastSubjectSeq = -1;
 
 // 宿舍状态：dorms 缓存房间列表；学生行通过 _roomId/_dormTxt 标注入住信息
 let dorms = [];
-// 指定班级 / 转班弹窗状态
+// 安排入班 / 转班弹窗状态
 let assignTarget = null;           // 正在设置班级的学生
 let assignCurrentClassId = '';     // 该生当前所在班级 id（'' = 未分班）
 let assignClassList = [];          // 可选的班级列表（弹窗打开时拉取）
@@ -380,7 +380,7 @@ function renderTable() {
       ? '<span class="status-tag status-allocated">已分班</span>'
       : '<span class="status-tag status-unallocated">未分班</span>';
     const resetBtn = '<button class="btn-sm btn-reset" data-act="resetpwd" title="将该生登录密码恢复为学号，下次登录需重新设置个人密码">重置密码</button>';
-    const assignBtn = `<button class="btn-sm btn-assign" data-act="assign" title="${s.allocated ? '将该生转入其他班级（转班）' : '从学生池将该生安排到指定班级'}">${s.allocated ? '转班' : '安排入班'}</button>`;
+    const assignBtn = `<button class="btn-sm btn-assign" data-act="assign" title="${s.allocated ? '将该生转入其他班级（转班）' : '从学生池将该生安排入班'}">${s.allocated ? '转班' : '安排入班'}</button>`;
     const actions = s.allocated
       ? `<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button>${assignBtn}${resetBtn}</div>`
       : `<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button>${assignBtn}${resetBtn}<button class="btn-sm btn-del" data-act="del">删除</button></div>`;
@@ -588,7 +588,7 @@ async function resetStudentPassword(id, stu) {
   }
 }
 
-// ===== 手动指定分班 / 转班 =====
+// ===== 手动安排入班 / 转班 =====
 function assignInfoHtml(stu) {
   const curTxt = stu.allocated
     ? `${escapeHtml(stu.grade || '')} · ${escapeHtml(stu.className || '')}`
@@ -659,7 +659,7 @@ function renderAssignOptions() {
   if (assignCurrentClassId && list.some(c => c.id === assignCurrentClassId)) sel.value = assignCurrentClassId;
   $('#assignTip').textContent = myGrade
     ? `该生年级为「${myGrade}」，只能分入同年级班级。`
-    : '该生暂未填写年级，将按所选班级的年级进行分班。';
+    : '该生暂未填写年级，将按所选班级的年级安排入班。';
   updateAssignSave();
 }
 function updateAssignSave() {
@@ -690,12 +690,12 @@ async function doAssignSave() {
       body: JSON.stringify({ classId })
     });
     const j = await res.json();
-    if (j.code !== 0) { toast(j.msg || '指定失败', 'error'); renderAssignOptions(); return; }
+    if (j.code !== 0) { toast(j.msg || '入班失败', 'error'); renderAssignOptions(); return; }
     toast(j.msg || '已安排入班', 'success');
     closeAssignDlg();
     await loadStudents();
   } catch (e) {
-    toast('指定失败：' + e.message, 'error');
+    toast('入班失败：' + e.message, 'error');
   }
 }
 
@@ -1192,7 +1192,7 @@ function bindEvents() {
   $('#modalCancel').onclick = closeModal;
   $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') closeModal(); };
   $('#stuForm').onsubmit = saveStudent;
-  // 指定分班 / 转班弹窗
+  // 安排入班 / 转班弹窗
   $('#assignClose').onclick = closeAssignDlg;
   $('#assignCancel').onclick = closeAssignDlg;
   $('#assignMask').onclick = (e) => { if (e.target.id === 'assignMask') closeAssignDlg(); };

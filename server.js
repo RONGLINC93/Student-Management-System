@@ -1176,7 +1176,7 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, msg: `密码已重置为学号「${no}」，该生下次登录需重新设置个人密码` });
   }
 
-  // 手动指定分班 / 转班（学生档案页）：从学生池或原班级移入目标班级，并校验年级一致性与班级容量
+  // 手动安排入班 / 转班（学生档案页）：从学生池或原班级移入目标班级，并校验年级一致性与班级容量
   const assignMatch = pathname.match(/^\/api\/students\/([^/]+)\/assign$/);
   if (assignMatch && req.method === 'POST') {
     const stuId = decodeURIComponent(assignMatch[1]);
@@ -1496,7 +1496,7 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, msg: '已退回学生池' });
   }
 
-  // 批量把学生池（未分班）中的多名学生一次加入指定班级
+  // 批量入班：把学生池（未分班）中的多名学生一次分入目标班级
   const batchMatch = pathname.match(/^\/api\/classes\/([^/]+)\/add$/);
   if (batchMatch && req.method === 'POST') {
     const classId = batchMatch[1];
@@ -1504,7 +1504,7 @@ const server = http.createServer(async (req, res) => {
     const wantIds = Array.isArray(body.studentIds)
       ? body.studentIds.map(s => String(s).trim()).filter(Boolean)
       : [];
-    if (!wantIds.length) return sendJson(res, 400, { code: 1, msg: '请先勾选要加入班级的学生' });
+    if (!wantIds.length) return sendJson(res, 400, { code: 1, msg: '请先勾选要入班的学生' });
     const classes = readClasses();
     const cls = classes.find(c => c.id === classId);
     if (!cls) return sendJson(res, 404, { code: 1, msg: '班级不存在' });

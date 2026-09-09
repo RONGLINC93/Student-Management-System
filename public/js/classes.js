@@ -548,7 +548,7 @@ function updateBatchSave() {
   const n = batchSelected.size;
   if (!save) return;
   save.disabled = n === 0;
-  save.textContent = n > 0 ? `加入班级（已选 ${n} 人）` : '加入班级';
+  save.textContent = n > 0 ? `确认入班（已选 ${n} 人）` : '确认入班';
   if (!batchClass) return;
   const remain = batchRemain();
   let msg = '';
@@ -578,8 +578,8 @@ async function doBatchAdd() {
       body: JSON.stringify({ studentIds: ids })
     });
     const j = await res.json();
-    if (j.code !== 0) { toast(j.msg || '加入失败', 'error'); closeBatchDlg(); return; }
-    toast(j.msg || '已加入班级', 'success');
+    if (j.code !== 0) { toast(j.msg || '入班失败', 'error'); closeBatchDlg(); return; }
+    toast(j.msg || '已入班', 'success');
     closeBatchDlg();
     await loadData();
   } catch (e) {
