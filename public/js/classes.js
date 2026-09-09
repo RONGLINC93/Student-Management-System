@@ -659,7 +659,6 @@ async function persistClassOrder() {
 // ===== 事件绑定 =====
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
-  $('#btnAllocate').onclick = () => goPage('/allocate.html');
   $('#btnClearAll').onclick = clearAll;
   $('#modalClose').onclick = closeModal;
   $('#modalCancel').onclick = closeModal;

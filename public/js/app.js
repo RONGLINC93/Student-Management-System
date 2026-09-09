@@ -192,31 +192,82 @@ function photoHtml(s) {
   return ini;
 }
 
+// ===== 列定义 + 列显隐（表头 / 行 / 列设置共用一份配置） =====
+const COLS_STORE_KEY = 'sms_students_visible_cols_v1';
+// 「精简视图」保留的列（不含各科成绩与特长）
+const CORE_KEYS = ['photo', 'studentId', 'grade', 'className', 'name', 'gender', 'total', 'allocated', 'dorm', 'actions'];
+
+function columnDefs() {
+  const subs = (window.SUBJECTS || []).map(sj => ({ key: 'score:' + sj.key, label: sj.name, sortable: true }));
+  return [
+    { key: 'photo', label: '照片', fixed: 58 },
+    { key: 'studentId', label: '学号', sortable: true },
+    { key: 'grade', label: '年级', sortable: true },
+    { key: 'className', label: '班级', sortable: true },
+    { key: 'name', label: '姓名', sortable: true },
+    { key: 'gender', label: '性别', sortable: true },
+    ...subs,
+    { key: 'total', label: '总分', sortable: true },
+    { key: 'specialty', label: '特长', sortable: true },
+    { key: 'allocated', label: '分班状态', sortable: true },
+    { key: 'dorm', label: '宿舍', fixed: 200 },
+    { key: 'actions', label: '操作', fixed: 96 }
+  ];
+}
+
+function loadColFlags() {
+  try {
+    const v = JSON.parse(localStorage.getItem(COLS_STORE_KEY) || 'null');
+    return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+  } catch (e) { return {}; }
+}
+function saveColFlags(f) {
+  try { localStorage.setItem(COLS_STORE_KEY, JSON.stringify(f)); } catch (e) {}
+}
+function colVisible(key, flags) {
+  if (key === 'name') return true; // 姓名列锁定，保证列表始终可辨识
+  return (flags || {})[key] !== false;
+}
+function visibleColumns() {
+  const f = loadColFlags();
+  return columnDefs().filter(c => colVisible(c.key, f));
+}
+function setColVisible(key, on) {
+  const f = loadColFlags();
+  f[key] = !!on;
+  saveColFlags(f);
+}
+function applyCoreCols() {
+  const f = {};
+  columnDefs().forEach(c => { if (c.key !== 'name') f[c.key] = CORE_KEYS.includes(c.key); });
+  saveColFlags(f);
+}
+function resetColFlags() {
+  try { localStorage.removeItem(COLS_STORE_KEY); } catch (e) {}
+}
+
+// 勾选/恢复列后刷新列表视图
+function refreshListView() {
+  const cur = columnDefs().find(c => c.key === sortKey);
+  if (cur && cur.sortable && !colVisible(sortKey, loadColFlags())) sortKey = 'studentId';
+  renderHeader();
+  renderTable();
+}
+
 // ===== 动态表头 =====
 function renderHeader() {
   const thead = $('#stuThead');
   if (!thead) return;
-  const fixed = [
-    ['photo', '照片', false], ['studentId', '学号', true], ['grade', '年级', true],
-    ['className', '班级', true], ['name', '姓名', true], ['gender', '性别', true]
-  ];
-  const subs = (window.SUBJECTS || []).map(sj => ['score:' + sj.key, sj.name, true]);
-  const tail = [
-    ['total', '总分', true], ['specialty', '特长', true], ['allocated', '分班状态', true], ['', '宿舍', false], ['', '操作', false]
-  ];
-  const cols = [...fixed, ...subs, ...tail];
+  const cols = visibleColumns();
   let html = '<tr>';
-  cols.forEach(([key, label, sortable]) => {
-    if (sortable) {
-      html += `<th class="sortable" data-sort="${key}">${escapeHtml(label)}</th>`;
-    } else if (key === 'photo') {
-      html += '<th style="width:56px">照片</th>';
-    } else if (label === '宿舍') {
-      html += '<th style="width:196px">宿舍</th>';
-    } else if (label === '操作') {
-      html += '<th style="width:260px">操作</th>';
+  cols.forEach(c => {
+    const label = escapeHtml(c.label);
+    if (c.sortable) {
+      html += `<th class="sortable" data-sort="${escapeHtml(c.key)}">${label}</th>`;
+    } else if (c.fixed) {
+      html += `<th style="width:${c.fixed}px">${label}</th>`;
     } else {
-      html += `<th style="width:150px">${escapeHtml(label)}</th>`;
+      html += `<th>${label}</th>`;
     }
   });
   html += '</tr>';
@@ -224,7 +275,7 @@ function renderHeader() {
   updateSortHeader();
 }
 function colSpanCount() {
-  return 6 + (window.SUBJECTS || []).length + 5;
+  return Math.max(1, visibleColumns().length);
 }
 
 // 数字列判断
@@ -374,40 +425,67 @@ function renderTable() {
   const start = (currentPage - 1) * pageSize;
   const pageList = list.slice(start, start + pageSize);
 
-  const subjects = window.SUBJECTS || [];
+  const cols = visibleColumns();
   tbody.innerHTML = pageList.map(s => {
-    const statusTag = s.allocated
-      ? '<span class="status-tag status-allocated">已分班</span>'
-      : '<span class="status-tag status-unallocated">未分班</span>';
-    const resetBtn = '<button class="btn-sm btn-reset" data-act="resetpwd" title="将该生登录密码恢复为学号，下次登录需重新设置个人密码">重置密码</button>';
-    const assignBtn = `<button class="btn-sm btn-assign" data-act="assign" title="${s.allocated ? '将该生转入其他班级（转班）' : '从学生池将该生安排入班'}">${s.allocated ? '转班' : '安排入班'}</button>`;
-    const actions = s.allocated
-      ? `<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button>${assignBtn}${resetBtn}</div>`
-      : `<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button>${assignBtn}${resetBtn}<button class="btn-sm btn-del" data-act="del">删除</button></div>`;
-    const dormCell = dormCellHtml(s);
-    const scoreCells = subjects.map(sj => {
-      const v = stuScoreOf(s, sj.key);
-      return `<td class="score">${v === null ? '—' : v}</td>`;
-    }).join('');
-    return `
-    <tr data-id="${escapeHtml(s.id)}">
-      <td><div class="avatar">${photoHtml(s)}</div></td>
-      <td class="stu-id">${escapeHtml(s.studentId || '—')}</td>
-      <td>${escapeHtml(s.grade || '—')}</td>
-      <td>${escapeHtml(s.className || '—')}</td>
-      <td><strong>${escapeHtml(s.name)}</strong></td>
-      <td><span class="gender-tag ${s.gender === '男' ? 'gender-male' : 'gender-female'}">${s.gender}</span></td>
-      ${scoreCells}
-      <td class="total-score">${totalOfStu(s)}</td>
-      <td>${s.specialty ? `<span class="specialty-tag">${escapeHtml(s.specialty)}</span>` : '—'}</td>
-      <td>${statusTag}</td>
-      <td class="dorm-cell">${dormCell}</td>
-      <td>${actions}</td>
-    </tr>
-  `;
+    const cells = cols.map(c => studentCellHtml(s, c)).join('');
+    return `<tr data-id="${escapeHtml(s.id)}">${cells}</tr>`;
   }).join('');
   pagination.innerHTML = renderPaginationHtml(total, totalPages);
   updateStats();
+}
+
+// ===== 学生行单元格渲染（列顺序与可见性由 visibleColumns 统一驱动） =====
+const SVG_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const ICON_EDIT = `<svg ${SVG_ATTRS}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
+const ICON_SWAP = `<svg ${SVG_ATTRS}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+const ICON_ASSIGN = `<svg ${SVG_ATTRS}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>`;
+const ICON_KEY = `<svg ${SVG_ATTRS}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`;
+const ICON_TRASH = `<svg ${SVG_ATTRS}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+const ICON_MORE = `<svg ${SVG_ATTRS}><circle cx="12" cy="6" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1.7" fill="currentColor" stroke="none"/></svg>`;
+
+// 操作列：单颗「⋯」按钮，点击展开该行操作菜单
+function rowActionsHtml() {
+  return `<button type="button" class="act-more" data-act="rowmenu" aria-label="更多操作" title="更多操作">${ICON_MORE}</button>`;
+}
+
+// 行操作菜单：悬停在页面层，避免被表格横向滚动容器裁剪
+function renderRowMenuItems(s) {
+  const alloc = !!s.allocated;
+  const assignTxt = alloc ? '转班到其他班级' : '安排入班';
+  const delBlock = alloc ? '' :
+    `<div class="menu-sep"></div>
+     <button type="button" class="row-menu-item danger" data-mact="del"><span class="menu-ico">${ICON_TRASH}</span>删除该生</button>`;
+  return `
+    <button type="button" class="row-menu-item" data-mact="edit"><span class="menu-ico">${ICON_EDIT}</span>编辑档案</button>
+    <button type="button" class="row-menu-item" data-mact="assign"><span class="menu-ico">${alloc ? ICON_SWAP : ICON_ASSIGN}</span>${assignTxt}</button>
+    <button type="button" class="row-menu-item" data-mact="resetpwd"><span class="menu-ico">${ICON_KEY}</span>重置登录密码</button>
+    ${delBlock}`;
+}
+
+// 按列渲染单元格（与表头严格同序）
+function studentCellHtml(s, col) {
+  const k = col.key;
+  if (k === 'photo') return `<td><div class="avatar">${photoHtml(s)}</div></td>`;
+  if (k === 'studentId') return `<td class="stu-id">${escapeHtml(s.studentId || '—')}</td>`;
+  if (k === 'grade') return `<td><span class="grade-text">${escapeHtml(s.grade || '—')}</span></td>`;
+  if (k === 'className') return `<td>${s.className ? `<span class="class-chip">${escapeHtml(s.className)}</span>` : '<span class="empty-cell">—</span>'}</td>`;
+  if (k === 'name') return `<td><strong class="stu-name">${escapeHtml(s.name)}</strong></td>`;
+  if (k === 'gender') return `<td><span class="gender-tag ${s.gender === '男' ? 'gender-male' : 'gender-female'}">${escapeHtml(s.gender || '—')}</span></td>`;
+  if (k.startsWith('score:')) {
+    const v = stuScoreOf(s, k.slice(6));
+    return `<td class="score">${v === null ? '<span class="no-score">—</span>' : v}</td>`;
+  }
+  if (k === 'total') return `<td class="total-score">${totalOfStu(s)}</td>`;
+  if (k === 'specialty') {
+    const sp = (s.specialty || '').trim();
+    return sp ? `<td><span class="specialty-tag" title="${escapeHtml(sp)}">${escapeHtml(sp)}</span></td>` : '<td><span class="empty-cell">—</span></td>';
+  }
+  if (k === 'allocated') {
+    return `<td><span class="status-tag ${s.allocated ? 'status-allocated' : 'status-unallocated'}"><i></i>${s.allocated ? '已分班' : '未分班'}</span></td>`;
+  }
+  if (k === 'dorm') return `<td class="dorm-cell">${dormCellHtml(s)}</td>`;
+  if (k === 'actions') return `<td><div class="row-actions">${rowActionsHtml(s)}</div></td>`;
+  return '<td>—</td>';
 }
 
 function renderPaginationHtml(total, totalPages) {
@@ -1155,15 +1233,37 @@ function ensureSubjectsTable() {
   if (seq === lastSubjectSeq) return;
   lastSubjectSeq = seq;
   renderHeader();
+  renderColMenu();
   currentPage = 1;
   renderTable();
+}
+
+// ===== 「列设置」下拉菜单 =====
+function renderColMenu() {
+  const menu = $('#colMenu');
+  if (!menu) return;
+  const flags = loadColFlags();
+  const defs = columnDefs();
+  const items = defs.map(c => {
+    const locked = c.key === 'name';
+    const on = colVisible(c.key, flags);
+    const isScore = c.key.startsWith('score:');
+    return `<label class="col-item ${isScore ? 'col-subject' : ''} ${locked ? 'is-locked' : ''}">
+      <input type="checkbox" data-colkey="${escapeHtml(c.key)}" ${on ? 'checked' : ''} ${locked ? 'disabled' : ''} />
+      <span>${escapeHtml(c.label)}</span>
+    </label>`;
+  }).join('');
+  menu.innerHTML = `
+    <div class="col-head">
+      <button type="button" class="col-btn col-core" data-cols="core" title="仅保留高频使用的列">精简视图</button>
+      <button type="button" class="col-btn" data-cols="all">显示全部</button>
+    </div>
+    <div class="col-list">${items}</div>`;
 }
 
 // ===== 事件绑定 =====
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
-  $('#btnBoard').onclick = () => window.open('/result.html', '_blank');
-  $('#btnAllocate').onclick = () => goPage('/allocate.html');
   $('#btnClear').onclick = clearAll;
   $('#btnImport').onclick = batchImport;
   $('#btnDownloadTpl').onclick = downloadTemplate;
@@ -1176,16 +1276,104 @@ function bindEvents() {
 
   const moreDropdown = $('#moreDropdown');
   const moreMenu = $('#moreMenu');
+  const colDropdown = $('#colDropdown');
+  const colMenu = $('#colMenu');
+
+  // 行操作下拉菜单：挂在页面层（body）上，避免被表格横向滚动容器裁剪
+  const rowMenu = document.createElement('div');
+  rowMenu.className = 'row-menu';
+  document.body.appendChild(rowMenu);
+  let rowMenuStuId = null;
+  const onScrollCloseRow = () => closeRowMenu();
+  const closeRowMenu = () => {
+    rowMenu.classList.remove('show');
+    rowMenuStuId = null;
+    document.removeEventListener('scroll', onScrollCloseRow, true);
+  };
+  function openRowMenu(btn, stu) {
+    if (!stu) return;
+    rowMenu.innerHTML = renderRowMenuItems(stu);
+    rowMenuStuId = String(stu.id);
+    document.addEventListener('scroll', onScrollCloseRow, true);
+    rowMenu.style.visibility = 'hidden';
+    rowMenu.classList.add('show');
+    const mw = rowMenu.offsetWidth || 176;
+    const mh = rowMenu.offsetHeight || 210;
+    const r = btn.getBoundingClientRect();
+    let left = r.right - mw;
+    if (left < 8) left = Math.max(8, r.left + 8);
+    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+    let top = r.bottom + 6;
+    if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+    rowMenu.style.left = left + 'px';
+    rowMenu.style.top = top + 'px';
+    rowMenu.style.visibility = '';
+  }
+  // 行操作菜单项点击
+  rowMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-mact]');
+    if (!item) return;
+    const stu = allStudents.find(s => String(s.id) === rowMenuStuId) || null;
+    const act = item.dataset.mact;
+    closeRowMenu();
+    if (!stu) return;
+    if (act === 'edit') openModal(stu);
+    else if (act === 'assign') openAssignDlg(stu);
+    else if (act === 'resetpwd') resetStudentPassword(stu.id, stu);
+    else if (act === 'del') deleteStudent(stu.id);
+  });
+
+  const hideDropdowns = () => {
+    moreMenu.classList.remove('show');
+    moreDropdown.classList.remove('open');
+    if (colDropdown && colMenu) {
+      colMenu.classList.remove('show');
+      colDropdown.classList.remove('open');
+    }
+    closeRowMenu();
+  };
   $('#btnMore').onclick = (e) => {
     e.stopPropagation();
+    if (colMenu) colMenu.classList.remove('show');
+    if (colDropdown) colDropdown.classList.remove('open');
     const show = !moreMenu.classList.contains('show');
     moreMenu.classList.toggle('show', show);
     moreDropdown.classList.toggle('open', show);
   };
+  if (colDropdown && colMenu) {
+    const btnCols = $('#btnCols');
+    if (btnCols) {
+      renderColMenu();
+      btnCols.onclick = (e) => {
+        e.stopPropagation();
+        moreMenu.classList.remove('show');
+        moreDropdown.classList.remove('open');
+        const show = !colMenu.classList.contains('show');
+        colMenu.classList.toggle('show', show);
+        colDropdown.classList.toggle('open', show);
+      };
+    }
+    // 勾选 / 取消勾选列
+    colMenu.addEventListener('change', (e) => {
+      const box = e.target.closest('input[data-colkey]');
+      if (!box) return;
+      setColVisible(box.dataset.colkey, box.checked);
+      refreshListView();
+    });
+    // 「精简视图 / 显示全部」
+    colMenu.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-cols]');
+      if (!btn) return;
+      if (btn.dataset.cols === 'core') applyCoreCols();
+      else resetColFlags();
+      renderColMenu();
+      refreshListView();
+    });
+  }
   document.addEventListener('click', (e) => {
+    if (colDropdown && colDropdown.contains(e.target)) return; // 列菜单内点击保持展开，便于连续勾选
     if (moreDropdown.contains(e.target) && !e.target.closest('.dropdown-item')) return;
-    moreMenu.classList.remove('show');
-    moreDropdown.classList.remove('open');
+    hideDropdowns();
   });
 
   $('#modalClose').onclick = closeModal;
@@ -1227,10 +1415,12 @@ function bindEvents() {
     const tr = btn.closest('tr');
     const id = tr.dataset.id;
     const stu = allStudents.find(s => s.id === id) || null;
-    if (btn.dataset.act === 'edit') openModal(stu);
-    if (btn.dataset.act === 'del') deleteStudent(id);
-    if (btn.dataset.act === 'resetpwd') resetStudentPassword(id, stu);
-    if (btn.dataset.act === 'assign') openAssignDlg(stu);
+    if (btn.dataset.act === 'rowmenu') {
+      e.stopPropagation();
+      if (rowMenu.classList.contains('show') && rowMenuStuId === String(id)) closeRowMenu();
+      else openRowMenu(btn, stu);
+      return;
+    }
     if (btn.dataset.act === 'dorm') openDormDlg(stu);
     if (btn.dataset.act === 'dorm-view' && stu && stu._roomId) openRoomPage(stu._roomId, stu.id);
   };
@@ -1303,6 +1493,7 @@ window.cbEmbedRefresh = function () {
 // 初始化
 renderHeader();
 bindEvents();
+renderColMenu();
 Promise.all([loadGradeOptions(), loadFilters()]).then(() => {
   loadStudents();
 });

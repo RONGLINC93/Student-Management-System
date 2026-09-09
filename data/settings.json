@@ -9,9 +9,25 @@
   "balanceGender": 1.5,
   "balanceSpecialty": 2,
   "subjects": [
-    { "key": "chinese", "name": "语文", "max": 150 },
-    { "key": "math", "name": "数学", "max": 150 },
-    { "key": "english", "name": "英语", "max": 150 },
-    { "key": "science", "name": "理综", "max": 300 }
+    {
+      "key": "chinese",
+      "name": "语文",
+      "max": 150
+    },
+    {
+      "key": "math",
+      "name": "数学",
+      "max": 150
+    },
+    {
+      "key": "english",
+      "name": "英语",
+      "max": 150
+    },
+    {
+      "key": "science",
+      "name": "理综",
+      "max": 300
+    }
   ]
 }
