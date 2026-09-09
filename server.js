@@ -1227,7 +1227,7 @@ const server = http.createServer(async (req, res) => {
     writeStudents(students);
     const msg = fromClass
       ? `已将「${curStu.name}」从 ${fromClass.name} 转入 ${cls.name}`
-      : `已为「${curStu.name}」指定分班：${cls.name}`;
+      : `已将「${curStu.name}」安排入 ${cls.name}`;
     return sendJson(res, 200, { code: 0, msg });
   }
 

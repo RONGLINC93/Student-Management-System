@@ -380,7 +380,7 @@ function renderTable() {
       ? '<span class="status-tag status-allocated">已分班</span>'
       : '<span class="status-tag status-unallocated">未分班</span>';
     const resetBtn = '<button class="btn-sm btn-reset" data-act="resetpwd" title="将该生登录密码恢复为学号，下次登录需重新设置个人密码">重置密码</button>';
-    const assignBtn = `<button class="btn-sm btn-assign" data-act="assign" title="${s.allocated ? '将该生转入其他班级（转班）' : '为该生手动指定班级'}">${s.allocated ? '转班' : '指定班级'}</button>`;
+    const assignBtn = `<button class="btn-sm btn-assign" data-act="assign" title="${s.allocated ? '将该生转入其他班级（转班）' : '从学生池将该生安排到指定班级'}">${s.allocated ? '转班' : '安排入班'}</button>`;
     const actions = s.allocated
       ? `<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button>${assignBtn}${resetBtn}</div>`
       : `<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button>${assignBtn}${resetBtn}<button class="btn-sm btn-del" data-act="del">删除</button></div>`;
@@ -607,7 +607,7 @@ async function openAssignDlg(stu) {
   assignTarget = stu;
   assignCurrentClassId = stu.classId || '';
   assignClassList = [];
-  $('#assignTitle').textContent = stu.allocated ? '转班调整' : '指定分班';
+  $('#assignTitle').textContent = stu.allocated ? '转班调整' : '安排入班';
   $('#assignStuInfo').innerHTML = assignInfoHtml(stu);
   const sel = $('#assignSelect');
   if (sel) sel.innerHTML = '<option value="">正在加载班级…</option>';
@@ -642,7 +642,7 @@ function renderAssignOptions() {
     sel.innerHTML = '';
     $('#assignTip').textContent = myGrade
       ? `当前还没有「${myGrade}」的班级，请先到「班级管理」添加对应班级，或先编辑该生修改年级。`
-      : '系统中还没有班级，请先到「班级管理」添加班级，再进行指定分班。';
+      : '系统中还没有班级，请先到「班级管理」添加班级，再为学生安排入班。';
     $('#assignSave').disabled = true;
     return;
   }
@@ -691,7 +691,7 @@ async function doAssignSave() {
     });
     const j = await res.json();
     if (j.code !== 0) { toast(j.msg || '指定失败', 'error'); renderAssignOptions(); return; }
-    toast(j.msg || '已指定班级', 'success');
+    toast(j.msg || '已安排入班', 'success');
     closeAssignDlg();
     await loadStudents();
   } catch (e) {

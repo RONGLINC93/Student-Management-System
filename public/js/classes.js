@@ -9,8 +9,8 @@ let teacherList = []; // 教师列表，班主任下拉选项引用该列表
 let poolCount = 0;
 let rosterClassId = ''; // 当前打开花名册的班级 id（导出/退生以 id 精确对应，避免按班级名匹配出错）
 let gradesList = [];
-let poolStudents = []; // 学生池明细（批量加学生弹窗候选）
-let batchClass = null;  // 批量加学生的目标班级
+let poolStudents = []; // 学生池明细（批量入班弹窗候选）
+let batchClass = null;  // 批量入班的目标班级
 let batchSelected = new Set(); // 已勾选的学生 id
 let batchEligible = 0;  // 学生池中可加入当前班级的人数（不含关键字过滤）
 let batchHidden = 0;    // 学生池中因不符合条件（年级不符等）被隐藏的人数
@@ -197,7 +197,7 @@ function renderClasses() {
         <td>
           <div class="row-actions">
             <button class="btn-sm btn-view" data-act="view">花名册</button>
-            <button class="btn-sm btn-assign" data-act="batchadd" title="从学生池多选学生一次加入本班">批量加学生</button>
+            <button class="btn-sm btn-assign" data-act="batchadd" title="从学生池多选学生一次加入本班">批量入班</button>
             <button class="btn-sm btn-edit" data-act="edit">编辑</button>
             <button class="btn-sm btn-del" data-act="del">删除</button>
           </div>
@@ -314,7 +314,7 @@ function openRoster(cls) {
   `;
   const tbody = $('#rosterTbody');
   if (!(cls.students || []).length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-tip">该班级暂无学生，可在班级列表点击「批量加学生」从学生池一次加入多名学生，或前往「智能分班」自动分配</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-tip">该班级暂无学生，可在班级列表点击「批量入班」从学生池一次加入多名学生，或前往「智能分班」自动分配</td></tr>`;
   } else {
     tbody.innerHTML = cls.students.map(s => `
       <tr data-id="${s.id}">
@@ -409,7 +409,7 @@ async function returnAllStudents() {
   }
 }
 
-// ===== 批量加学生（学生池多选加入本班） =====
+// ===== 批量入班（学生池多选加入本班） =====
 // 学生能否加入当前班级：班级未设年级 → 均可；否则学生未设年级或与本班同年级 → 可加入
 function batchCanAdd(stu) {
   const clsGrade = String(batchClass?.grade || '').trim();
@@ -436,7 +436,7 @@ async function openBatchDlg(clsId) {
   }
   batchClass = cls;
   batchSelected.clear();
-  $('#batchTitle').textContent = `向「${cls.name}」批量加学生`;
+  $('#batchTitle').textContent = `批量入班：「${cls.name}」`;
   const cap = Number(cls.capacity) || 0;
   const cur = (cls.students || []).length;
   const remain = cap > 0 ? Math.max(0, cap - cur) : Infinity;
@@ -672,7 +672,7 @@ function bindEvents() {
   $('#btnExportRoster').onclick = exportRoster;
   $('#btnReturnAll').onclick = returnAllStudents;
 
-  // 批量加学生弹窗
+  // 批量入班弹窗
   $('#batchClose').onclick = closeBatchDlg;
   $('#batchCancel').onclick = closeBatchDlg;
   $('#batchMask').onclick = (e) => { if (e.target.id === 'batchMask') closeBatchDlg(); };

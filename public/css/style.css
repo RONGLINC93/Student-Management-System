@@ -2443,7 +2443,7 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
   .cap-num { text-align: left; }
 }
 
-/* ===== 批量加学生（班级管理） ===== */
+/* ===== 批量入班（班级管理） ===== */
 .btn-sm.btn-assign { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
 .btn-sm.btn-assign:hover:not(:disabled) { background: #e0e7ff; border-color: #a5b4fc; }
 .btn-sm:disabled { opacity: .55; cursor: not-allowed; }
