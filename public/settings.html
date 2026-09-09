@@ -172,6 +172,44 @@
       .set-nav-item { white-space: nowrap; flex: none; padding: 8px 12px; }
       .set-nav-item svg { width: 15px; height: 15px; }
     }
+    /* ===== 清空业务数据 · 严格验证模态框 ===== */
+    #clearDataMask { z-index: 1300; }
+    #clearDataMask .modal { max-width: 480px; }
+    #clearDataMask .clear-title { color: var(--danger); }
+    #clearDataMask .clear-body { padding: 6px 22px 8px; }
+    #clearDataMask .clear-desc { font-size: 13.5px; color: var(--text); line-height: 1.9; }
+    #clearDataMask .clear-list { margin: 8px 0 4px; padding: 0; list-style: none; }
+    #clearDataMask .clear-list li {
+      display: flex; gap: 8px; align-items: flex-start;
+      font-size: 13.5px; line-height: 1.9; color: var(--text);
+    }
+    #clearDataMask .clear-list li::before {
+      content: '×'; color: var(--danger); font-weight: 800; flex: none; line-height: 1.7;
+    }
+    #clearDataMask .clear-keep {
+      font-size: 12.5px; color: var(--text-light); line-height: 1.8;
+      margin: 8px 0 0; padding: 8px 10px; background: #f8fafc;
+      border: 1px dashed var(--border); border-radius: 8px;
+    }
+    #clearDataMask .clear-verify {
+      margin-top: 14px; padding: 10px 12px;
+      background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px;
+    }
+    #clearDataMask .clear-verify p { margin: 0 0 8px; font-size: 13px; color: #9a3412; line-height: 1.6; }
+    #clearDataMask .clear-verify b { color: var(--danger); }
+    #clearDataMask #clearDataInput {
+      width: 100%; box-sizing: border-box; padding: 9px 12px;
+      border: 1px solid #fdba74; border-radius: 8px;
+      font-size: 14px; outline: none; background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    #clearDataMask #clearDataInput:focus { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(220,38,38,.12); }
+    #clearDataMask #clearDataTip { min-height: 16px; margin: 6px 2px 0; font-size: 12px; color: #b45309; }
+    #clearDataMask #clearDataTip.ok { color: #16a34a; }
+    #clearDataMask .clear-foot {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 14px 22px 22px; border-top: 1px solid var(--border); margin-top: 14px;
+    }
   </style>
 </head>
 <body>
@@ -457,6 +495,35 @@
 
   <div class="set-toast" id="setToast"></div>
 
+  <!-- 清空业务数据 · 严格验证模态框 -->
+  <div class="modal-mask" id="clearDataMask">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="清空学生数据">
+      <div class="modal-header">
+        <h3 class="clear-title">清空学生数据</h3>
+        <button type="button" class="modal-close" id="clearDataClose" aria-label="关闭">×</button>
+      </div>
+      <div class="modal-body clear-body">
+        <p class="clear-desc">此操作将<b style="color:var(--danger)">不可恢复</b>地清空以下业务数据：</p>
+        <ul class="clear-list">
+          <li>学生池中的全部学生档案</li>
+          <li>各班花名册及分班结果</li>
+          <li>学生宿舍入住记录与操行记录</li>
+        </ul>
+        <div class="clear-keep">保留：班级结构、年级、教师、考试科目与系统设置。执行前建议先「导出数据备份」。</div>
+        <div class="clear-verify">
+          <p>请输入 <b>确认清空</b> 以完成验证，确认无误后再点击下方删除按钮：</p>
+          <input type="text" id="clearDataInput" placeholder="请输入：确认清空"
+                 autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <div id="clearDataTip"></div>
+        </div>
+      </div>
+      <div class="clear-foot">
+        <button type="button" class="btn btn-default" id="clearDataCancel">取消</button>
+        <button type="button" class="btn btn-danger" id="clearDataOk" disabled>清空数据</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/dialog.js"></script>
   <script src="/js/site.js"></script>
   <script src="/js/embed.js"></script>
@@ -651,12 +718,53 @@
         rd.readAsText(file);
       });
 
-      // 清空学生
-      $el('btnClearData').addEventListener('click', function () {
-        if (!ask('确定清空全部学生与各班花名册吗？此操作不可撤销。')) return;
+      // 清空业务数据：严格验证模态框（需输入固定验证短语方可执行）
+      var CLEAR_VERIFY_TEXT = '确认清空';
+      var clearMask = $el('clearDataMask');
+      var clearInput = $el('clearDataInput');
+      var clearOkBtn = $el('clearDataOk');
+      var clearTip = $el('clearDataTip');
+      function syncClearState() {
+        var pass = !!(clearInput && clearInput.value.trim() === CLEAR_VERIFY_TEXT);
+        if (clearOkBtn) clearOkBtn.disabled = !pass;
+        if (clearTip) {
+          clearTip.textContent = pass ? '验证通过，点击「清空数据」执行删除。' : '验证文字不一致，删除按钮暂未启用。';
+          clearTip.className = pass ? 'ok' : '';
+        }
+      }
+      function openClearData() {
+        if (!clearMask) return;
+        if (clearInput) clearInput.value = '';
+        syncClearState();
+        clearMask.classList.add('show');
+        setTimeout(function () { if (clearInput) clearInput.focus(); }, 60);
+      }
+      function closeClearData() {
+        if (clearMask) clearMask.classList.remove('show');
+      }
+      function doClearData() {
+        if (!clearInput || clearInput.value.trim() !== CLEAR_VERIFY_TEXT) return;
+        if (clearOkBtn) { clearOkBtn.disabled = true; clearOkBtn.textContent = '正在清空…'; }
         fetch('/api/students', { method: 'DELETE' }).then(function (r) { return r.json(); }).then(function (j) {
           toast(j.code === 0 ? '已清空全部学生数据' : (j.msg || '清空失败'), j.code === 0 ? 'ok' : 'err');
-        }).catch(function () { toast('清空失败', 'err'); });
+          closeClearData();
+        }).catch(function () { toast('清空失败，请重试', 'err'); }).then(function () {
+          if (clearOkBtn) clearOkBtn.textContent = '清空数据';
+          syncClearState();
+        });
+      }
+      if (clearInput) clearInput.addEventListener('input', syncClearState);
+      if (clearInput) clearInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { doClearData(); e.preventDefault(); }
+      });
+      $el('btnClearData').addEventListener('click', openClearData);
+      $el('clearDataClose').addEventListener('click', closeClearData);
+      $el('clearDataCancel').addEventListener('click', closeClearData);
+      if (clearMask) clearMask.addEventListener('mousedown', function (e) {
+        if (e.target === clearMask) closeClearData();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && clearMask && clearMask.classList.contains('show')) closeClearData();
       });
 
       $el('btnDataManage').addEventListener('click', load);
