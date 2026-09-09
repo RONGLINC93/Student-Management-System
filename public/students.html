@@ -196,6 +196,28 @@
     .sdb-rm.me { background: #eef2ff; border-color: #a5b4fc; }
     .sdb-rm .rm-sub { font-size: 10px; font-weight: 400; color: var(--text-light); margin-left: 2px; }
     .sdb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ===== 指定分班 / 转班弹窗 ===== */
+    #assignMask .modal { max-width: 560px; }
+    .assign-stu {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px;
+      padding: 10px 14px; margin-bottom: 12px;
+    }
+    .assign-pick { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .assign-pick label {
+      font-size: 13px; color: #6b7280; font-weight: 600;
+      flex: 0 0 auto; white-space: nowrap;
+    }
+    .assign-pick select {
+      flex: 1; min-width: 0; padding: 8px 10px;
+      border: 1px solid var(--border, #d1d5db); border-radius: 8px;
+      font-size: 13px; background: #fff; color: var(--text, #1f2937);
+    }
+    .assign-pick select:focus { outline: none; border-color: var(--primary, #4f6df5); box-shadow: 0 0 0 3px rgba(79, 109, 245, .12); }
+    .assign-tip { font-size: 12px; color: #64748b; margin: 6px 0 0; line-height: 1.7; }
+    .btn-sm.btn-assign { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
+    .btn-sm.btn-assign:hover:not(:disabled) { background: #e0e7ff; border-color: #a5b4fc; }
   </style>
 </head>
 <body>
@@ -399,6 +421,28 @@
           <button type="submit" class="btn btn-primary">保存</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 手动指定分班 / 转班弹窗 -->
+  <div class="modal-mask" id="assignMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="assignTitle">指定分班</h3>
+        <button class="modal-close" id="assignClose" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="assign-stu" id="assignStuInfo"></div>
+        <div class="assign-pick">
+          <label for="assignSelect">目标班级</label>
+          <select id="assignSelect"></select>
+        </div>
+        <p class="assign-tip" id="assignTip"></p>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="assignCancel">取消</button>
+          <button type="button" class="btn btn-primary" id="assignSave">确认指定</button>
+        </div>
+      </div>
     </div>
   </div>
 

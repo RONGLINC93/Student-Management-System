@@ -5,12 +5,7 @@
     "roomNo": "101",
     "capacity": 4,
     "gender": "male",
-    "students": [
-      "mtlkhfhivmdv",
-      "mtlkhfhi23tm",
-      "mtlkhfhiqt1a",
-      "mtlkhfhimfd4"
-    ]
+    "students": []
   },
   {
     "id": "cls_mtsbakgrtbhk",
@@ -34,11 +29,7 @@
     "roomNo": "102",
     "capacity": 4,
     "gender": "female",
-    "students": [
-      "mtlkhfhijr4n",
-      "mtlkhfhi81bk",
-      "mtlkhfhifbt0"
-    ]
+    "students": []
   },
   {
     "id": "cls_mtsbh38vozxk",
@@ -54,9 +45,7 @@
     "roomNo": "104",
     "capacity": 4,
     "gender": "female",
-    "students": [
-      "mtlkhfhiuu8s"
-    ]
+    "students": []
   },
   {
     "id": "cls_mtsbh397xs2h",

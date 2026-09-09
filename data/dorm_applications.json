@@ -1,0 +1,28 @@
+[
+  {
+    "id": "cls_mttjqtks09y8",
+    "sid": "mtlkhfhio33c",
+    "no": "2024009",
+    "name": "周磊",
+    "grade": "高一",
+    "className": "高一2班",
+    "roomId": "cls_mtsbgogyo50c",
+    "status": "approved",
+    "createdAt": "2026-09-09T03:36:21.052Z",
+    "updatedAt": "2026-09-09T03:36:56.674Z",
+    "handledAt": "2026-09-09T03:36:56.674Z"
+  },
+  {
+    "id": "cls_mttjw58ssde5",
+    "sid": "mtlkhfhio33c",
+    "no": "2024009",
+    "name": "周磊",
+    "grade": "高一",
+    "className": "高一2班",
+    "roomId": "cls_mtsbgogyo50c",
+    "status": "approved",
+    "createdAt": "2026-09-09T03:40:29.452Z",
+    "updatedAt": "2026-09-09T03:40:44.250Z",
+    "handledAt": "2026-09-09T03:40:44.250Z"
+  }
+]

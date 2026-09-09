@@ -9,6 +9,11 @@ let teacherList = []; // 教师列表，班主任下拉选项引用该列表
 let poolCount = 0;
 let rosterClassId = ''; // 当前打开花名册的班级 id（导出/退生以 id 精确对应，避免按班级名匹配出错）
 let gradesList = [];
+let poolStudents = []; // 学生池明细（批量加学生弹窗候选）
+let batchClass = null;  // 批量加学生的目标班级
+let batchSelected = new Set(); // 已勾选的学生 id
+let batchEligible = 0;  // 学生池中可加入当前班级的人数（不含关键字过滤）
+let batchHidden = 0;    // 学生池中因不符合条件（年级不符等）被隐藏的人数
 
 const $ = (s) => document.querySelector(s);
 
@@ -119,7 +124,8 @@ async function loadData() {
       teacherList = [];
     }
     classes = clsJson.data || [];
-    poolCount = (stuJson.data || []).length;
+    poolStudents = stuJson.data || [];
+    poolCount = poolStudents.length;
     renderClasses();
     updateStats();
   } catch (e) {
@@ -191,6 +197,7 @@ function renderClasses() {
         <td>
           <div class="row-actions">
             <button class="btn-sm btn-view" data-act="view">花名册</button>
+            <button class="btn-sm btn-assign" data-act="batchadd" title="从学生池多选学生一次加入本班">批量加学生</button>
             <button class="btn-sm btn-edit" data-act="edit">编辑</button>
             <button class="btn-sm btn-del" data-act="del">删除</button>
           </div>
@@ -307,7 +314,7 @@ function openRoster(cls) {
   `;
   const tbody = $('#rosterTbody');
   if (!(cls.students || []).length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-tip">该班级暂无学生，请前往「智能分班」进行分配</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-tip">该班级暂无学生，可在班级列表点击「批量加学生」从学生池一次加入多名学生，或前往「智能分班」自动分配</td></tr>`;
   } else {
     tbody.innerHTML = cls.students.map(s => `
       <tr data-id="${s.id}">
@@ -402,6 +409,185 @@ async function returnAllStudents() {
   }
 }
 
+// ===== 批量加学生（学生池多选加入本班） =====
+// 学生能否加入当前班级：班级未设年级 → 均可；否则学生未设年级或与本班同年级 → 可加入
+function batchCanAdd(stu) {
+  const clsGrade = String(batchClass?.grade || '').trim();
+  if (!clsGrade) return true;
+  const g = String(stu.grade || '').trim();
+  return !g || g === clsGrade;
+}
+function batchRemain() {
+  const cap = Number(batchClass?.capacity) || 0;
+  const cur = (batchClass?.students || []).length;
+  return cap > 0 ? Math.max(0, cap - cur) : Infinity;
+}
+async function openBatchDlg(clsId) {
+  const cls = classes.find(c => c.id === clsId);
+  if (!cls) return;
+  // 打开前刷新学生池，保证候选是最新的
+  try {
+    const res = await fetch(STU_API);
+    const j = await res.json();
+    poolStudents = (j && j.data) || [];
+  } catch (e) {
+    toast('加载学生池失败：' + e.message, 'error');
+    return;
+  }
+  batchClass = cls;
+  batchSelected.clear();
+  $('#batchTitle').textContent = `向「${cls.name}」批量加学生`;
+  const cap = Number(cls.capacity) || 0;
+  const cur = (cls.students || []).length;
+  const remain = cap > 0 ? Math.max(0, cap - cur) : Infinity;
+  $('#batchInfo').innerHTML = [
+    `<span class="roster-tag">${escapeHtml(cls.grade || '未设年级')}</span>`,
+    `<span class="roster-tag">当前 ${cur} / ${cap || '不限'}</span>`,
+    cap > 0 && remain === 0 ? '<span class="roster-tag" style="background:#fee2e2;color:#991b1b;">已满员</span>' : ''
+  ].join('');
+  $('#batchSearch').value = '';
+  const allCk = $('#batchAll');
+  if (allCk) allCk.checked = false;
+  renderBatchList();
+  $('#batchMask').classList.add('show');
+  setTimeout(() => { const inp = $('#batchSearch'); if (inp) inp.focus(); }, 120);
+}
+function closeBatchDlg() {
+  batchClass = null;
+  batchSelected.clear();
+  $('#batchMask').classList.remove('show');
+}
+function renderBatchList() {
+  const tbody = $('#batchTbody');
+  if (!batchClass || !tbody) return;
+  const kw = ($('#batchSearch').value || '').trim().toLowerCase();
+  const inCls = new Set((batchClass.students || []).map(s => s.id));
+  const poolAvail = poolStudents.filter(s => !inCls.has(s.id)); // 未分班候选
+  // 仅展示符合入班条件的学生；年级不符等不符合条件的一律隐藏
+  batchHidden = poolAvail.filter(s => !batchCanAdd(s)).length;
+  batchEligible = poolAvail.length - batchHidden;
+  const list = poolAvail.filter(s => {
+    if (!batchCanAdd(s)) return false;
+    if (!kw) return true;
+    return (s.studentId || '').toLowerCase().includes(kw) || (s.name || '').toLowerCase().includes(kw);
+  });
+  if (!poolAvail.length || !list.length) {
+    let tipTxt;
+    if (!poolAvail.length) {
+      tipTxt = '学生池暂无未分班学生，请先在「学生档案」添加学生或把学生退回学生池';
+    } else if (batchEligible === 0) {
+      tipTxt = `学生池中没有符合「${batchClass.name}」入班条件的未分班学生${batchHidden ? `（另有 ${batchHidden} 名因年级不符已隐藏）` : ''}`;
+    } else {
+      tipTxt = '没有匹配搜索的可加入学生';
+    }
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-tip">${tipTxt}</td></tr>`;
+    updateBatchSave();
+    return;
+  }
+  const clsGrade = String(batchClass.grade || '').trim();
+  tbody.innerHTML = list.map(s => {
+    const gradeTxt = String(s.grade || '').trim();
+    // 学生原本未设年级且班级已设年级 → 入班时按本班年级补填
+    const note = (!gradeTxt && clsGrade) ? '入班按本班年级' : '学生池';
+    return `
+      <tr class="batch-row" data-id="${escapeHtml(s.id)}">
+        <td><input type="checkbox" class="batch-cbox" data-id="${escapeHtml(s.id)}" ${batchSelected.has(s.id) ? 'checked' : ''} /></td>
+        <td><div class="avatar">${photoHtml(s)}</div></td>
+        <td class="stu-id">${escapeHtml(s.studentId || '—')}</td>
+        <td><strong>${escapeHtml(s.name)}</strong></td>
+        <td><span class="gender-tag ${s.gender === '男' ? 'gender-male' : 'gender-female'}">${escapeHtml(s.gender || '—')}</span></td>
+        <td>${gradeTxt ? `<span class="roster-tag">${escapeHtml(gradeTxt)}</span>` : '<span class="dim-text">未设年级</span>'}</td>
+        <td>${note}</td>
+      </tr>`;
+  }).join('');
+  updateBatchSave();
+}
+// 勾选变化：限制不超过剩余名额
+function onBatchTbodyChange(e) {
+  const cb = e.target;
+  if (!cb.classList || !cb.classList.contains('batch-cbox') || cb.disabled) return;
+  const id = cb.dataset.id;
+  if (!id || !batchClass) return;
+  if (cb.checked) {
+    const remain = batchRemain();
+    if (batchSelected.size >= remain) {
+      cb.checked = false;
+      toast(`「${batchClass.name}」仅剩 ${remain} 个名额`, 'error');
+      return;
+    }
+    batchSelected.add(id);
+  } else {
+    batchSelected.delete(id);
+  }
+  updateBatchSave();
+}
+function onBatchAllChange() {
+  const ck = $('#batchAll');
+  if (!ck || !batchClass) return;
+  const boxes = [...document.querySelectorAll('#batchTbody input.batch-cbox:not(:disabled)')];
+  const remain = batchRemain();
+  if (ck.checked) {
+    for (const box of boxes) {
+      if (batchSelected.size >= remain) { box.checked = false; continue; }
+      if (!box.checked) {
+        box.checked = true;
+        batchSelected.add(box.dataset.id);
+      }
+    }
+  } else {
+    boxes.forEach(box => {
+      box.checked = false;
+      batchSelected.delete(box.dataset.id);
+    });
+  }
+  updateBatchSave();
+}
+function updateBatchSave() {
+  const save = $('#batchSave');
+  const tip = $('#batchTip');
+  const n = batchSelected.size;
+  if (!save) return;
+  save.disabled = n === 0;
+  save.textContent = n > 0 ? `加入班级（已选 ${n} 人）` : '加入班级';
+  if (!batchClass) return;
+  const remain = batchRemain();
+  let msg = '';
+  const clsGrade = String(batchClass.grade || '').trim();
+  if (remain === 0) {
+    msg = `「${batchClass.name}」已满员，不能再加入学生。`;
+  } else if (batchEligible === 0) {
+    msg = `学生池中没有可加入「${batchClass.name}」的未分班学生${clsGrade ? `（仅限「${clsGrade}」年级或未设年级）` : ''}。`;
+  } else {
+    msg = `可从学生池勾选学生加入，本次最多可加入 ${remain} 人${clsGrade ? `（仅限「${clsGrade}」年级或未设年级）` : ''}。`;
+  }
+  if (batchHidden > 0 && batchEligible > 0) msg += `另有 ${batchHidden} 名因年级不符已隐藏。`;
+  if (n > 0) msg = `已选 ${n} 人。` + msg;
+  if (tip) tip.textContent = msg;
+}
+async function doBatchAdd() {
+  const cls = batchClass;
+  if (!cls) return;
+  const ids = [...batchSelected];
+  if (!ids.length) { toast('请先勾选要加入的学生', 'error'); return; }
+  const save = $('#batchSave');
+  if (save) save.disabled = true;
+  try {
+    const res = await fetch(`${API}/${encodeURIComponent(cls.id)}/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentIds: ids })
+    });
+    const j = await res.json();
+    if (j.code !== 0) { toast(j.msg || '加入失败', 'error'); closeBatchDlg(); return; }
+    toast(j.msg || '已加入班级', 'success');
+    closeBatchDlg();
+    await loadData();
+  } catch (e) {
+    toast('操作失败：' + e.message, 'error');
+    if (save) save.disabled = false;
+  }
+}
+
 // ===== 拖拽排序 =====
 let dragEl = null;
 
@@ -486,6 +672,15 @@ function bindEvents() {
   $('#btnExportRoster').onclick = exportRoster;
   $('#btnReturnAll').onclick = returnAllStudents;
 
+  // 批量加学生弹窗
+  $('#batchClose').onclick = closeBatchDlg;
+  $('#batchCancel').onclick = closeBatchDlg;
+  $('#batchMask').onclick = (e) => { if (e.target.id === 'batchMask') closeBatchDlg(); };
+  $('#batchSearch').oninput = renderBatchList;
+  $('#batchAll').onchange = onBatchAllChange;
+  $('#batchTbody').onchange = onBatchTbodyChange;
+  $('#batchSave').onclick = doBatchAdd;
+
   $('#classesTbody').onclick = (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
@@ -497,6 +692,7 @@ function bindEvents() {
     if (act === 'edit') openModal(cls);
     if (act === 'del') deleteClass(id);
     if (act === 'view') openRoster(cls);
+    if (act === 'batchadd') openBatchDlg(id);
   };
 
   $('#rosterTbody').onclick = (e) => {

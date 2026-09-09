@@ -69,6 +69,10 @@
   var btnExitSplit = $('#btnExitSplit');
   var btnSplit = $('#btnSplit');
 
+  // 侧边栏「宿舍管理」菜单项及其待审核角标
+  var dormItem = document.querySelector('.menu-item[data-mod="dorm"]');
+  var dormBadge = document.getElementById('menuDormBadge');
+
   // “更多”溢出下拉：主/副两个栏各建一个，页签放不下时收起部分页签到按钮里
   //（菜单挂到 body；按钮恒为所在栏的最后一个子元素，避免影响顺序类逻辑）
   var overflowCtrls = [];
@@ -1033,6 +1037,8 @@
     if (d.type === 'icst-nav' && d.url) {
       var key = moduleByUrl(d.url);
       if (key) openTab(key, d.url);
+    } else if (d.type === 'icst-dorm-apps') {
+      refreshDormBadge();
     }
   });
 
@@ -1057,12 +1063,37 @@
   // 站点配置加载完成（如学校名称变更）后刷新顶部标题
   window.addEventListener('cb-site-ready', setTopTitle);
 
-  // 登录角色：查看模式账号隐藏「系统设置」菜单
+  // ===== 侧边栏「宿舍管理」待审核角标 =====
+  function refreshDormBadge() {
+    if (!dormItem) return;
+    fetch('/api/dorm-apps?status=pending')
+      .then(function (r) { return r.json(); })
+      .catch(function () { return { code: 1 }; })
+      .then(function (j) {
+        if (!j || j.code !== 0 || !j.counts) return; // 未登录/接口异常：保持现状
+        var n = Number(j.counts.pending) || 0;
+        if (dormBadge) {
+          dormBadge.textContent = n > 99 ? '99+' : String(n);
+          dormBadge.hidden = n <= 0;
+        }
+        dormItem.title = n > 0 ? ('宿舍管理 · 待审核住宿申请 ' + n + ' 条') : '宿舍管理';
+      });
+  }
+
+  // 登录角色：查看模式账号隐藏「系统设置」菜单；登录就绪后刷新角标并定时轮询
   window.addEventListener('cb-auth-ready', function () {
-    if (window.AUTH && window.AUTH.role !== 'admin') {
+    if (!window.AUTH) return;
+    if (window.AUTH.role !== 'admin') {
       var it = document.querySelector('.menu-item[data-mod="settings"]');
       if (it) it.style.display = 'none';
     }
+    refreshDormBadge();
+    setInterval(refreshDormBadge, 20000);
+  });
+
+  // 从别处切回工作台窗口时立即刷新（学生在学生中心提交/撤销申请后回到后台即可看到）
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && window.AUTH) refreshDormBadge();
   });
 
   // ---------- 选项卡拖拽：栏内排序 / 跨两栏移动 ----------

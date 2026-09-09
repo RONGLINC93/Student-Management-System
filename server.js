@@ -18,13 +18,15 @@ const EXAMS_FILE = path.join(__dirname, 'data', 'exams.json');             // �
 const ATTENDANCE_FILE = path.join(__dirname, 'data', 'attendance.json');   // 考勤
 const CONDUCT_FILE = path.join(__dirname, 'data', 'conduct.json');         // 操行（奖惩/评语）
 const DORMS_FILE = path.join(__dirname, 'data', 'dormitories.json');       // 宿舍房间
+const DORM_APPS_FILE = path.join(__dirname, 'data', 'dorm_applications.json'); // 学生住宿申请
 
 // 会话：Cookie 内 HMAC 签名（无服务端 session），Path=/ 以便所有页面共享
-const AUTH_COOKIE = 'icbs_auth';
+const AUTH_COOKIE = 'icbs_auth';        // 后台工作台（管理员 / 查看）
+const STUDENT_COOKIE = 'icbs_stu_auth'; // 学生自助端（与学生登录完全隔离，可同浏览器共存）
 const SESSION_SECONDS = 24 * 3600;      // 默认会话 24 小时
 const REMEMBER_SECONDS = 7 * 24 * 3600; // 「记住我」7 天
-const ROLES = { ADMIN: 'admin', VIEWER: 'viewer' };
-const ROLE_LABEL = { admin: '管理员', viewer: '查看模式' };
+const ROLES = { ADMIN: 'admin', VIEWER: 'viewer', STUDENT: 'student' };
+const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学生' };
 
 // 已注销的会话 token（内存级；保证“退出登录”后旧 Cookie 立即失效）
 const revokedTokens = new Set();
@@ -87,8 +89,8 @@ if (!fs.existsSync(WORKBENCH_FILE)) {
 if (!fs.existsSync(SETTINGS_FILE)) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
 }
-['teachers', 'exams', 'attendance', 'conduct', 'dormitories'].forEach(name => {
-  const f = { teachers: TEACHERS_FILE, exams: EXAMS_FILE, attendance: ATTENDANCE_FILE, conduct: CONDUCT_FILE, dormitories: DORMS_FILE }[name];
+['teachers', 'exams', 'attendance', 'conduct', 'dormitories', 'dormApps'].forEach(name => {
+  const f = { teachers: TEACHERS_FILE, exams: EXAMS_FILE, attendance: ATTENDANCE_FILE, conduct: CONDUCT_FILE, dormitories: DORMS_FILE, dormApps: DORM_APPS_FILE }[name];
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf-8');
 });
 
@@ -331,6 +333,8 @@ const readConduct = () => readJsonFile(CONDUCT_FILE, []);
 const writeConduct = l => writeJsonFile(CONDUCT_FILE, l);
 const readDorms = () => readJsonFile(DORMS_FILE, []);
 const writeDorms = l => writeJsonFile(DORMS_FILE, l);
+const readDormApps = () => readJsonFile(DORM_APPS_FILE, []);
+const writeDormApps = l => writeJsonFile(DORM_APPS_FILE, l);
 
 // 教师档案规范化
 function normalizeTeacher(raw) {
@@ -361,6 +365,107 @@ function allStudentsFlat() {
 function findStudentById(id) {
   const { all } = allStudentsFlat();
   return all.find(s => s.id === id) || null;
+}
+// 从全部学生中按学号找学生（优先已分班名单，其次学生池）
+function findStudentByNo(no) {
+  const { pool, allocated } = allStudentsFlat();
+  const key = String(no || '').trim();
+  if (!key) return null;
+  const a = allocated.find(s => String(s.studentId || '') === key);
+  if (a) return a;
+  return pool.find(s => String(s.studentId || '') === key) || null;
+}
+// 学生在哪个宿舍房间（没有则 null）
+function findDormOfStudent(sid) {
+  return readDorms().find(r => (r.students || []).some(x => String(x) === String(sid))) || null;
+}
+
+// ===== 学生自助端辅助 =====
+// 房间是否允许该性别入住
+function genderRoomAllowed(room, gender) {
+  if (!room) return false;
+  if (room.gender === 'male') return gender === '男';
+  if (room.gender === 'female') return gender === '女';
+  return true;
+}
+// 房间基础视图（含当前空床）
+function roomView(r) {
+  const occ = (r.students || []).length;
+  return {
+    id: r.id,
+    building: r.building,
+    roomNo: r.roomNo,
+    gender: r.gender,
+    capacity: Number(r.capacity) || 1,
+    occupied: occ,
+    free: Math.max(0, (Number(r.capacity) || 1) - occ)
+  };
+}
+function roomLabel(roomId) {
+  const r = readDorms().find(x => x.id === roomId);
+  return r ? { building: r.building, roomNo: r.roomNo } : { building: '', roomNo: '' };
+}
+// 学生可申请的候选房间（性别相符 + 尚有空床）
+function studentApplyRooms(stu) {
+  const g = stu && stu.gender;
+  return readDorms()
+    .filter(r => genderRoomAllowed(r, g) && (r.students || []).length < (Number(r.capacity) || 1))
+    .sort((a, b) =>
+      String(a.building).localeCompare(String(b.building), 'zh-Hans-CN', { numeric: true }) ||
+      String(a.roomNo).localeCompare(String(b.roomNo), 'zh-Hans-CN', { numeric: true }))
+    .map(roomView);
+}
+// 学生端首页聚合视图：档案 + 班级 + 教师 + 宿舍 + 申请状态
+function buildStudentPortalHome(stu) {
+  const classes = readClasses();
+  const cls = (stu.classId && classes.find(c => c.id === stu.classId)) || null;
+  const teachers = readTeachers();
+  const head = cls
+    ? (teachers.find(t => t.classId === cls.id) || teachers.find(t => t.name === (cls.headTeacher || '')) || null)
+    : null;
+  const dorm = findDormOfStudent(stu.id);
+  const apps = readDormApps()
+    .filter(a => String(a.sid) === String(stu.id))
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const pending = apps.find(a => a.status === 'pending') || null;
+  const last = apps.length ? apps[apps.length - 1] : null;
+
+  let dormData = null;
+  if (dorm) {
+    let bed = 0;
+    const roommates = [];
+    (dorm.students || []).forEach((sid, i) => {
+      if (String(sid) === String(stu.id)) { bed = i + 1; return; }
+      const m = findStudentById(sid);
+      roommates.push({ name: m ? m.name : '（已离校学生）', gender: m ? m.gender : '' });
+    });
+    dormData = Object.assign(roomView(dorm), { bed, roommates });
+  }
+
+  return {
+    sid: stu.id,
+    studentNo: stu.studentId || '',
+    name: stu.name || '',
+    gender: stu.gender || '',
+    grade: stu.grade || (cls ? cls.grade : ''),
+    photo: stu.photo || '',
+    allocated: !!cls,
+    classId: cls ? cls.id : null,
+    className: cls ? cls.name : null,
+    headTeacher: cls ? {
+      name: cls.headTeacher || '',
+      subject: (head && head.subject) || '',
+      title: (head && head.title) || '',
+      phone: (head && head.phone) || ''
+    } : null,
+    rosterCount: cls ? (cls.students || []).length : 0,
+    roster: cls ? (cls.students || []).map(s => ({ id: s.id, studentNo: s.studentId || '', name: s.name || '', gender: s.gender || '' })) : [],
+    dorm: dormData,
+    app: pending ? Object.assign({}, pending, roomLabel(pending.roomId)) : null,
+    appLast: last ? Object.assign({ status: last.status, createdAt: last.createdAt }, roomLabel(last.roomId)) : null,
+    applyEnabled: !dorm && !pending,
+    rooms: studentApplyRooms(stu)
+  };
 }
 // 把学生从全部宿舍房间中移除（退宿）
 function removeFromDorms(studentId) {
@@ -466,6 +571,29 @@ function cookieHeader(token, maxAge) {
 }
 function clearCookieHeader() {
   return AUTH_COOKIE + '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+}
+function studentCookieHeader(token, maxAge) {
+  return STUDENT_COOKIE + '=' + token + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge;
+}
+function clearStudentCookieHeader() {
+  return STUDENT_COOKIE + '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+}
+// 校验学生端 Cookie 会话；仅接受 users.json 中 role=student 的学生账号
+function authStudent(req) {
+  try {
+    const c = parseCookies(req)[STUDENT_COOKIE];
+    if (!c || revokedTokens.has(c)) return null;
+    const dot = c.lastIndexOf('.');
+    if (dot < 0) return null;
+    const payload = c.slice(0, dot);
+    const sig = c.slice(dot + 1);
+    if (!safeEq(sig, sign(payload))) return null;
+    const data = JSON.parse(unb64url(payload));
+    if (!data.u || data.r !== ROLES.STUDENT || typeof data.exp !== 'number' || data.exp < Date.now()) return null;
+    const user = findUser(data.u);
+    if (!user || user.role !== ROLES.STUDENT) return null;
+    return { username: user.u, role: user.role, sid: user.sid || '', name: user.name || '', must: !!user.must };
+  } catch (e) { return null; }
 }
 function redirect(res, loc) {
   res.writeHead(302, { Location: loc });
@@ -625,7 +753,9 @@ const server = http.createServer(async (req, res) => {
   const isAuthEndpoint = pathname === '/api/login' || pathname === '/api/logout'
     || pathname === '/api/auth/me' || pathname === '/api/auth/password'
     || pathname === '/api/users' || pathname.startsWith('/api/users/');
-  if (pathname.startsWith('/api/') && !isAuthEndpoint && !publicRead) {
+  // 学生自助端接口（独立会话，自行鉴权），不走后台权限闸门
+  const isStudentApi = pathname.startsWith('/api/student/');
+  if (pathname.startsWith('/api/') && !isAuthEndpoint && !isStudentApi && !publicRead) {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
     if (pathname === '/api/backup' && u.role !== ROLES.ADMIN) {
@@ -644,6 +774,9 @@ const server = http.createServer(async (req, res) => {
     const user = findUser(username);
     if (!user || !verifyPassword(body.password, user.salt, user.hash)) {
       return sendJson(res, 401, { code: 1, msg: '账号或密码不正确' });
+    }
+    if (user.role === ROLES.STUDENT) {
+      return sendJson(res, 403, { code: 1, msg: '该账号为学生账号，请前往「学生登录入口」登录' });
     }
     const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
     const token = makeToken(user.u, user.role, ttl);
@@ -785,6 +918,190 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, msg: '账号已删除' });
   }
 
+  // ===== 学生自助端 API（全新学生入口，账号/初始密码均为学号）=====
+
+  // 学生登录：账号 = 学号；首次登录密码 = 学号（无账号时自动建档），登录后强制修改密码
+  if (pathname === '/api/student/login' && req.method === 'POST') {
+    const body = await readBody(req);
+    const no = String(body.username || '').trim();
+    const pw = String(body.password || '');
+    if (!no) return sendJson(res, 400, { code: 1, msg: '请输入学号' });
+    const stu = findStudentByNo(no);
+    if (!stu) return sendJson(res, 401, { code: 1, msg: '未查询到该学号的学生档案，请与学校核对' });
+    const exist = findUser(no);
+    if (exist && exist.role !== ROLES.STUDENT) {
+      return sendJson(res, 403, { code: 1, msg: '该学号与后台账号冲突，请联系管理员处理' });
+    }
+    const first = !exist;
+    const ok = first ? (pw === no) : verifyPassword(pw, exist.salt, exist.hash);
+    if (!ok) {
+      return sendJson(res, 401, {
+        code: 1,
+        msg: first ? '首次登录请使用本人学号作为初始密码' : '学号或密码不正确，忘记密码请联系班主任重置'
+      });
+    }
+    let user = exist;
+    if (first) {
+      const salt = crypto.randomBytes(16).toString('hex');
+      const now = new Date().toISOString();
+      user = {
+        u: no, salt,
+        hash: hashPassword(no, salt),
+        role: ROLES.STUDENT,
+        sid: stu.id,
+        name: stu.name,
+        nickname: stu.name,
+        must: true,               // 首次登录，需强制修改密码
+        createdAt: now,
+        updatedAt: now
+      };
+      const list = readUsers();
+      list.push(user);
+      writeUsers(list);
+    } else if (user.sid !== stu.id || user.name !== stu.name) {
+      // 后台维护学生档案后，同步最新姓名/档案 id
+      user.sid = stu.id;
+      user.name = stu.name;
+      user.nickname = stu.name || user.nickname;
+      user.updatedAt = new Date().toISOString();
+      writeUsers(readUsers().map(x => (x.u === user.u ? user : x)));
+    }
+    const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
+    const token = makeToken(user.u, user.role, ttl);
+    res.setHeader('Set-Cookie', studentCookieHeader(token, ttl));
+    return sendJson(res, 200, {
+      code: 0, msg: '登录成功',
+      data: {
+        username: user.u,
+        name: stu.name,
+        role: user.role,
+        label: ROLE_LABEL[user.role] || '学生',
+        must: !!user.must
+      }
+    });
+  }
+
+  // 学生端退出
+  if (pathname === '/api/student/logout') {
+    const t = parseCookies(req)[STUDENT_COOKIE];
+    if (t) revokedTokens.add(t);
+    res.setHeader('Set-Cookie', clearStudentCookieHeader());
+    if (req.method === 'GET') return redirect(res, '/slogin.html');
+    return sendJson(res, 200, { code: 0, msg: '已退出登录' });
+  }
+
+  // 学生端会话信息（强制改密状态 + 个人档案聚合，首次登录需强制改密）
+  if (pathname === '/api/student/me' && req.method === 'GET') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生端' });
+    const user = findUser(s.username);
+    const stu = findStudentByNo(s.username);
+    if (!user || !stu) {
+      return sendJson(res, 200, {
+        code: 0,
+        data: {
+          username: s.username,
+          name: (user && user.name) || s.username,
+          role: 'student', label: '学生',
+          must: !!(user && user.must),
+          gone: true,
+          profile: null
+        }
+      });
+    }
+    return sendJson(res, 200, {
+      code: 0,
+      data: {
+        username: s.username,
+        name: stu.name || s.username,
+        role: 'student', label: '学生',
+        must: !!user.must,
+        profile: buildStudentPortalHome(stu)
+      }
+    });
+  }
+
+  // 学生端修改密码：普通修改需验证旧密码；首次登录强制改密(must=true)直接设置新密码，无需旧密码
+  if (pathname === '/api/student/password' && req.method === 'PUT') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生端' });
+    const body = await readBody(req);
+    const user = findUser(s.username);
+    if (!user) return sendJson(res, 401, { code: 1, msg: '账号不存在，请重新登录' });
+    const forced = !!user.must; // 处于强制改密状态时，登录时已用初始密码验证过身份
+    if (!forced && !verifyPassword(body.oldPassword, user.salt, user.hash)) {
+      return sendJson(res, 400, { code: 1, msg: '当前密码不正确' });
+    }
+    const np = String(body.newPassword || '');
+    if (!validPassword(np)) return sendJson(res, 400, { code: 1, msg: '新密码需为 6～64 位字符' });
+    if (np === user.u) return sendJson(res, 400, { code: 1, msg: '出于安全考虑，密码不能与学号相同，请重新设置' });
+    user.salt = crypto.randomBytes(16).toString('hex');
+    user.hash = hashPassword(np, user.salt);
+    user.must = false;
+    user.updatedAt = new Date().toISOString();
+    writeUsers(readUsers().map(x => (x.u === user.u ? user : x)));
+    return sendJson(res, 200, { code: 0, msg: '密码修改成功，请妥善保管新密码' });
+  }
+
+  // 提交住宿申请（仅限性别相符且尚有空床的房间）
+  if (pathname === '/api/student/dorm/apply' && req.method === 'POST') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生端' });
+    const body = await readBody(req);
+    const stu = findStudentByNo(s.username);
+    if (!stu) return sendJson(res, 404, { code: 1, msg: '未查询到学生档案' });
+    const roomId = String(body.roomId || '');
+    const room = readDorms().find(r => r.id === roomId);
+    if (!room) return sendJson(res, 404, { code: 1, msg: '未找到该宿舍房间' });
+    if (findDormOfStudent(stu.id)) {
+      return sendJson(res, 400, { code: 1, msg: '您已安排宿舍，如需调换请先联系班主任或宿管' });
+    }
+    const apps = readDormApps();
+    if (apps.some(a => String(a.sid) === String(stu.id) && a.status === 'pending')) {
+      return sendJson(res, 400, { code: 1, msg: '您已有申请正在审核中，请耐心等待' });
+    }
+    if (!genderRoomAllowed(room, stu.gender)) {
+      return sendJson(res, 400, {
+        code: 1,
+        msg: room.gender === 'male' ? '该房间为男生宿舍，仅限男生申请'
+          : room.gender === 'female' ? '该房间为女生宿舍，仅限女生申请' : '该房间性别不匹配'
+      });
+    }
+    if ((room.students || []).length >= (Number(room.capacity) || 1)) {
+      return sendJson(res, 400, { code: 1, msg: '该房间床位已满，请选择其他房间' });
+    }
+    const now = new Date().toISOString();
+    const app = {
+      id: genId(),
+      sid: stu.id,
+      no: String(stu.studentId || ''),
+      name: stu.name,
+      grade: stu.grade || '',
+      className: stu.className || '',
+      roomId: room.id,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now
+    };
+    apps.push(app);
+    writeDormApps(apps);
+    return sendJson(res, 200, { code: 0, msg: '申请已提交，请等待管理员/班主任审核', data: app });
+  }
+
+  // 撤销自己的住宿申请
+  if (pathname === '/api/student/dorm/apply' && req.method === 'DELETE') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生端' });
+    const stu = findStudentByNo(s.username);
+    if (!stu) return sendJson(res, 404, { code: 1, msg: '未查询到学生档案' });
+    const list = readDormApps();
+    const idx = list.findIndex(a => String(a.sid) === String(stu.id) && a.status === 'pending');
+    if (idx === -1) return sendJson(res, 400, { code: 1, msg: '没有待审核的申请' });
+    list.splice(idx, 1);
+    writeDormApps(list);
+    return sendJson(res, 200, { code: 0, msg: '申请已撤销' });
+  }
+
   // ===== API 路由 =====
   // 获取所有学生（未分班）
   if (pathname === '/api/students' && req.method === 'GET') {
@@ -806,6 +1123,112 @@ const server = http.createServer(async (req, res) => {
       ...allocated
     ];
     return sendJson(res, 200, { code: 0, data: allStudents });
+  }
+
+  // 重置学生登录密码（管理端）：恢复「学号 = 初始密码」并进入首次登录强制改密状态
+  // 放在通用 /api/students/:id PUT 之前拦截，避免被当作档案 id 处理
+  const pwdResetMatch = pathname.match(/^\/api\/students\/([^/]+)\/password-reset$/);
+  if (pwdResetMatch && req.method === 'PUT') {
+    const stuId = pwdResetMatch[1];
+    const pool = readStudents();
+    let stu = pool.find(x => x.id === stuId) || null;
+    if (!stu) {
+      const cls = readClasses();
+      for (let i = 0; i < cls.length && !stu; i++) {
+        const s = (cls[i].students || []).find(x => x.id === stuId);
+        if (s) stu = s;
+      }
+    }
+    if (!stu) return sendJson(res, 404, { code: 1, msg: '未找到该学生档案' });
+    const no = String(stu.studentId || '').trim();
+    if (!no) return sendJson(res, 400, { code: 1, msg: '该学生缺少学号，无法重置账号密码' });
+    const salt = crypto.randomBytes(16).toString('hex');
+    const now = new Date().toISOString();
+    const users = readUsers();
+    const idx = users.findIndex(x => x.u === no);
+    if (idx >= 0) {
+      if (users[idx].role !== ROLES.STUDENT) {
+        return sendJson(res, 400, { code: 1, msg: `学号「${no}」已被后台账号占用，无法重置` });
+      }
+      const u = users[idx];
+      u.salt = salt;
+      u.hash = hashPassword(no, salt);
+      u.must = true; // 重置后再次登录需强制设置个人密码
+      u.sid = stu.id;
+      u.name = stu.name || u.name;
+      u.nickname = stu.name || u.nickname;
+      u.updatedAt = now;
+    } else {
+      // 该生尚未建立登录账号：直接创建，同样以学号为初始密码
+      users.push({
+        u: no, salt,
+        hash: hashPassword(no, salt),
+        role: ROLES.STUDENT,
+        sid: stu.id,
+        name: stu.name,
+        nickname: stu.name,
+        must: true,
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+    writeUsers(users);
+    return sendJson(res, 200, { code: 0, msg: `密码已重置为学号「${no}」，该生下次登录需重新设置个人密码` });
+  }
+
+  // 手动指定分班 / 转班（学生档案页）：从学生池或原班级移入目标班级，并校验年级一致性与班级容量
+  const assignMatch = pathname.match(/^\/api\/students\/([^/]+)\/assign$/);
+  if (assignMatch && req.method === 'POST') {
+    const stuId = decodeURIComponent(assignMatch[1]);
+    const body = await readBody(req);
+    const classId = String(body.classId || '').trim();
+    if (!classId) return sendJson(res, 400, { code: 1, msg: '请选择目标班级' });
+    const classes = readClasses();
+    const cls = classes.find(c => c.id === classId);
+    if (!cls) return sendJson(res, 404, { code: 1, msg: '目标班级不存在，请刷新后重试' });
+    const students = readStudents();
+    // 定位学生当前所在：优先学生池，其次各班名单
+    let fromClass = null;
+    let curStu = students.find(s => s.id === stuId) || null;
+    if (!curStu) {
+      for (const c of classes) {
+        const hit = (c.students || []).find(s => s.id === stuId);
+        if (hit) { fromClass = c; curStu = hit; break; }
+      }
+    }
+    if (!curStu) return sendJson(res, 404, { code: 1, msg: '未找到该学生档案' });
+    if (fromClass && fromClass.id === classId) {
+      return sendJson(res, 200, { code: 0, msg: `「${curStu.name}」已在 ${cls.name}，无需调整` });
+    }
+    // 年级一致性：学生已设年级时，只能分入同年级班级
+    const stuGrade = String(curStu.grade || '').trim();
+    const clsGrade = String(cls.grade || '').trim();
+    if (stuGrade && clsGrade && stuGrade !== clsGrade) {
+      return sendJson(res, 400, { code: 1, msg: `该生年级为「${stuGrade}」，不能分入 ${clsGrade} 的「${cls.name}」` });
+    }
+    // 目标班级容量（若该生原在目标班则排除自身）
+    const cap = Number(cls.capacity) || 0;
+    const inTarget = (cls.students || []).some(s => s.id === stuId);
+    if (cap > 0 && !inTarget && (cls.students || []).length >= cap) {
+      return sendJson(res, 400, { code: 1, msg: `「${cls.name}」已满员（${cap}/${cap}），不能再安排学生` });
+    }
+    // 从原位置移出（学生池 / 原班级）
+    if (fromClass) {
+      fromClass.students = (fromClass.students || []).filter(s => s.id !== stuId);
+    } else {
+      const idx = students.findIndex(s => s.id === stuId);
+      if (idx !== -1) students.splice(idx, 1);
+    }
+    // 以班级年级为准写入新名单
+    const rec = normalizeStudent(Object.assign({}, curStu, { grade: clsGrade || curStu.grade || '' }));
+    if (!cls.students) cls.students = [];
+    cls.students.push(rec);
+    writeClasses(classes);
+    writeStudents(students);
+    const msg = fromClass
+      ? `已将「${curStu.name}」从 ${fromClass.name} 转入 ${cls.name}`
+      : `已为「${curStu.name}」指定分班：${cls.name}`;
+    return sendJson(res, 200, { code: 0, msg });
   }
 
   // 新增学生
@@ -1071,6 +1494,66 @@ const server = http.createServer(async (req, res) => {
     writeClasses(classes);
     writeStudents(students);
     return sendJson(res, 200, { code: 0, msg: '已退回学生池' });
+  }
+
+  // 批量把学生池（未分班）中的多名学生一次加入指定班级
+  const batchMatch = pathname.match(/^\/api\/classes\/([^/]+)\/add$/);
+  if (batchMatch && req.method === 'POST') {
+    const classId = batchMatch[1];
+    const body = await readBody(req);
+    const wantIds = Array.isArray(body.studentIds)
+      ? body.studentIds.map(s => String(s).trim()).filter(Boolean)
+      : [];
+    if (!wantIds.length) return sendJson(res, 400, { code: 1, msg: '请先勾选要加入班级的学生' });
+    const classes = readClasses();
+    const cls = classes.find(c => c.id === classId);
+    if (!cls) return sendJson(res, 404, { code: 1, msg: '班级不存在' });
+    const pool = readStudents();
+    const clsGrade = String(cls.grade || '').trim();
+    const curCount = (cls.students || []).length;
+    const cap = Number(cls.capacity) || 0;
+    // 逐个定位并校验（只接受来自学生池的未分班学生）
+    const picked = [];
+    const invalid = [];
+    const seen = new Set();
+    for (const sid of wantIds) {
+      if (seen.has(sid)) continue;
+      seen.add(sid);
+      const stu = pool.find(s => s.id === sid);
+      if (!stu) {
+        invalid.push({ name: sid || '未知', reason: '不在学生池中' });
+        continue;
+      }
+      const stuGrade = String(stu.grade || '').trim();
+      if (clsGrade && stuGrade && stuGrade !== clsGrade) {
+        invalid.push({ name: stu.name || stu.studentId || sid, reason: `年级为「${stuGrade}」，与「${cls.name}」（${cls.grade}）不符` });
+        continue;
+      }
+      picked.push(stu);
+    }
+    if (invalid.length) {
+      const list = invalid.slice(0, 3).map(x => `${x.name}（${x.reason}）`).join('、');
+      return sendJson(res, 400, { code: 1, msg: `有 ${invalid.length} 名学生无法加入：${list}${invalid.length > 3 ? ' 等' : ''}` });
+    }
+    const targetCount = curCount + picked.length;
+    if (cap > 0 && targetCount > cap) {
+      return sendJson(res, 400, { code: 1, msg: `「${cls.name}」容量不足：当前 ${curCount}/${cap}，还差 ${targetCount - cap} 个名额` });
+    }
+    // 写入：池中移除 → 班级名单追加（未设年级的学生按班级年级补填）
+    if (!cls.students) cls.students = [];
+    const inClsIds = new Set(cls.students.map(s => s.id));
+    let added = 0;
+    for (const stu of picked) {
+      if (inClsIds.has(stu.id)) continue;
+      const rec = normalizeStudent(Object.assign({}, stu, { grade: clsGrade || stu.grade || '' }));
+      cls.students.push(rec);
+      const pi = pool.findIndex(p => p.id === stu.id);
+      if (pi !== -1) pool.splice(pi, 1);
+      added++;
+    }
+    writeClasses(classes);
+    writeStudents(pool);
+    return sendJson(res, 200, { code: 0, msg: `已将 ${added} 名学生分入「${cls.name}」`, data: { added, count: cls.students.length } });
   }
 
   // ===== 年级管理 API =====
@@ -1489,6 +1972,77 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, data: list });
   }
 
+  // 学生住宿申请（列表/审核），供宿舍管理与后台处理；GET 需后台登录，处理操作需管理员
+  if (pathname === '/api/dorm-apps' && req.method === 'GET') {
+    const statusFilter = String(new URL(req.url, 'http://x').searchParams.get('status') || 'pending');
+    const list = readDormApps().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    const counts = { pending: 0, approved: 0, rejected: 0 };
+    const joined = list.map(a => {
+      if (a.status && counts[a.status] !== undefined) counts[a.status]++;
+      const r = readDorms().find(x => x.id === a.roomId);
+      const v = roomView(r || {});
+      return Object.assign({}, a, {
+        building: r ? r.building : '（房间已删除）',
+        roomNo: r ? r.roomNo : '-',
+        roomCapacity: r ? v.capacity : 0,
+        roomOccupied: r ? v.occupied : 0,
+        roomFree: r ? v.free : 0,
+        roomGender: r ? r.gender : ''
+      });
+    });
+    const filtered = statusFilter === 'all' ? joined : joined.filter(x => x.status === statusFilter);
+    return sendJson(res, 200, { code: 0, data: filtered, counts });
+  }
+
+  // 审核处理：approve 通过（安排入住）/ reject 不通过
+  if (pathname.startsWith('/api/dorm-apps/') && req.method === 'POST') {
+    const parts = pathname.split('/'); // ['', 'api', 'dorm-apps', id, action]
+    const appId = parts[3];
+    const action = parts[4];
+    if (action !== 'approve' && action !== 'reject') {
+      return sendJson(res, 404, { code: 1, msg: '接口不存在' });
+    }
+    const apps = readDormApps();
+    const app = apps.find(a => a.id === appId && a.status === 'pending');
+    if (!app) return sendJson(res, 404, { code: 1, msg: '申请不存在或已处理' });
+    const now = new Date().toISOString();
+    if (action === 'reject') {
+      app.status = 'rejected';
+      app.handledAt = now;
+      app.updatedAt = now;
+      writeDormApps(apps);
+      return sendJson(res, 200, { code: 0, msg: '已驳回申请' });
+    }
+    // 通过：校验并安排入住
+    const dorms = readDorms();
+    const room = dorms.find(r => r.id === app.roomId);
+    if (!room) return sendJson(res, 400, { code: 1, msg: '申请的宿舍房间已不存在，请改为不通过' });
+    const stu = findStudentById(app.sid);
+    if (!stu) return sendJson(res, 400, { code: 1, msg: '未找到该学生档案，无法安排入住' });
+    if (!genderRoomAllowed(room, stu.gender)) {
+      return sendJson(res, 400, {
+        code: 1,
+        msg: room.gender === 'male' ? '该房间为男生宿舍，与该学生性别不符'
+          : room.gender === 'female' ? '该房间为女生宿舍，与该学生性别不符' : '该房间与该学生性别不符'
+      });
+    }
+    const cap = Number(room.capacity) || 1;
+    const occExcl = (room.students || []).filter(x => String(x) !== String(app.sid)).length;
+    if (occExcl >= cap) return sendJson(res, 400, { code: 1, msg: '该房间床位已满，可先让申请人改选其他房间' });
+    // 若学生当前住在其它房间则先移出，再安排至目标房间
+    dorms.forEach(r => {
+      r.students = (r.students || []).filter(x => String(x) !== String(app.sid));
+    });
+    const target = dorms.find(r => r.id === room.id);
+    target.students.push(app.sid);
+    writeDorms(dorms);
+    app.status = 'approved';
+    app.handledAt = now;
+    app.updatedAt = now;
+    writeDormApps(apps);
+    return sendJson(res, 200, { code: 0, msg: '已通过：' + stu.name + ' 已安排入住 ' + (room.building || '') + (room.roomNo || '') });
+  }
+
   if (pathname === '/api/dorms' && req.method === 'POST') {
     const body = await readBody(req);
     const roomNo = String(body.roomNo || '').trim();
@@ -1735,7 +2289,8 @@ const server = http.createServer(async (req, res) => {
       exams: readExams(),
       attendance: readAttendance(),
       conduct: readConduct(),
-      dorms: readDorms()
+      dorms: readDorms(),
+      dormApps: readDormApps()
     };
     const body = JSON.stringify(payload, null, 2);
     res.writeHead(200, {
@@ -1761,6 +2316,7 @@ const server = http.createServer(async (req, res) => {
     if (Array.isArray(body.attendance)) writeAttendance(body.attendance);
     if (Array.isArray(body.conduct)) writeConduct(body.conduct);
     if (Array.isArray(body.dorms)) writeDorms(body.dorms);
+    if (Array.isArray(body.dormApps)) writeDormApps(body.dormApps);
     liveBoard = null;
     return sendJson(res, 200, { code: 0, msg: '恢复完成', classes: body.classes.length, students: body.students.length });
   }
@@ -1771,9 +2327,16 @@ const server = http.createServer(async (req, res) => {
     '/classes.html', '/grades.html', '/allocate.html', '/settings.html',
     '/teachers.html', '/exams.html', '/conduct.html', '/dorm.html'];
   const ADMIN_ONLY_PAGES = ['/settings.html'];
+  // 学生自助端页面（独立会话，走 icbs_stu_auth）
+  const STUDENT_PAGES = ['/student.html'];
   const asPage = pathname === '/' ? '/index.html' : pathname;
   if (pathname === '/' || (asPage.endsWith('.html'))) {
-    if (PROTECTED_PAGES.indexOf(asPage) !== -1) {
+    if (STUDENT_PAGES.indexOf(asPage) !== -1) {
+      if (!authStudent(req)) {
+        const next = encodeURIComponent(pathname + url.search);
+        return redirect(res, '/slogin.html?next=' + next);
+      }
+    } else if (PROTECTED_PAGES.indexOf(asPage) !== -1) {
       const u = authUser(req);
       if (!u) {
         const next = encodeURIComponent(pathname + url.search);
@@ -1784,9 +2347,12 @@ const server = http.createServer(async (req, res) => {
         return res.end(forbiddenPage('「系统设置」仅限管理员账号使用。'));
       }
     }
-    // 已登录访问登录页 → 直接回到工作台
+    // 已登录访问登录页 → 直接回到对应首页
     if (pathname === '/login.html' && authUser(req)) {
       return redirect(res, '/index.html');
+    }
+    if (pathname === '/slogin.html' && authStudent(req)) {
+      return redirect(res, '/student.html');
     }
   }
 

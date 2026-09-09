@@ -404,14 +404,21 @@ body {
 }
 .btn-view,
 .btn-edit,
-.btn-del {
+.btn-del,
+.btn-reset {
   background: #fff;
   color: var(--text);
   border: 1px solid var(--border);
 }
+.btn-reset {
+  color: #b45309;
+  border-color: #fcd34d;
+}
 .btn-view:hover:not(:disabled),
 .btn-edit:hover:not(:disabled),
-.btn-del:hover:not(:disabled) { background: #f3f4f6; border-color: #d1d5db; }
+.btn-del:hover:not(:disabled),
+.btn-reset:hover:not(:disabled) { background: #f3f4f6; border-color: #d1d5db; }
+.btn-reset:hover:not(:disabled) { background: #fffbeb; border-color: #f59e0b; }
 
 /* ========== 弹窗 ========== */
 .modal-mask {
@@ -2435,4 +2442,17 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
   .cap-name { justify-content: space-between; }
   .cap-num { text-align: left; }
 }
+
+/* ===== 批量加学生（班级管理） ===== */
+.btn-sm.btn-assign { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
+.btn-sm.btn-assign:hover:not(:disabled) { background: #e0e7ff; border-color: #a5b4fc; }
+.btn-sm:disabled { opacity: .55; cursor: not-allowed; }
+#batchMask .modal { max-width: 680px; }
+.batch-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.batch-checkall { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; user-select: none; }
+.batch-cbox { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+#batchMask .table-wrap { max-height: 44vh; overflow: auto; }
+.batch-row.disabled { opacity: .55; }
+.batch-row.disabled .batch-cbox { cursor: not-allowed; }
+.batch-note { margin: 10px 0 0; font-size: 12px; color: #64748b; line-height: 1.7; }
 

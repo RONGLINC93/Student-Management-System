@@ -82,6 +82,16 @@ body.admin-body {
 }
 .menu-item svg { width: 17px; height: 17px; flex: none; }
 .menu-item:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.menu-item { position: relative; }
+/* 侧边栏菜单通知角标（如宿舍管理-待审核申请数） */
+.menu-badge {
+  position: absolute; top: 7px; right: 8px; z-index: 2;
+  min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: 999px; background: #f43f5e; color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 16px;
+  text-align: center; pointer-events: none;
+}
+.menu-badge[hidden] { display: none; }
 .aside-foot {
   padding: 14px 16px;
   font-size: 11px;

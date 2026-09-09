@@ -7,5 +7,65 @@
     "nickname": "管理员",
     "createdAt": "2026-09-08T02:58:23.520Z",
     "updatedAt": "2026-09-08T02:58:23.520Z"
+  },
+  {
+    "u": "2024001",
+    "salt": "5c1155d9faca15e803851b55dc6f8058",
+    "hash": "c1aaf74ebdcff3aa7d045294874c56b150b9797e4e550b476e2a004df55f7a89",
+    "role": "student",
+    "sid": "mtlkhfhivmdv",
+    "name": "张伟",
+    "nickname": "张伟",
+    "must": false,
+    "createdAt": "2026-09-09T03:17:48.917Z",
+    "updatedAt": "2026-09-09T03:21:24.109Z"
+  },
+  {
+    "u": "2024002",
+    "salt": "b4936c5d9aaab28575425ed6fc9f9016",
+    "hash": "6b1c452efb46e707cfca40649c101a65a0dda8216677a8a3ce25a7fdac48ca9f",
+    "role": "student",
+    "sid": "mtlkhfhiuu8s",
+    "name": "李娜",
+    "nickname": "李娜",
+    "must": false,
+    "createdAt": "2026-09-09T03:21:58.300Z",
+    "updatedAt": "2026-09-09T03:22:06.339Z"
+  },
+  {
+    "u": "2024003",
+    "salt": "7bd9b6aaee042632e8a379571a355fa6",
+    "hash": "a6b0327e0ad3e07e074baedb384463ee17687e469a720a04eb5d044ad8919f95",
+    "role": "student",
+    "sid": "mtlkhfhi23tm",
+    "name": "王强",
+    "nickname": "王强",
+    "must": false,
+    "createdAt": "2026-09-09T03:25:01.852Z",
+    "updatedAt": "2026-09-09T03:25:10.113Z"
+  },
+  {
+    "u": "2024009",
+    "salt": "9dc59eb2be5f173f4a3a12645b85b082",
+    "hash": "1c1123b272f94e7feb37faa27a48d453c6b8c96632823f65a182092771db2b08",
+    "role": "student",
+    "sid": "mtlkhfhio33c",
+    "name": "周磊",
+    "nickname": "周磊",
+    "must": false,
+    "createdAt": "2026-09-09T03:35:58.722Z",
+    "updatedAt": "2026-09-09T03:36:04.406Z"
+  },
+  {
+    "u": "2024011",
+    "salt": "3a73aa8ca144f14a5576b6e9862b84f4",
+    "hash": "db70f563fb52a6fcf662f48304fad8a1d00cfc46ba036d9b480fef402ca6819f",
+    "role": "student",
+    "sid": "mtlkhfhi38l6",
+    "name": "徐鹏",
+    "nickname": "徐鹏",
+    "must": false,
+    "createdAt": "2026-09-09T03:41:34.595Z",
+    "updatedAt": "2026-09-09T03:41:39.769Z"
   }
 ]

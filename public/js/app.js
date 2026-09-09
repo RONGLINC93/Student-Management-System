@@ -4,6 +4,7 @@ const ALL_STUDENTS_API = '/api/all-students';
 const GRADES_API = '/api/grades';
 const FILTERS_API = '/api/filters';
 const DORMS_API = '/api/dorms';
+const CLASSES_API = '/api/classes';
 let students = [];
 let allStudents = []; // 包含已分班的所有学生
 let gradesList = [];
@@ -12,6 +13,10 @@ let lastSubjectSeq = -1;
 
 // 宿舍状态：dorms 缓存房间列表；学生行通过 _roomId/_dormTxt 标注入住信息
 let dorms = [];
+// 指定班级 / 转班弹窗状态
+let assignTarget = null;           // 正在设置班级的学生
+let assignCurrentClassId = '';     // 该生当前所在班级 id（'' = 未分班）
+let assignClassList = [];          // 可选的班级列表（弹窗打开时拉取）
 // 宿舍弹窗状态
 let dormTarget = null;   // 正在操作的学生
 let dormCurrentId = '';  // 该生当前所在房间 id（'' = 未入住）
@@ -208,6 +213,8 @@ function renderHeader() {
       html += '<th style="width:56px">照片</th>';
     } else if (label === '宿舍') {
       html += '<th style="width:196px">宿舍</th>';
+    } else if (label === '操作') {
+      html += '<th style="width:260px">操作</th>';
     } else {
       html += `<th style="width:150px">${escapeHtml(label)}</th>`;
     }
@@ -372,9 +379,11 @@ function renderTable() {
     const statusTag = s.allocated
       ? '<span class="status-tag status-allocated">已分班</span>'
       : '<span class="status-tag status-unallocated">未分班</span>';
+    const resetBtn = '<button class="btn-sm btn-reset" data-act="resetpwd" title="将该生登录密码恢复为学号，下次登录需重新设置个人密码">重置密码</button>';
+    const assignBtn = `<button class="btn-sm btn-assign" data-act="assign" title="${s.allocated ? '将该生转入其他班级（转班）' : '为该生手动指定班级'}">${s.allocated ? '转班' : '指定班级'}</button>`;
     const actions = s.allocated
-      ? '<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button></div>'
-      : '<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button><button class="btn-sm btn-del" data-act="del">删除</button></div>';
+      ? `<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button>${assignBtn}${resetBtn}</div>`
+      : `<div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button>${assignBtn}${resetBtn}<button class="btn-sm btn-del" data-act="del">删除</button></div>`;
     const dormCell = dormCellHtml(s);
     const scoreCells = subjects.map(sj => {
       const v = stuScoreOf(s, sj.key);
@@ -558,6 +567,135 @@ async function deleteStudent(id) {
     await loadStudents();
   } catch (e) {
     toast('删除失败：' + e.message, 'error');
+  }
+}
+
+// 重置学生登录密码：恢复为学号初始密码并进入强制改密（需管理员权限，服务端校验）
+async function resetStudentPassword(id, stu) {
+  const name = stu ? (stu.name || stu.studentId || id) : id;
+  const noTxt = stu && stu.studentId ? `（${stu.studentId}）` : '';
+  if (!(await confirmDlg(
+    `确定将「${name}」${noTxt}的登录密码重置为学号？\n重置后该生下次登录需使用学号作为密码，并重新设置个人密码。`,
+    { title: '重置密码', okText: '重置' }
+  ))) return;
+  try {
+    const res = await fetch(`${API}/${id}/password-reset`, { method: 'PUT' });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.code !== 0) throw new Error(json.msg || '重置失败，请重试');
+    toast(json.msg || '已重置为学号初始密码', 'success');
+  } catch (e) {
+    toast('重置失败：' + e.message, 'error');
+  }
+}
+
+// ===== 手动指定分班 / 转班 =====
+function assignInfoHtml(stu) {
+  const curTxt = stu.allocated
+    ? `${escapeHtml(stu.grade || '')} · ${escapeHtml(stu.className || '')}`
+    : '未分班（学生池）';
+  return `
+    <div class="dorm-stu-avatar">${photoHtml(stu)}</div>
+    <div class="di-main">
+      <div class="di-name"><strong>${escapeHtml(stu.name)}</strong>
+        <span class="dgender ${stu.gender === '男' ? 'g-male' : 'g-female'}">${stu.gender}</span>
+      </div>
+      <div class="di-sub">${escapeHtml(stu.studentId || '')} · 当前：${curTxt}</div>
+    </div>`;
+}
+async function openAssignDlg(stu) {
+  if (!stu) return;
+  assignTarget = stu;
+  assignCurrentClassId = stu.classId || '';
+  assignClassList = [];
+  $('#assignTitle').textContent = stu.allocated ? '转班调整' : '指定分班';
+  $('#assignStuInfo').innerHTML = assignInfoHtml(stu);
+  const sel = $('#assignSelect');
+  if (sel) sel.innerHTML = '<option value="">正在加载班级…</option>';
+  $('#assignSave').disabled = true;
+  $('#assignTip').textContent = '';
+  $('#assignMask').classList.add('show');
+  try {
+    const res = await fetch(CLASSES_API);
+    const j = await res.json();
+    if (j.code !== 0) throw new Error(j.msg || '加载班级失败');
+    assignClassList = j.data || [];
+    renderAssignOptions();
+  } catch (e) {
+    $('#assignTip').textContent = '班级加载失败：' + e.message;
+  }
+}
+function closeAssignDlg() {
+  $('#assignMask').classList.remove('show');
+  assignTarget = null;
+  assignCurrentClassId = '';
+  assignClassList = [];
+}
+function renderAssignOptions() {
+  const stu = assignTarget;
+  if (!stu) return;
+  const sel = $('#assignSelect');
+  if (!sel) return;
+  const myGrade = String(stu.grade || '').trim();
+  // 学生已设年级 → 仅列出同年级班级；未设年级 → 列出全部并按班级年级确定
+  const list = assignClassList.filter(c => !myGrade || String(c.grade || '').trim() === myGrade);
+  if (!list.length) {
+    sel.innerHTML = '';
+    $('#assignTip').textContent = myGrade
+      ? `当前还没有「${myGrade}」的班级，请先到「班级管理」添加对应班级，或先编辑该生修改年级。`
+      : '系统中还没有班级，请先到「班级管理」添加班级，再进行指定分班。';
+    $('#assignSave').disabled = true;
+    return;
+  }
+  const opts = ['<option value="">— 请选择班级 —</option>'].concat(list.map(c => {
+    const count = (c.students || []).length;
+    const cap = Number(c.capacity) || count;
+    const inCur = c.id === assignCurrentClassId;
+    const full = !inCur && count >= cap;
+    const label = (myGrade ? '' : String(c.grade || '') + ' · ') +
+      c.name + `（${count}/${cap}${full ? ' · 已满' : ''}）`;
+    return `<option value="${escapeHtml(c.id)}" ${full ? 'disabled' : ''}>${escapeHtml(label)}</option>`;
+  })).join('');
+  sel.innerHTML = opts;
+  if (assignCurrentClassId && list.some(c => c.id === assignCurrentClassId)) sel.value = assignCurrentClassId;
+  $('#assignTip').textContent = myGrade
+    ? `该生年级为「${myGrade}」，只能分入同年级班级。`
+    : '该生暂未填写年级，将按所选班级的年级进行分班。';
+  updateAssignSave();
+}
+function updateAssignSave() {
+  const sel = $('#assignSelect');
+  const tip = $('#assignTip');
+  const save = $('#assignSave');
+  if (!save) return;
+  save.disabled = !sel.value;
+  const c = sel.value ? assignClassList.find(x => x.id === sel.value) : null;
+  if (!c) return;
+  if (c.id === assignCurrentClassId) {
+    tip.textContent = '该生当前已在此班级，无需调整。';
+    return;
+  }
+  const gradeTxt = String(c.grade || '').trim();
+  tip.textContent = `确认后将把「${assignTarget ? assignTarget.name : ''}」安排到「${c.name}」` +
+    (!assignTarget || !String(assignTarget.grade || '').trim() && gradeTxt ? `（年级按 ${gradeTxt} 计）` : '');
+}
+async function doAssignSave() {
+  const stu = assignTarget;
+  if (!stu) return;
+  const classId = $('#assignSelect').value;
+  if (!classId) { toast('请先选择目标班级', 'error'); return; }
+  try {
+    const res = await fetch(`${API}/${encodeURIComponent(stu.id)}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classId })
+    });
+    const j = await res.json();
+    if (j.code !== 0) { toast(j.msg || '指定失败', 'error'); renderAssignOptions(); return; }
+    toast(j.msg || '已指定班级', 'success');
+    closeAssignDlg();
+    await loadStudents();
+  } catch (e) {
+    toast('指定失败：' + e.message, 'error');
   }
 }
 
@@ -1054,6 +1192,12 @@ function bindEvents() {
   $('#modalCancel').onclick = closeModal;
   $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') closeModal(); };
   $('#stuForm').onsubmit = saveStudent;
+  // 指定分班 / 转班弹窗
+  $('#assignClose').onclick = closeAssignDlg;
+  $('#assignCancel').onclick = closeAssignDlg;
+  $('#assignMask').onclick = (e) => { if (e.target.id === 'assignMask') closeAssignDlg(); };
+  $('#assignSelect').onchange = updateAssignSave;
+  $('#assignSave').onclick = doAssignSave;
   $('#searchInput').oninput = () => { currentPage = 1; renderTable(); saveFilters(); };
   $('#gradeFilter').onchange = () => { currentPage = 1; renderTable(); saveFilters(); };
   $('#statusFilter').onchange = () => { currentPage = 1; renderTable(); saveFilters(); };
@@ -1085,6 +1229,8 @@ function bindEvents() {
     const stu = allStudents.find(s => s.id === id) || null;
     if (btn.dataset.act === 'edit') openModal(stu);
     if (btn.dataset.act === 'del') deleteStudent(id);
+    if (btn.dataset.act === 'resetpwd') resetStudentPassword(id, stu);
+    if (btn.dataset.act === 'assign') openAssignDlg(stu);
     if (btn.dataset.act === 'dorm') openDormDlg(stu);
     if (btn.dataset.act === 'dorm-view' && stu && stu._roomId) openRoomPage(stu._roomId, stu.id);
   };

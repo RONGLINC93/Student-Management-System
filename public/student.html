@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>学生中心 · 学生管理系统</title>
+  <style>
+    :root {
+      --brand: #12b886;
+      --brand-2: #0ea5b7;
+      --brand-deep: #0b8a68;
+      --ink: #1f2937;
+      --ink-2: #4b5563;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --bg: #f3f6f9;
+      --card: #fff;
+      --danger: #e5484d;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+      background: var(--bg); color: var(--ink); min-height: 100vh;
+    }
+    button { font-family: inherit; }
+
+    /* ===== 顶栏 ===== */
+    .top {
+      position: sticky; top: 0; z-index: 50;
+      background: #0f1b1a; color: #fff;
+      box-shadow: 0 2px 10px rgba(0,0,0,.18);
+    }
+    .top-in { max-width: 1180px; margin: 0 auto; padding: 10px 22px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .logo {
+      width: 40px; height: 40px; border-radius: 11px; flex: none;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      display: flex; align-items: center; justify-content: center; padding: 4px; overflow: hidden;
+    }
+    .logo svg { width: 100%; height: 100%; }
+    .logo img { width: 100%; height: 100%; object-fit: contain; }
+    .brand-txt .site { font-size: 16px; font-weight: 700; letter-spacing: .4px; line-height: 1.25; }
+    .brand-txt .sub { font-size: 11px; opacity: .72; letter-spacing: 1.4px; margin-top: 2px; }
+    .user { display: flex; align-items: center; gap: 10px; }
+    .avatar {
+      width: 38px; height: 38px; border-radius: 50%; flex: none;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 700; color: #fff;
+    }
+    .u-info { text-align: right; line-height: 1.3; }
+    .u-name { font-size: 14px; font-weight: 600; }
+    .u-no { font-size: 12px; opacity: .75; }
+    .btn {
+      border: 0; cursor: pointer; border-radius: 9px; font-size: 13px;
+      transition: transform .12s, box-shadow .12s, opacity .12s, background .12s, border-color .12s;
+    }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .btn.ghost { padding: 7px 13px; background: transparent; color: #cbd5e1; border: 1px solid rgba(255,255,255,.25); }
+    .btn.ghost:hover { color: #fff; border-color: rgba(255,255,255,.55); background: rgba(255,255,255,.07); }
+    .btn.ghost.danger:hover { border-color: #f87171; color: #fca5a5; }
+    .btn.grad { padding: 10px 18px; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--brand), var(--brand-2)); box-shadow: 0 6px 16px rgba(18,184,134,.3); }
+    .btn.grad:hover { transform: translateY(-1px); }
+    .btn.soft { padding: 9px 16px; font-weight: 600; color: var(--brand-deep); background: #e6f9f1; border: 1px solid #b6ecd8; }
+    .btn.soft:hover { background: #d6f4e6; }
+    .btn.outline { padding: 9px 16px; font-weight: 600; color: var(--ink-2); background: #fff; border: 1px solid var(--line); }
+    .btn.outline:hover { border-color: var(--brand); color: var(--brand-deep); }
+
+    /* ===== 强制改密覆盖层 ===== */
+    .force-cover {
+      position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+      background: rgba(13,27,24,.86); padding: 20px; backdrop-filter: blur(4px);
+    }
+    .force-card {
+      width: 420px; max-width: 100%; background: #fff; border-radius: 18px; padding: 26px 26px 22px;
+      box-shadow: 0 30px 80px rgba(0,0,0,.4);
+    }
+    .force-card h2 { margin: 0 0 6px; font-size: 19px; }
+    .force-card .sub { font-size: 12.5px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+    .must-tag {
+      display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px;
+      font-size: 12px; font-weight: 600; color: #b45309; background: #fef3c7; border: 1px solid #fde68a;
+      padding: 6px 10px; border-radius: 8px;
+    }
+    .must-tag svg { width: 14px; height: 14px; }
+
+    /* ===== 主内容 ===== */
+    main { max-width: 1180px; margin: 0 auto; padding: 22px; }
+    .hero {
+      background: linear-gradient(135deg, #12b886 0%, #0ea5b7 100%); color: #fff;
+      border-radius: 18px; padding: 24px 26px; display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap; box-shadow: 0 10px 30px rgba(14,165,183,.18);
+    }
+    .hero .hello { font-size: 22px; font-weight: 700; }
+    .hero .hello b { }
+    .hero .sub { font-size: 13px; opacity: .92; margin-top: 7px; line-height: 1.6; }
+    .hero .hero-cta { flex: none; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 18px 0; }
+    @media (max-width: 900px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+    .stat-card .k { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .stat-card .k svg { width: 14px; height: 14px; color: var(--brand); }
+    .stat-card .v { font-size: 17px; font-weight: 700; color: var(--ink); word-break: break-all; }
+    .stat-card .v.sm { font-size: 15px; font-weight: 600; }
+    .stat-card .v.warn { color: #d97706; font-size: 14px; }
+
+    .cols { display: grid; grid-template-columns: 1.25fr .95fr; gap: 16px; align-items: start; }
+    @media (max-width: 960px) { .cols { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+      margin-bottom: 16px; overflow: hidden;
+    }
+    .card-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 14px 18px; border-bottom: 1px solid #eef1f4;
+    }
+    .card-head .t { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .card-head .t .ic { width: 26px; height: 26px; border-radius: 8px; background: #e6f9f1; color: var(--brand-deep); display: flex; align-items: center; justify-content: center; }
+    .card-head .t .ic svg { width: 15px; height: 15px; }
+    .card-head .more { font-size: 12px; color: var(--muted); }
+    .card-body { padding: 16px 18px; }
+
+    /* 班级结果 */
+    .cls-main { display: flex; align-items: center; gap: 14px; }
+    .cls-badge {
+      width: 74px; height: 74px; border-radius: 16px; flex: none;
+      background: linear-gradient(145deg, #12b886, #0ea5b7); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800; letter-spacing: 1px; box-shadow: 0 8px 18px rgba(18,184,134,.22);
+    }
+    .cls-info .name { font-size: 20px; font-weight: 800; }
+    .cls-info .meta { font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.7; }
+    .teacher-line {
+      margin-top: 14px; padding: 12px 14px; background: #f7fafc; border: 1px solid #eef1f4; border-radius: 12px;
+      display: flex; gap: 12px; align-items: center;
+    }
+    .teacher-ava {
+      width: 42px; height: 42px; border-radius: 50%; flex: none; font-weight: 700; font-size: 16px;
+      background: linear-gradient(135deg, #4f6df5, #7b5cf5); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .teacher-line .tt { font-weight: 700; font-size: 14px; }
+    .teacher-line .td { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.6; }
+    .empty-zone {
+      text-align: center; padding: 26px 10px; color: var(--muted); font-size: 13.5px; line-height: 2;
+    }
+    .empty-zone .big { font-size: 34px; }
+
+    /* 名单 chips */
+    .roster-title { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 16px 0 8px; display: flex; align-items: center; justify-content: space-between; }
+    .roster { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      padding: 5px 10px; border-radius: 999px; font-size: 12px;
+      background: #f1f5f9; border: 1px solid #e2e8f0; color: var(--ink-2);
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .chip.me { background: #e6f9f1; border-color: #86e0bd; color: var(--brand-deep); font-weight: 600; }
+    .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; }
+    .chip.m .dot { background: #38bdf8; }
+    .chip.f .dot { background: #f472b6; }
+
+    /* 宿舍 */
+    .dorm-none { text-align: center; padding: 6px 0 10px; }
+    .dorm-none .big { font-size: 40px; }
+    .dorm-none p { color: var(--muted); font-size: 13px; margin: 8px 0 14px; }
+    .room-hero { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .room-tag {
+      flex: none; width: 108px; height: 86px; border-radius: 14px;
+      background: linear-gradient(145deg, #f7b733, #fc4a1a); color: #fff;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      box-shadow: 0 8px 18px rgba(252,74,26,.2);
+    }
+    .room-tag .b { font-size: 11px; opacity: .92; }
+    .room-tag .n { font-size: 20px; font-weight: 800; letter-spacing: 1px; }
+    .room-meta { font-size: 13px; color: var(--ink-2); line-height: 2; min-width: 0; }
+    .room-meta .row { display: flex; gap: 8px; }
+    .room-meta .row svg { width: 15px; height: 15px; flex: none; margin-top: 3px; color: var(--brand); }
+    .room-mates { margin-top: 14px; }
+    .room-mates .mates { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .mate { display: flex; align-items: center; gap: 8px; padding: 7px 11px; background: #f8fafc; border: 1px solid #eef1f4; border-radius: 999px; font-size: 12.5px; }
+    .mate .mava { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #38bdf8, #6366f1); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+    .mate .mava.f { background: linear-gradient(135deg, #f472b6, #fb7185); }
+    .mate.self { border-color: #86e0bd; background: #effcf6; font-weight: 600; color: var(--brand-deep); }
+
+    .tag {
+      display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600;
+      padding: 4px 9px; border-radius: 999px;
+    }
+    .tag.ok { color: #047857; background: #d1fae5; }
+    .tag.run { color: #b45309; background: #fef3c7; }
+    .tag.no { color: #6b7280; background: #f3f4f6; }
+    .tag.g { color: #0f766e; background: #ccfbf1; }
+
+    /* 档案表 */
+    .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+    @media (max-width: 520px) { .kv { grid-template-columns: 1fr; } }
+    .kv .it { background: #f9fafb; border: 1px solid #f1f3f5; border-radius: 10px; padding: 8px 12px; }
+    .kv .it .k { font-size: 11.5px; color: var(--muted); }
+    .kv .it .v { font-size: 13.5px; font-weight: 600; margin-top: 3px; }
+
+    /* 操作条 */
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+
+    /* 大屏跳转横幅 */
+    .board-banner {
+      margin: 18px 0 4px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      background: linear-gradient(120deg, #0f172a, #1e293b); color: #fff;
+      border-radius: 16px; padding: 18px 22px;
+    }
+    .board-banner .live { position: relative; width: 44px; height: 44px; flex: none; }
+    .board-banner .live::after {
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
+      background: rgba(52,211,153,.35); animation: pulse 1.6s ease-out infinite;
+    }
+    .board-banner .live .ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle, #12b886 0%, #0ea5b7 100%); z-index: 1;
+    }
+    @keyframes pulse { from { transform: scale(1); opacity: .8; } to { transform: scale(1.7); opacity: 0; } }
+    .board-banner .txt { flex: 1; min-width: 220px; }
+    .board-banner .txt .t { font-size: 16px; font-weight: 700; }
+    .board-banner .txt .s { font-size: 12.5px; opacity: .8; margin-top: 5px; line-height: 1.6; }
+    .btn.dark { padding: 10px 18px; font-weight: 600; color: #0f172a; background: #fff; border-radius: 10px; }
+    .btn.dark:hover { transform: translateY(-1px); }
+
+    /* 页面底部说明 */
+    footer { max-width: 1180px; margin: 6px auto 26px; padding: 0 22px; font-size: 12px; color: #94a3b8; text-align: center; line-height: 1.8; }
+
+    /* ===== 弹窗 ===== */
+    .mask {
+      position: fixed; inset: 0; z-index: 100; background: rgba(15,23,42,.5);
+      display: none; align-items: center; justify-content: center; padding: 18px;
+    }
+    .mask.show { display: flex; }
+    .modal {
+      width: 560px; max-width: 100%; max-height: 86vh; overflow: auto;
+      background: #fff; border-radius: 18px; padding: 20px 22px;
+      box-shadow: 0 30px 70px rgba(0,0,0,.3);
+    }
+    .modal h3 { margin: 0 0 4px; font-size: 17px; }
+    .modal .msub { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; line-height: 1.7; }
+    .m-close {
+      float: right; width: 30px; height: 30px; border: 0; border-radius: 8px; cursor: pointer;
+      background: #f3f4f6; color: var(--muted); font-size: 16px; line-height: 1;
+    }
+    .m-close:hover { background: #fee2e2; color: var(--danger); }
+
+    /* 房间选择列表 */
+    .room-list { display: grid; gap: 8px; margin-top: 6px; }
+    .room-opt {
+      display: flex; align-items: center; gap: 12px; padding: 11px 13px;
+      border: 1.5px solid var(--line); border-radius: 12px; cursor: pointer;
+      transition: border-color .12s, background .12s;
+    }
+    .room-opt:hover { border-color: #99e0c3; background: #f7fdfb; }
+    .room-opt.sel { border-color: var(--brand); background: #f0fdf8; box-shadow: 0 0 0 3px rgba(18,184,134,.12); }
+    .room-opt input { accent-color: var(--brand); width: 16px; height: 16px; flex: none; }
+    .room-opt .r-name { font-weight: 700; font-size: 14.5px; }
+    .room-opt .r-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .room-opt .spacer { flex: 1; }
+    .room-opt .free { font-size: 12px; font-weight: 700; color: var(--brand-deep); background: #d7f5e8; padding: 3px 8px; border-radius: 999px; }
+    .room-opt .free.full { color: #94a3b8; background: #f1f5f9; }
+    .modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+    .form-field { margin-bottom: 14px; }
+    .form-field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--ink-2); }
+    .form-field input {
+      width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 9px; outline: none;
+    }
+    .form-field input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(18,184,134,.13); }
+
+    /* 提示 */
+    .toast {
+      position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); z-index: 300;
+      background: #111827; color: #fff; font-size: 13px; padding: 10px 18px; border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.3); opacity: 0; pointer-events: none;
+      transition: opacity .2s, transform .2s; max-width: 86vw;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    .err-box-mini {
+      display: none; margin: 4px 0 10px; padding: 8px 11px; font-size: 12.5px; line-height: 1.6;
+      background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 8px; white-space: pre-line;
+    }
+    .gone-box { text-align: center; padding: 60px 16px; }
+    .gone-box .big { font-size: 44px; }
+    .gone-box h2 { margin: 12px 0 8px; }
+    .gone-box p { color: var(--muted); font-size: 13.5px; line-height: 1.8; }
+
+    .hidden { display: none !important; }
+    /* 恢复 hidden 属性语义：避免被 .force-cover/.board-banner 等 display 声明覆盖 */
+    [hidden] { display: none !important; }
+    @media (max-width: 720px) {
+      .u-info { display: none; }
+      .top-in { padding: 9px 14px; }
+      main { padding: 14px; }
+      .hero { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== 顶栏 ===== -->
+  <header class="top">
+    <div class="top-in">
+      <div class="brand">
+        <span class="logo">
+          <svg data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg>
+        </span>
+        <div class="brand-txt">
+          <div class="site" data-site-name>学生管理系统</div>
+          <div class="sub">学生中心 · STUDENT CENTER</div>
+        </div>
+      </div>
+      <div class="user">
+        <div class="u-info">
+          <div class="u-name" id="uName">…</div>
+          <div class="u-no" id="uNo"></div>
+        </div>
+        <div class="avatar" id="uAvatar">…</div>
+        <button type="button" class="btn ghost" id="btnOpenPwd">修改密码</button>
+        <button type="button" class="btn ghost danger" id="btnLogout">退出登录</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- 档案已不存在 -->
+    <div class="gone-box" id="viewGone" hidden>
+      <div class="big">📋</div>
+      <h2>未查询到您的档案</h2>
+      <p>系统中暂未找到与当前学号匹配的学生档案。<br />请联系班主任或学校教务处确认学号是否已录入。</p>
+      <button type="button" class="btn grad" id="btnGoneLogout">返回登录</button>
+    </div>
+
+    <!-- 主仪表板 -->
+    <div id="viewDash" hidden>
+      <!-- 问候 -->
+      <section class="hero">
+        <div>
+          <div class="hello">你好，<b id="heroName"></b></div>
+          <div class="sub" id="heroSub"></div>
+        </div>
+        <div class="hero-cta">
+          <button type="button" class="btn dark" id="btnBoard">▶ 进入分班结果大屏</button>
+        </div>
+      </section>
+
+      <!-- 统计卡 -->
+      <section class="stats" id="statsRow"></section>
+
+      <!-- 大屏直播 banner -->
+      <section class="board-banner" id="boardBanner" hidden>
+        <div class="live"><div class="ring">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg>
+        </div></div>
+        <div class="txt">
+          <div class="t">分班结果大屏正在运行 / 结果查询</div>
+          <div class="s">大屏将展示全校分班与实时抽班直播（含本年级结果），可通过右上按钮全屏查看。</div>
+        </div>
+        <button type="button" class="btn dark" id="btnBoard2">打开大屏</button>
+      </section>
+
+      <!-- 双栏 -->
+      <section class="cols">
+        <div class="col">
+          <!-- 我的班级 -->
+          <div class="card">
+            <div class="card-head">
+              <div class="t"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>我的分班结果</div>
+              <span class="more" id="clsStatusTag"></span>
+            </div>
+            <div class="card-body" id="classBody"></div>
+          </div>
+        </div>
+
+        <div class="col">
+          <!-- 宿舍 -->
+          <div class="card">
+            <div class="card-head">
+              <div class="t"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1M9 13h1m4 0h1M9 17h1m4 0h1"/></svg></span>宿舍安排</div>
+              <span class="more" id="dormStatusTag"></span>
+            </div>
+            <div class="card-body" id="dormBody"></div>
+          </div>
+
+          <!-- 个人信息 -->
+          <div class="card">
+            <div class="card-head">
+              <div class="t"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg></span>我的学籍档案</div>
+            </div>
+            <div class="card-body" id="profileBody"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer id="foot">如信息有误或需要调换宿舍，请联系班主任 / 学校教务处。</footer>
+
+  <!-- ===== 首次登录强制修改密码 ===== -->
+  <div class="force-cover" id="forceCover" hidden>
+    <div class="force-card">
+      <h2>设置个人密码</h2>
+      <span class="must-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg> 首次登录 · 必须修改密码</span>
+      <p class="sub" id="forceNote">您仍在使用初始密码（学号）。请设置个人密码后再继续使用学生中心，新密码不能与学号相同。</p>
+      <div class="form-field">
+        <label for="fNew">新密码（6~64 位）</label>
+        <input type="password" id="fNew" autocomplete="new-password" maxlength="64" />
+      </div>
+      <div class="form-field">
+        <label for="fRep">确认新密码</label>
+        <input type="password" id="fRep" autocomplete="new-password" maxlength="64" />
+      </div>
+      <div class="err-box-mini" id="forceErr"></div>
+      <div class="modal-foot" style="margin-top:10px;">
+        <button type="button" class="btn soft" style="flex:1;" id="btnForceSave">保存并进入学生中心</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 修改密码弹窗 ===== -->
+  <div class="mask" id="pwdMask">
+    <div class="modal" style="width:400px;">
+      <button type="button" class="m-close" data-act="close-pwd">✕</button>
+      <h3>修改登录密码</h3>
+      <p class="msub">修改后再次登录请使用新密码。如忘记当前密码，请联系班主任或学校管理员重置。</p>
+      <div class="form-field"><label for="pOld">当前密码</label><input type="password" id="pOld" maxlength="64" /></div>
+      <div class="form-field"><label for="pNew">新密码（6~64 位，不能与学号相同）</label><input type="password" id="pNew" maxlength="64" /></div>
+      <div class="form-field"><label for="pRep">确认新密码</label><input type="password" id="pRep" maxlength="64" /></div>
+      <div class="err-box-mini" id="pwdErr"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn outline" data-act="close-pwd">取消</button>
+        <button type="button" class="btn grad" id="btnSavePwd">确认修改</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 申请宿舍弹窗 ===== -->
+  <div class="mask" id="dormMask">
+    <div class="modal">
+      <button type="button" class="m-close" data-act="close-dorm">✕</button>
+      <h3>申请宿舍床位</h3>
+      <p class="msub">选择一间有空床、且与您的性别相符的房间提交申请。提交后由学校宿管 / 班主任在「宿舍管理 → 学生申请」中审核，审核通过后即为您安排入住。</p>
+      <div class="room-list" id="roomList"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn outline" data-act="close-dorm">取消</button>
+        <button type="button" class="btn grad" id="btnApplyRoom">提交申请</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      'use strict';
+      var G = { me: null, settings: {}, roomSel: null, boardUrl: '/result.html', grade: '' };
+
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      function toast(msg, ms) {
+        var t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function () { t.classList.remove('show'); }, ms || 2400);
+      }
+      function showErr(id, msg) {
+        var e = document.getElementById(id);
+        e.textContent = msg || '';
+        e.style.display = msg ? 'block' : 'none';
+      }
+      function hideErr(id) { document.getElementById(id).style.display = 'none'; }
+
+      // 学校品牌注入
+      function applyBrand() {
+        var s = G.settings;
+        var name = String(s.schoolName || '').trim();
+        if (name && name !== '学生管理系统') {
+          var els = document.querySelectorAll('[data-site-name]');
+          for (var i = 0; i < els.length; i++) els[i].textContent = name;
+          document.title = '学生中心 · ' + name;
+        }
+        if (s.logoDataUrl) {
+          var host = document.querySelector('.logo');
+          var svg = host.querySelector('svg[data-site-logo]');
+          var img = document.createElement('img');
+          img.src = s.logoDataUrl;
+          img.alt = '校徽';
+          host.insertBefore(img, svg);
+          svg.style.display = 'none';
+        }
+      }
+
+      /* ================= 会话 ================= */
+      function loadMe() {
+        return fetch('/api/student/me')
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (j.code !== 0 || !j.data) throw { fatal: true };
+            G.me = j.data;
+            var u = j.data;
+            document.getElementById('uName').textContent = u.name || u.username;
+            document.getElementById('uNo').textContent = '学号 ' + u.username;
+            var av = document.getElementById('uAvatar');
+            av.textContent = (u.name || '学').charAt(0);
+            if (u.gone || !u.profile) {
+              document.getElementById('viewDash').hidden = true;
+              document.getElementById('viewGone').hidden = false;
+              return;
+            }
+            document.getElementById('viewGone').hidden = true;
+            document.getElementById('viewDash').hidden = false;
+            renderAll(u.profile);
+            if (u.must) openForcePwd();
+          })
+          .catch(function (e) {
+            if (e && e.fatal) {
+              location.href = '/slogin.html';
+              return;
+            }
+            toast('加载失败，请刷新重试');
+          });
+      }
+      function refresh() {
+        document.getElementById('forceCover').hidden = true;
+        document.getElementById('pwdMask').classList.remove('show');
+        document.getElementById('dormMask').classList.remove('show');
+        loadMe();
+      }
+
+      /* ================= 渲染 ================= */
+      function gen() { return Math.random().toString(36).slice(2, 10); }
+
+      function renderAll(p) {
+        document.getElementById('heroName').textContent = p.name;
+        document.getElementById('heroSub').textContent =
+          '学号 ' + p.studentNo + ' · ' + (p.gender || '性别未填') +
+          (p.grade ? ' · ' + p.grade : '') +
+          (p.className ? ' · ' + p.className : ' · 暂未分班');
+
+        var url = '/result.html' + (p.grade ? '?grade=' + encodeURIComponent(p.grade) : '');
+        G.boardUrl = url;
+
+        renderStats(p);
+        renderBoard(p);
+        renderClass(p);
+        renderDorm(p);
+        renderProfile(p);
+      }
+
+      function statCard(icon, k, vHtml, cls) {
+        return '<div class="stat-card"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + icon + '</svg>' + esc(k) + '</div><div class="v ' + (cls || '') + '">' + vHtml + '</div></div>';
+      }
+      function renderStats(p) {
+        var clsV = p.allocated
+          ? '<span class="tag ok">' + esc(p.className) + '</span>'
+          : '<span class="tag no">待分班</span>';
+        var hasHead = p.headTeacher && p.headTeacher.name;
+        var headV = hasHead
+          ? esc(p.headTeacher.name)
+          : (p.allocated ? '未设置班主任' : '分班后自动同步');
+        var dormV = p.dorm
+          ? '<span class="tag g">' + esc(p.dorm.building + ' ' + p.dorm.roomNo) + '</span>'
+          : (p.app ? '<span class="tag run">申请审核中</span>' : '<span class="tag no">未安排</span>');
+        document.getElementById('statsRow').innerHTML =
+          statCard('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>', '分班班级', clsV) +
+          statCard('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', '班主任', headV, hasHead ? '' : ' sm') +
+          statCard('<path d="M3 21h18M5 21V7l7-4 7 4v14"/>', '宿舍', dormV) +
+          statCard('<circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/>', '申请状态', p.dorm ? '<span class="tag ok">已入住</span>' : (p.app ? '<span class="tag run">待审核</span>' : (p.appLast && p.appLast.status === 'rejected' ? '<span class="tag no">可重新申请</span>' : '<span class="tag no">未申请</span>')));
+      }
+
+      function renderBoard(p) {
+        // 已分班后结果已定，无需再引导进入抽班大屏；仅对尚未分班的学生展示大屏入口
+        var show = !p.allocated;
+        document.getElementById('boardBanner').hidden = !show;
+        document.getElementById('btnBoard').hidden = !show;
+      }
+
+      function renderClass(p) {
+        var tag = document.getElementById('clsStatusTag');
+        tag.innerHTML = p.allocated ? '<span class="tag ok">已分班</span>' : '<span class="tag no">尚未分班</span>';
+
+        var body = document.getElementById('classBody');
+        var html = '';
+        if (!p.allocated || !p.className) {
+          html = '<div class="empty-zone"><div class="big">🎲</div><div>您还没有被分到班级。</div>' +
+            '<div style="font-size:12.5px;color:#94a3b8;">分班完成后，大屏将直播抽班过程，请留意学校通知。</div></div>' +
+            '<div class="actions"><button type="button" class="btn soft" data-act="board">去分班大屏看看</button></div>';
+        } else {
+          var head = p.headTeacher;
+          html = '<div class="cls-main">' +
+            '<div class="cls-badge">' + esc(p.className) + '</div>' +
+            '<div class="cls-info"><div class="name">' + esc(p.className) + '</div>' +
+            '<div class="meta">年级 ' + esc(p.grade || '-') + ' · 共 ' + p.rosterCount + ' 名同学</div></div></div>';
+
+          if (head && head.name) {
+            var subParts = [];
+            if (head.subject) subParts.push('学科：' + head.subject);
+            if (head.title) subParts.push(head.title);
+            if (head.phone) subParts.push('电话：' + head.phone);
+            html += '<div class="teacher-line">' +
+              '<div class="teacher-ava">' + esc((head.name || '师').charAt(0)) + '</div>' +
+              '<div><div class="tt">班主任 · ' + esc(head.name) + '</div>' +
+              (subParts.length ? '<div class="td">' + subParts.map(esc).join(' · ') + '</div>' : '<div class="td">负责您班级的日常事务，有问题可联系。</div>') +
+              '</div></div>';
+          }
+
+          var meNo = p.studentNo;
+          if (p.roster && p.roster.length) {
+            html += '<div class="roster-title"><span>班级同学（' + p.roster.length + ' 人）</span></div><div class="roster">';
+            var shown = 0;
+            p.roster.forEach(function (s) {
+              if (shown >= 60) return;
+              shown++;
+              var me = String(s.studentNo || '') === String(meNo) || (s.id && p.sid && s.id === p.sid);
+              html += '<span class="chip ' + (s.gender === '女' ? 'f' : 'm') + (me ? ' me' : '') + '"><span class="dot"></span>' + esc(s.name) + (me ? '（我）' : '') + '</span>';
+            });
+            if (p.roster.length > shown) html += '<span class="chip" style="color:#94a3b8;">… 其余 ' + (p.roster.length - shown) + ' 人</span>';
+            html += '</div>';
+          }
+          html += '<div class="actions">' +
+            '<button type="button" class="btn outline" data-act="goto-class-help">如何查看我的班级？</button></div>';
+        }
+        body.innerHTML = html;
+      }
+
+      function renderDorm(p) {
+        var tag = document.getElementById('dormStatusTag');
+        var body = document.getElementById('dormBody');
+        var html = '';
+        if (p.dorm) {
+          tag.innerHTML = '<span class="tag ok">已入住</span>';
+          var d = p.dorm;
+          var mates = d.roommates && d.roommates.length
+            ? d.roommates.map(function (m) {
+                return '<span class="mate"><span class="mava ' + (m.gender === '女' ? 'f' : '') + '">' + esc((m.name || '?').charAt(0)) + '</span>' + esc(m.name) + '</span>';
+              }).join('')
+            : '<span class="mate self">您是该房间第一位同学</span>';
+          if (d.roommates && d.roommates.length) mates += '<span class="mate self">' + esc(G.me.name || '') + '（我 · 第' + (d.bed || 1) + '床）</span>';
+          html =
+            '<div class="room-hero"><div class="room-tag"><div class="b">' + esc(d.building || '') + '</div><div class="n">' + esc(d.roomNo || '') + '</div></div>' +
+            '<div class="room-meta">' +
+            '<div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>您的床位：第 <b>&nbsp;' + (d.bed || 1) + '&nbsp;</b> 床</div>' +
+            '<div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>入住：' + d.occupied + ' / ' + d.capacity + ' 人</div>' +
+            '<div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1M9 13h1m4 0h1"/></svg>' + (d.gender === 'male' ? '男生宿舍' : d.gender === 'female' ? '女生宿舍' : '男女生均可') + '</div></div></div>' +
+            '<div class="room-mates"><div style="font-size:12.5px;font-weight:600;color:#6b7280;">我的室友</div><div class="mates">' + mates + '</div></div>' +
+            '<div class="actions"><button type="button" class="btn outline" data-act="help-dorm">宿舍问题？联系班主任</button></div>';
+        } else if (p.app && p.app.status === 'pending') {
+          tag.innerHTML = '<span class="tag run">审核中</span>';
+          var a = p.app;
+          html = '<div class="dorm-none"><div class="big">⏳</div>' +
+            '<p>您已提交 <b>' + esc(a.building + ' ' + a.roomNo) + '</b> 的入住申请，等待学校宿管 / 班主任审核。</p>' +
+            '<div style="font-size:12px;color:#94a3b8;line-height:1.9;">审核通过后将自动为您安排入住，请留意本页面状态更新。<br />如需更改意向房间，可先撤销申请后重新提交。</div></div>' +
+            '<div class="actions"><button type="button" class="btn outline" data-act="cancel-apply">撤销申请</button></div>';
+        } else {
+          var rej = p.appLast && p.appLast.status === 'rejected';
+          var note = rej ? '您上一次申请（' + esc((p.appLast.building || '') + ' ' + (p.appLast.roomNo || '')) + '）未获通过，可以重新选择房间申请。' : '您还没有安排宿舍。如需要住校，可从下方有空床的房间中选择并提交申请。';
+          tag.innerHTML = rej ? '<span class="tag no">可重新申请</span>' : '<span class="tag no">未申请</span>';
+          html = '<div class="dorm-none"><div class="big">🛏️</div><p>' + esc(note) + '</p></div>';
+          if (p.applyEnabled) {
+            html += '<div class="actions">' +
+              '<button type="button" class="btn grad" data-act="open-apply">申请宿舍</button>' +
+              '<span style="align-self:center;font-size:12px;color:#94a3b8;">可选空房 ' + (p.rooms ? p.rooms.length : 0) + ' 间</span></div>';
+          }
+        }
+        body.innerHTML = html;
+      }
+
+      function renderProfile(p) {
+        document.getElementById('profileBody').innerHTML =
+          '<div class="kv">' +
+          '<div class="it"><div class="k">学号</div><div class="v">' + esc(p.studentNo) + '</div></div>' +
+          '<div class="it"><div class="k">姓名</div><div class="v">' + esc(p.name) + '</div></div>' +
+          '<div class="it"><div class="k">性别</div><div class="v">' + esc(p.gender || '未填写') + '</div></div>' +
+          '<div class="it"><div class="k">年级</div><div class="v">' + esc(p.grade || '-') + '</div></div>' +
+          '<div class="it"><div class="k">班级</div><div class="v">' + (p.className ? esc(p.className) : '待分班') + '</div></div>' +
+          '<div class="it"><div class="k">宿舍</div><div class="v">' + (p.dorm ? esc(p.dorm.building + ' ' + p.dorm.roomNo + ' · 第' + (p.dorm.bed || 1) + '床') : (p.app ? '申请审核中' : '未安排')) + '</div></div>' +
+          '</div>';
+      }
+
+      /* ================= 强制改密 / 改密弹窗 ================= */
+      function openForcePwd() {
+        document.getElementById('forceCover').hidden = false;
+        showErr('forceErr', '');
+        setTimeout(function () { (document.getElementById('fNew') || {}).focus && document.getElementById('fNew').focus(); }, 50);
+      }
+
+      function doChangePwd(fields, doneMsg) {
+        var oldP = fields.oldP;
+        var newP = fields.newP;
+        var repP = fields.repP;
+        var errId = fields.errId;
+        var isForce = !!fields.force; // 首次登录强制改密：无需输入当前密码
+        if (!isForce && !oldP) { showErr(errId, '请输入当前密码'); return; }
+        if (!newP) { showErr(errId, '请输入新密码（6~64 位）'); return; }
+        if (newP.length < 6) { showErr(errId, '新密码至少 6 位'); return; }
+        if (newP !== repP) { showErr(errId, '两次输入的新密码不一致'); return; }
+        hideErr(errId);
+        var btn = fields.btn;
+        btn.disabled = true;
+        var payload = { newPassword: newP };
+        if (!isForce) payload.oldPassword = oldP;
+        fetch('/api/student/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (res.ok && res.j.code === 0) {
+              toast(doneMsg || '密码修改成功');
+              refresh();
+            } else {
+              showErr(errId, (res.j && res.j.msg) || '修改失败，请重试');
+            }
+          })
+          .catch(function () { showErr(errId, '网络异常，请稍后重试'); })
+          .then(function () { btn.disabled = false; });
+      }
+
+      function openPwdModal() {
+        document.getElementById('pwdMask').classList.add('show');
+        showErr('pwdErr', '');
+        setTimeout(function () { document.getElementById('pOld').focus(); }, 50);
+      }
+
+      /* ================= 宿舍申请 ================= */
+      function openApplyModal() {
+        var p = G.me && G.me.profile;
+        if (!p || !p.applyEnabled) { toast('当前状态暂不可申请宿舍'); return; }
+        var listEl = document.getElementById('roomList');
+        var rooms = (p.rooms || []).slice();
+        if (!rooms.length) {
+          listEl.innerHTML = '<div class="empty-zone"><div class="big">🛏️</div><div>暂无可申请的房间</div><div style="font-size:12px;color:#94a3b8;">符合您性别的房间暂无空床，请联系班主任或宿管。</div></div>';
+          document.getElementById('btnApplyRoom').disabled = true;
+          G.roomSel = null;
+        } else {
+          document.getElementById('btnApplyRoom').disabled = false;
+          listEl.innerHTML = rooms.map(function (r, i) {
+            var gender = r.gender === 'male' ? '男生' : r.gender === 'female' ? '女生' : '不限性别';
+            return '<label class="room-opt' + (i === 0 ? ' sel' : '') + '">' +
+              '<input type="radio" name="applyRoom" value="' + esc(r.id) + '"' + (i === 0 ? ' checked' : '') + ' />' +
+              '<span><div class="r-name">' + esc(r.building) + ' · ' + esc(r.roomNo) + '</div>' +
+              '<div class="r-sub">' + gender + ' · 已入住 ' + r.occupied + ' / ' + r.capacity + ' 人</div></span>' +
+              '<span class="spacer"></span>' +
+              '<span class="free">余 ' + r.free + ' 床</span></label>';
+          }).join('');
+          G.roomSel = rooms[0].id;
+        }
+        document.getElementById('dormMask').classList.add('show');
+      }
+      function doApply() {
+        var p = G.me && G.me.profile;
+        if (!p || !p.applyEnabled) return;
+        if (!G.roomSel) { toast('请先选择一个房间'); return; }
+        var btn = document.getElementById('btnApplyRoom');
+        btn.disabled = true;
+        fetch('/api/student/dorm/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId: G.roomSel })
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (res.ok && res.j.code === 0) {
+              document.getElementById('dormMask').classList.remove('show');
+              toast('申请已提交，请等待学校审核');
+              loadMe();
+            } else {
+              toast((res.j && res.j.msg) || '提交失败，请重试');
+              loadMe();
+            }
+          })
+          .catch(function () { toast('网络异常，请稍后重试'); })
+          .then(function () { btn.disabled = false; });
+      }
+      function doCancelApply() {
+        fetch('/api/student/dorm/apply', { method: 'DELETE' })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            toast((j && j.msg) || (j && j.code === 0 ? '申请已撤销' : '操作失败'));
+            loadMe();
+          })
+          .catch(function () { toast('网络异常，请稍后重试'); });
+      }
+
+      /* ================= 事件 ================= */
+      document.addEventListener('click', function (e) {
+        var el = e.target.closest('[data-act]');
+        if (!el) return;
+        var act = el.getAttribute('data-act');
+        if (act === 'board') { window.open(G.boardUrl, '_blank', 'noopener'); return; }
+        if (act === 'open-apply') { openApplyModal(); return; }
+        if (act === 'cancel-apply') { doCancelApply(); return; }
+        if (act === 'close-pwd') { document.getElementById('pwdMask').classList.remove('show'); return; }
+        if (act === 'close-dorm') { document.getElementById('dormMask').classList.remove('show'); return; }
+        if (act === 'goto-class-help' || act === 'help-dorm') {
+          toast('如需确认分班 / 宿舍安排，可联系班主任：' + ((G.me.profile && G.me.profile.headTeacher && G.me.profile.headTeacher.name) || '学校教务处'));
+          return;
+        }
+      });
+
+      // 房间单选项
+      document.getElementById('roomList').addEventListener('change', function (e) {
+        if (e.target && e.target.name === 'applyRoom') {
+          G.roomSel = e.target.value;
+          var opts = document.querySelectorAll('.room-opt');
+          for (var i = 0; i < opts.length; i++) opts[i].classList.remove('sel');
+          var lab = e.target.closest('.room-opt');
+          if (lab) lab.classList.add('sel');
+        }
+      });
+
+      document.getElementById('btnBoard').addEventListener('click', function () { window.open(G.boardUrl, '_blank', 'noopener'); });
+      document.getElementById('btnBoard2').addEventListener('click', function () { window.open(G.boardUrl, '_blank', 'noopener'); });
+      document.getElementById('btnApplyRoom').addEventListener('click', doApply);
+
+      document.getElementById('btnOpenPwd').addEventListener('click', openPwdModal);
+      document.getElementById('btnSavePwd').addEventListener('click', function () {
+        doChangePwd({
+          oldP: document.getElementById('pOld').value,
+          newP: document.getElementById('pNew').value,
+          repP: document.getElementById('pRep').value,
+          errId: 'pwdErr',
+          btn: document.getElementById('btnSavePwd')
+        }, '密码修改成功');
+      });
+
+      document.getElementById('btnForceSave').addEventListener('click', function () {
+        doChangePwd({
+          force: true,
+          newP: document.getElementById('fNew').value,
+          repP: document.getElementById('fRep').value,
+          errId: 'forceErr',
+          btn: document.getElementById('btnForceSave')
+        }, '密码已设置成功，欢迎进入学生中心');
+      });
+      document.getElementById('forceCover').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') document.getElementById('btnForceSave').click();
+      });
+
+      function logout() {
+        fetch('/api/student/logout', { method: 'GET' })
+          .catch(function () {})
+          .then(function () { location.href = '/slogin.html'; });
+      }
+      document.getElementById('btnLogout').addEventListener('click', logout);
+      document.getElementById('btnGoneLogout').addEventListener('click', logout);
+
+      // 关闭弹窗按钮
+      function maskHide(mask) {
+        if (mask.id !== 'pwdMask' || !G.me || !G.me.must) mask.classList.remove('show');
+      }
+      [document.getElementById('pwdMask'), document.getElementById('dormMask')].forEach(function (mask) {
+        mask.addEventListener('click', function (e) { if (e.target === mask) maskHide(mask); });
+      });
+
+      // 启动
+      Promise.all([
+        fetch('/api/settings').then(function (r) { return r.json(); }).catch(function () { return { data: {} }; }),
+        loadMe()
+      ]).then(function (res) {
+        G.settings = (res[0] && res[0].data) || {};
+        applyBrand();
+      });
+    })();
+  </script>
+</body>
+</html>

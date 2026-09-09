@@ -96,6 +96,7 @@
     }
     .acc-row + .acc-row { border-top: 1px dashed var(--border); }
     .acc-me { color: var(--primary); font-size: 11px; border: 1px solid var(--primary); border-radius: 999px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; }
+    .acc-stu-role { color: #0f766e; font-size: 11px; background: #ccfbf1; border: 1px solid #5eead4; border-radius: 999px; padding: 0 7px; margin-left: 4px; vertical-align: 1px; white-space: nowrap; }
     .acc-role-sel {
       padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px;
       background: #fff; font-size: 12px; color: var(--text); max-width: 130px; width: 100%;
@@ -447,7 +448,7 @@
           <div class="acc-zone" id="accZone">
             <div class="acc-empty" id="accEmpty">账号列表加载中…</div>
           </div>
-          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝。系统始终需保留至少一个管理员账号。</p>
+          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），此处可为其重设密码，但角色不可修改。</p>
         </div>
       </section>
       </div><!-- /.set-body -->
@@ -777,6 +778,7 @@
 
       function accRow(u) {
         var isMe = accSelf && u.username === accSelf.username;
+        var isStudent = u.role === 'student';
         var opts = ['admin', 'viewer'].map(function (r) {
           return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' +
             (r === 'admin' ? '管理员' : '查看模式') + '</option>';
@@ -785,18 +787,23 @@
         row.className = 'acc-row';
         row.innerHTML =
           '<div><b>' + escU(u.nickname || u.username) + '</b>' +
+          (isStudent ? '<span class="acc-stu-role">学生（自助端）</span>' : '') +
           (isMe ? '<span class="acc-me">当前登录</span>' : '') +
-          '<div class="acc-created">@' + escU(u.username) + '</div></div>' +
+          '<div class="acc-created">' + (isStudent ? '学号 @' : '@') + escU(u.username) + '</div></div>' +
           '<div class="acc-created">' + (u.createdAt ? String(u.createdAt).slice(0, 10) : '—') + '</div>' +
-          '<div><select class="acc-role-sel">' + opts + '</select></div>' +
-          '<div class="acc-created">' + (u.role === 'admin' ? '可操作全部功能与数据' : '仅查看，不可修改') + '</div>' +
+          (isStudent
+            ? '<div class="acc-created">学生</div>'
+            : '<div><select class="acc-role-sel">' + opts + '</select></div>') +
+          '<div class="acc-created">' +
+          (isStudent ? '学号自助登录 · 首次登录需改密' : (u.role === 'admin' ? '可操作全部功能与数据' : '仅查看，不可修改')) +
+          '</div>' +
           '<div class="acc-btns">' +
           '<button class="btn-sm btn-edit acc-reset">重设密码</button>' +
-          (isMe ? '' : '<button class="btn-sm btn-del acc-del">删除</button>') +
+          (isStudent || isMe ? '' : '<button class="btn-sm btn-del acc-del">删除</button>') +
           '</div>';
 
         var sel = row.querySelector('.acc-role-sel');
-        sel.addEventListener('change', function () {
+        if (sel) sel.addEventListener('change', function () {
           fetch('/api/users/' + encodeURIComponent(u.username), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -809,7 +816,9 @@
         });
 
         row.querySelector('.acc-reset').addEventListener('click', function () {
-          var np = prompt('为账号「' + u.username + '」设置新密码（6～64 位）：', '');
+          var np = prompt(isStudent
+            ? '为学生账号「' + u.username + '（' + (u.nickname || '') + '）」设置新密码（6～64 位）。\n设为本人学号，即可恢复“首次默认登录（学号）”状态：'
+            : '为账号「' + u.username + '」设置新密码（6～64 位）：', '');
           if (np === null) return;
           if (np.length < 6 || np.length > 64) return toast('密码需为 6～64 位', 'err');
           fetch('/api/users/' + encodeURIComponent(u.username), {

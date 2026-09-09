@@ -18,6 +18,13 @@ let ciSid = '';             // 入住办理选中的学生
 let ciRoomId = '';          // 入住办理选中的房间
 let focusSid = '';          // 从学生档案深链跳转时要高亮的学生
 
+// ========== 学生入住申请（学生端提交，宿管审核） ==========
+const DORM_APPS_API = '/api/dorm-apps';
+const APP_STATUS_TEXT = { pending: '待审核', approved: '已通过', rejected: '未通过' };
+let dormApps = [];
+let dormAppsCounts = {};
+let dormAppsFilter = 'pending';
+
 // 房态图筛选
 const filter = { state: 'all', build: '', kw: '' };
 
@@ -87,6 +94,7 @@ async function reload() {
   await loadDorms();
   if ($('#detailMask').classList.contains('show')) renderDetail();
   if ($('#checkinMask').classList.contains('show')) renderCheckin();
+  refreshAppsUI();
 }
 
 // ========== 房态图 ==========
@@ -550,6 +558,104 @@ async function doCheckin() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+// ========== 学生入住申请：数据与渲染 ==========
+function escAttr(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmtAppTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+async function fetchApps() {
+  const res = await fetch(`${DORM_APPS_API}?status=${dormAppsFilter}`);
+  const j = await res.json();
+  if (j.code !== 0) throw new Error(j.msg || '请求失败');
+  return { list: j.data || [], counts: j.counts || {} };
+}
+async function refreshAppsUI() {
+  try {
+    const { list, counts } = await fetchApps();
+    dormApps = list;
+    dormAppsCounts = counts || {};
+    const n = dormAppsCounts.pending || 0;
+    const badge = $('#appCountBadge');
+    if (badge) badge.textContent = n ? String(n) : '';
+    if ($('#appsMask').classList.contains('show')) renderApps();
+  } catch (e) { /* 会话状态异常时静默处理，徽标留空 */ }
+}
+function openApps() {
+  $('#appsMask').classList.add('show');
+  renderApps();
+  refreshAppsUI();
+}
+function closeApps() { $('#appsMask').classList.remove('show'); }
+function renderApps() {
+  const box = $('#appsList');
+  const cnt = $('#appsCount');
+  if (!box) return;
+  const pending = dormAppsCounts.pending || 0;
+  const approved = dormAppsCounts.approved || 0;
+  const rejected = dormAppsCounts.rejected || 0;
+  const viewer = window.AUTH && window.AUTH.role === 'viewer';
+  cnt.textContent = dormAppsFilter === 'pending'
+    ? (pending ? `待处理 ${pending} 条` : '已全部处理')
+    : `共 ${dormApps.length} 条 · 待 ${pending} / 通过 ${approved} / 驳回 ${rejected}`;
+  if (!dormApps.length) {
+    box.innerHTML = `<div class="empty-inline">${dormAppsFilter === 'pending' ? '暂无待处理的学生入住申请' : '暂无申请记录'}</div>`;
+    return;
+  }
+  box.innerHTML = dormApps.map(a => {
+    const meta = [a.no ? ('学号 ' + a.no) : '', a.grade ? a.grade : '', a.className ? a.className : ''].filter(Boolean).join(' · ');
+    const statusCls = a.status === 'approved' ? 'ok' : (a.status === 'rejected' ? 'rej' : 'no');
+    const actionHtml = a.status === 'pending'
+      ? (viewer
+        ? `<span class="app-st no">查看模式</span>`
+        : `<button type="button" class="btn btn-primary btn-sm" data-app-id="${escAttr(a.id)}" data-app-act="approve" title="通过后自动为该生安排入住">通过入住</button>
+           <button type="button" class="btn btn-outline btn-sm danger-text" data-app-id="${escAttr(a.id)}" data-app-act="reject">不通过</button>`)
+      : `<span class="app-st ${statusCls}">${escAttr(APP_STATUS_TEXT[a.status] || a.status)}</span>`;
+    return `<div class="app-row">
+      <span class="ava">${escAttr(String(a.name || '?').charAt(0))}</span>
+      <div class="app-main">
+        <b>${escAttr(a.name)}</b>
+        <div class="app-sub">${escAttr(meta)}</div>
+      </div>
+      <span class="app-room">${escAttr((a.building || '') + ' ' + (a.roomNo || '-'))}</span>
+      ${a.status === 'pending' ? `<span class="app-st ${a.roomFree > 0 ? 'ok' : 'rej'}">${a.roomFree > 0 ? '余 ' + a.roomFree + ' 床' : '房间已满'}</span>` : ''}
+      <span class="app-time">${fmtAppTime(a.createdAt)}</span>
+      <div class="app-actions">${actionHtml}</div>
+    </div>`;
+  }).join('');
+}
+// 审核/数据变化后通知父工作台刷新侧边栏角标（独立打开页面时无操作）
+function notifyAppsChangedToParent() {
+  try {
+    if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'icst-dorm-apps' }, location.origin);
+  } catch (e) {}
+}
+async function handleDormApp(appId, act) {
+  const app = dormApps.find(x => x.id === appId);
+  if (!app) return;
+  if (act === 'approve') {
+    const ok = await confirmDlg(`确认通过「${app.name}」的申请，并将其安排入住「${app.building} ${app.roomNo}」？`, { title: '通过入住申请', okText: '通过入住' });
+    if (!ok) return;
+  } else {
+    const ok = await confirmDlg(`确认不通过「${app.name}」的入住申请？`, { title: '驳回申请', okText: '驳回', danger: true });
+    if (!ok) return;
+  }
+  try {
+    await jfetch(`${DORM_APPS_API}/${appId}/${act}`, { method: 'POST' });
+    toast(act === 'approve' ? `已通过，${app.name} 已安排入住 ${app.building} ${app.roomNo}` : `已驳回 ${app.name} 的申请`, 'success');
+    await loadDorms();
+    if ($('#detailMask').classList.contains('show')) renderDetail();
+    if ($('#checkinMask').classList.contains('show')) renderCheckin();
+    await refreshAppsUI();
+    notifyAppsChangedToParent();
+  } catch (err) { toast(err.message, 'error'); refreshAppsUI(); }
+}
+
 // ========== 事件绑定 ==========
 function bindEvents() {
   // 房态工具栏
@@ -648,13 +754,34 @@ function bindEvents() {
     ciRoomId = row.dataset.rid;
     renderCheckin();
   };
+
+  // 学生入住申请审核
+  $('#btnDormApps').onclick = openApps;
+  $('#appsClose').onclick = closeApps;
+  $('#appsMask').onclick = (e) => { if (e.target.id === 'appsMask') closeApps(); };
+  $('#appsTabs').onclick = (e) => {
+    const t = e.target.closest('.apps-tab');
+    if (!t) return;
+    dormAppsFilter = t.dataset.status;
+    document.querySelectorAll('#appsTabs .apps-tab').forEach(x => x.classList.toggle('active', x === t));
+    refreshAppsUI();
+  };
+  $('#appsList').onclick = (e) => {
+    const b = e.target.closest('[data-app-act]');
+    if (!b) return;
+    handleDormApp(b.dataset.appId, b.dataset.appAct);
+  };
 }
 
 window.cbEmbedRefresh = function () { loadDorms(); };
+
+// AUTH（含查看模式角色）就绪后刷新申请角标与操作按钮
+window.addEventListener('cb-auth-ready', () => refreshAppsUI());
 
 loadBase().then(() => {
   bindEvents();
   return loadDorms();
 }).then(() => {
   applyRoomDeepLink();
+  refreshAppsUI();
 }).catch(err => { toast(err.message, 'error'); });
