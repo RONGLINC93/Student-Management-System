@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>学生管理系统 - 年级管理</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    /* 窄屏下列表可左右滑动：.table-wrap 全局为 overflow:hidden，需单独放开横向滚动（同「学生档案」页做法） */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    /* 各列固定像素设宽（table-layout:fixed，固定列约 850px，含进度列 170px 合计约 1020px），
+       窄屏时保持整行完整横向滑动 */
+    .grade-table { min-width: 1020px; }
+  </style>
 </head>
 <body>
   <header class="app-header">

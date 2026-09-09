@@ -1,6 +1,6 @@
 {
   "admin": {
-    "ts": 1788958987501,
+    "ts": 1788959704140,
     "tabs": [
       {
         "key": "dashboard",
@@ -20,17 +20,45 @@
       },
       {
         "key": "settings",
-        "side": true
+        "side": false
+      },
+      {
+        "key": "classes",
+        "side": false
+      },
+      {
+        "key": "grades",
+        "side": false
+      },
+      {
+        "key": "teachers",
+        "side": false
+      },
+      {
+        "key": "exams",
+        "side": false
+      },
+      {
+        "key": "conduct",
+        "side": false
+      },
+      {
+        "key": "dorm",
+        "side": false
+      },
+      {
+        "key": "allocate",
+        "side": false
       },
       {
         "key": "students",
         "side": false
       }
     ],
-    "splitOn": true,
-    "activeKey": "students",
-    "leftKey": "students",
-    "rightKey": "settings",
-    "splitRatio": 0.4
+    "splitOn": false,
+    "activeKey": "dashboard",
+    "leftKey": "",
+    "rightKey": "",
+    "splitRatio": 0.49
   }
 }
