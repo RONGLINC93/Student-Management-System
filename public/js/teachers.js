@@ -145,6 +145,8 @@ async function saveTeacher(e) {
     remark: $('#fRemark').value.trim()
   };
   if (!data.name) { toast('请输入教师姓名', 'error'); return; }
+  const done = busyBtn(e && e.submitter ? e.submitter : $('#teacherForm') && $('#teacherForm').querySelector('button[type="submit"]'), '保存中…');
+  if (!done) return;
   try {
     const res = await fetch(id ? `${TEA_API}/${id}` : TEA_API, {
       method: id ? 'PUT' : 'POST',
@@ -158,6 +160,8 @@ async function saveTeacher(e) {
     await loadTeachers();
   } catch (err) {
     toast('保存失败：' + err.message, 'error');
+  } finally {
+    done();
   }
 }
 
@@ -283,7 +287,6 @@ function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
   $('#modalClose').onclick = closeModal;
   $('#modalCancel').onclick = closeModal;
-  $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') closeModal(); };
   $('#teacherForm').onsubmit = saveTeacher;
   $('#searchInput').oninput = renderTable;
   $('#genderFilter').onchange = renderTable;

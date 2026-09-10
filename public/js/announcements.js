@@ -101,6 +101,8 @@ async function saveAnn() {
     validTo: $A('#validTo').value
   };
   if (payload.scopeType !== 'all' && !payload.scopeValue) return toast('请选择面向的年级或班级', 'error');
+  const done = busyBtn($A('#btnSave'), '提交中…');
+  if (!done) return;
   try {
     if (editingId) {
       await apiA(`${ANN_API}/${editingId}`, 'PUT', payload);
@@ -112,6 +114,7 @@ async function saveAnn() {
     $A('#editMask').classList.remove('show');
     await loadAll();
   } catch (e) { toast(e.message, 'error'); }
+  finally { done(); }
 }
 async function delAnn(id) {
   const a = anns.find(x => x.id === id);
@@ -126,7 +129,6 @@ function bindEvents() {
   $A('#btnNew').onclick = () => openEdit(null);
   $A('#editX').onclick = () => $A('#editMask').classList.remove('show');
   $A('#editCancel').onclick = () => $A('#editMask').classList.remove('show');
-  $A('#editMask').addEventListener('click', e => { if (e.target === $A('#editMask')) $A('#editMask').classList.remove('show'); });
   $A('#btnSave').onclick = saveAnn;
   $A('#scopeType').onchange = refreshScopeOptions;
   $A('#kw').oninput = render;

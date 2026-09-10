@@ -317,38 +317,42 @@ async function saveRoom(e) {
   const capacity = Number($('#rCapacity').value) || 4;
   const gender = $('#rGender').value;
   if (!roomNo) { toast('请填写房号', 'error'); return; }
-  if (id) {
-    // 编辑
+  const done = busyBtn(e && e.submitter ? e.submitter : $('#roomForm') && $('#roomForm').querySelector('button[type="submit"]'), '保存中…');
+  if (!done) return;
+  try {
+    if (id) {
+      // 编辑
+      try {
+        await jfetch(`${DORM_API}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ building, roomNo, capacity, gender })
+        });
+        toast('房间已保存', 'success');
+        closeRoomModal();
+        await reload();
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+    // 新增（支持批量）
+    const batch = Math.min(50, Math.max(1, Number($('#rCount').value) || 1));
+    const nos = expandRoomNos(roomNo, batch);
+    if (nos.length > 1 && new Set(nos).size !== nos.length) { toast('批量生成的房号存在重复，请调整起始房号', 'error'); return; }
+    const dup = nos.find(n => dorms.some(r => r.building === building && String(r.roomNo) === n));
+    if (dup) { toast(`「${building} ${dup}」已存在`, 'error'); return; }
     try {
-      await jfetch(`${DORM_API}/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ building, roomNo, capacity, gender })
-      });
-      toast('房间已保存', 'success');
+      for (const n of nos) {
+        await jfetch(DORM_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ building, roomNo: n, capacity, gender })
+        });
+      }
+      toast(nos.length > 1 ? `已添加 ${nos.length} 间房间` : '房间已添加', 'success');
       closeRoomModal();
       await reload();
     } catch (err) { toast(err.message, 'error'); }
-    return;
-  }
-  // 新增（支持批量）
-  const batch = Math.min(50, Math.max(1, Number($('#rCount').value) || 1));
-  const nos = expandRoomNos(roomNo, batch);
-  if (nos.length > 1 && new Set(nos).size !== nos.length) { toast('批量生成的房号存在重复，请调整起始房号', 'error'); return; }
-  const dup = nos.find(n => dorms.some(r => r.building === building && String(r.roomNo) === n));
-  if (dup) { toast(`「${building} ${dup}」已存在`, 'error'); return; }
-  try {
-    for (const n of nos) {
-      await jfetch(DORM_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ building, roomNo: n, capacity, gender })
-      });
-    }
-    toast(nos.length > 1 ? `已添加 ${nos.length} 间房间` : '房间已添加', 'success');
-    closeRoomModal();
-    await reload();
-  } catch (err) { toast(err.message, 'error'); }
+  } finally { done(); }
 }
 
 // ========== 补员入住（多选） ==========
@@ -402,6 +406,8 @@ function closeAssign() { $('#assignMask').classList.remove('show'); }
 async function doAssign() {
   const ids = [...$('#assignList').querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value);
   if (!ids.length) { toast('请至少选择一名学生', 'error'); return; }
+  const done = busyBtn($('#btnDoAssign'), '处理中…');
+  if (!done) return;
   try {
     await jfetch(`${DORM_API}/${assignRoomId}/assign`, {
       method: 'POST',
@@ -412,6 +418,7 @@ async function doAssign() {
     closeAssign();
     await reload();
   } catch (err) { toast(err.message, 'error'); }
+  finally { done(); }
 }
 
 // ========== 入住办理 / 换房（单一学生） ==========
@@ -546,6 +553,8 @@ async function doCheckin() {
   const room = dorms.find(r => r.id === ciRoomId);
   if (!stu || !room) { toast('请选择学生和房间', 'error'); return; }
   const cur = roomOfSid(ciSid);
+  const done = busyBtn($('#btnCiGo'), '处理中…');
+  if (!done) return;
   try {
     await jfetch(`${DORM_API}/${room.id}/assign`, {
       method: 'POST',
@@ -556,6 +565,7 @@ async function doCheckin() {
     closeCheckin();
     await reload();
   } catch (err) { toast(err.message, 'error'); }
+  finally { done(); }
 }
 
 // ========== 学生入住申请：数据与渲染 ==========
@@ -680,12 +690,10 @@ function bindEvents() {
   // 房间新增/编辑
   $('#modalClose').onclick = closeRoomModal;
   $('#modalCancel').onclick = closeRoomModal;
-  $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') closeRoomModal(); };
   $('#roomForm').onsubmit = saveRoom;
 
   // 房间详情
   $('#detailClose').onclick = closeDetail;
-  $('#detailMask').onclick = (e) => { if (e.target.id === 'detailMask') closeDetail(); };
   $('#btnDetailAssign').onclick = () => { if (detailRoomId) openAssign(detailRoomId); };
   $('#btnDetailEdit').onclick = () => {
     const room = dorms.find(r => r.id === detailRoomId);
@@ -695,17 +703,27 @@ function bindEvents() {
     const room = dorms.find(r => r.id === detailRoomId);
     if (!room) return;
     if (!(await confirmDlg(`清空「${room.building} ${room.roomNo}」的全部 ${occ(room)} 名入住学生？`, { title: '清空房间', okText: '清空', danger: true }))) return;
-    await jfetch(`${DORM_API}/${room.id}/clear`, { method: 'POST' });
-    toast('已清空房间', 'success');
-    await reload();
+    const done = busyBtn(document.getElementById('btnDetailClear'), '清空中…');
+    if (!done) return;
+    try {
+      await jfetch(`${DORM_API}/${room.id}/clear`, { method: 'POST' });
+      toast('已清空房间', 'success');
+      await reload();
+    } catch (err) { toast(err.message, 'error'); }
+    finally { done(); }
   };
   $('#btnDetailDel').onclick = async () => {
     const room = dorms.find(r => r.id === detailRoomId);
     if (!room) return;
     if (!(await confirmDlg(`删除房间「${room.building} ${room.roomNo}」？（${occ(room)} 名学生将一并退宿）`, { title: '删除房间', okText: '删除', danger: true }))) return;
-    await jfetch(`${DORM_API}/${room.id}`, { method: 'DELETE' });
-    toast('已删除房间', 'success');
-    await reload();
+    const done = busyBtn(document.getElementById('btnDetailDel'), '删除中…');
+    if (!done) return;
+    try {
+      await jfetch(`${DORM_API}/${room.id}`, { method: 'DELETE' });
+      toast('已删除房间', 'success');
+      await reload();
+    } catch (err) { toast(err.message, 'error'); }
+    finally { done(); }
   };
   // 详情内入住学生行操作（换房 / 退宿）
   $('#dtlOccList').onclick = async (e) => {
@@ -719,16 +737,20 @@ function bindEvents() {
     } else if (b.dataset.act === 'remove') {
       const stu = studMap()[sid];
       if (!(await confirmDlg(`确定让 ${stu ? stu.name : '该生'} 退宿「${room.building} ${room.roomNo}」？`, { title: '退宿', okText: '退宿', danger: true }))) return;
-      await jfetch(`${DORM_API}/${room.id}/remove/${sid}`, { method: 'POST' });
-      toast('已退宿', 'success');
-      await reload();
+      const done = busyBtn(b, '处理中…');
+      if (!done) return;
+      try {
+        await jfetch(`${DORM_API}/${room.id}/remove/${sid}`, { method: 'POST' });
+        toast('已退宿', 'success');
+        await reload();
+      } catch (err) { toast(err.message, 'error'); }
+      finally { done(); }
     }
   };
 
   // 补员（多选）弹窗
   $('#assignClose').onclick = closeAssign;
   $('#assignCancel').onclick = closeAssign;
-  $('#assignMask').onclick = (e) => { if (e.target.id === 'assignMask') closeAssign(); };
   $('#btnDoAssign').onclick = doAssign;
   $('#assignSearch').oninput = renderAssignList;
   $('#assignGrade').onchange = renderAssignList;
@@ -736,7 +758,6 @@ function bindEvents() {
   // 入住办理 / 换房
   $('#checkinClose').onclick = closeCheckin;
   $('#ciCancel').onclick = closeCheckin;
-  $('#checkinMask').onclick = (e) => { if (e.target.id === 'checkinMask') closeCheckin(); };
   $('#btnCiGo').onclick = doCheckin;
   $('#ciSearch').oninput = renderCheckin;
   $('#ciGrade').onchange = renderCheckin;
@@ -758,7 +779,6 @@ function bindEvents() {
   // 学生入住申请审核
   $('#btnDormApps').onclick = openApps;
   $('#appsClose').onclick = closeApps;
-  $('#appsMask').onclick = (e) => { if (e.target.id === 'appsMask') closeApps(); };
   $('#appsTabs').onclick = (e) => {
     const t = e.target.closest('.apps-tab');
     if (!t) return;
@@ -766,10 +786,13 @@ function bindEvents() {
     document.querySelectorAll('#appsTabs .apps-tab').forEach(x => x.classList.toggle('active', x === t));
     refreshAppsUI();
   };
-  $('#appsList').onclick = (e) => {
+  $('#appsList').onclick = async (e) => {
     const b = e.target.closest('[data-app-act]');
     if (!b) return;
-    handleDormApp(b.dataset.appId, b.dataset.appAct);
+    const done = busyBtn(b, '处理中…');
+    if (!done) return;
+    try { await handleDormApp(b.dataset.appId, b.dataset.appAct); }
+    finally { done(); }
   };
 }
 

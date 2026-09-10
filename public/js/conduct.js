@@ -111,6 +111,8 @@ async function saveAttendance() {
     const stu = allStudents.find(s => s.id === sid);
     records.push({ id: sid, name: stu ? stu.name : '', status: stSel ? stSel.value : 'present' });
   });
+  const done = busyBtn($('#btnSaveAtt'), '保存中…');
+  if (!done) return;
   try {
     await jfetch(ATT_API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -119,6 +121,7 @@ async function saveAttendance() {
     toast('考勤已保存', 'success');
     refreshStats();
   } catch (e) { toast(e.message, 'error'); }
+  finally { done(); }
 }
 
 // ========== 考勤记录查询 ==========
@@ -199,6 +202,8 @@ async function saveCond(e) {
   };
   if (!payload.title) { toast('请填写标题', 'error'); return; }
   const id = $('#cId').value;
+  const done = busyBtn(e && e.submitter ? e.submitter : $('#condForm') && $('#condForm').querySelector('button[type="submit"]'), '保存中…');
+  if (!done) return;
   try {
     await jfetch(id ? `${COND_API}/${id}` : COND_API, {
       method: id ? 'PUT' : 'POST',
@@ -209,6 +214,7 @@ async function saveCond(e) {
     $('#modalMask').classList.remove('show');
     queryConduct();
   } catch (err) { toast(err.message, 'error'); }
+  finally { done(); }
 }
 
 async function delConduct(id) {
@@ -289,7 +295,6 @@ function bindEvents() {
   };
   $('#modalClose').onclick = () => $('#modalMask').classList.remove('show');
   $('#modalCancel').onclick = () => $('#modalMask').classList.remove('show');
-  $('#modalMask').onclick = (ev) => { if (ev.target.id === 'modalMask') $('#modalMask').classList.remove('show'); };
   $('#condForm').onsubmit = saveCond;
   $('#cStudentSel').oninput = (e) => condPickList(e.target.value.trim());
   $('#cStudentList').onclick = (e) => {

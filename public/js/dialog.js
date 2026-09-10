@@ -49,9 +49,6 @@
     mask.querySelector('.dialog-cancel').addEventListener('click', () => closeDialog(false));
     mask.querySelector('.dialog-ok').addEventListener('click', () => closeDialog(true));
     mask.querySelector('.dialog-verify-input').addEventListener('input', syncVerifyState);
-    mask.addEventListener('click', (e) => {
-      if (e.target === mask && hasCancel) closeDialog(false);
-    });
   }
 
   // 严格验证状态同步：输入文字与验证短语一致才放行「确定」按钮
@@ -191,5 +188,25 @@
   // 过程性状态轻提示：动画进行中短暂提示
   window.showStatus = function (msg, type = '') {
     showToast(msg, type, 2200);
+  };
+
+  // 防重复点击：请求进行中禁用按钮，杜绝双击/连按造成的重复提交。
+  // 用法：const done = busyBtn(btn); if (!done) return; ... finally { done(); }
+  // 返回恢复函数；若按钮已在处理中则返回 null（调用方据此直接 return）。
+  // 含图标（svg）的按钮只禁用、不改文案，避免图标丢失。
+  window.busyBtn = function (btn, text) {
+    if (!btn) return function () {};
+    if (btn.disabled) return null;
+    const canText = !!text && !btn.querySelector('svg');
+    const prev = canText ? btn.textContent : '';
+    btn.disabled = true;
+    btn.dataset.busy = '1';
+    if (canText) btn.textContent = text;
+    return function () {
+      if (!btn.dataset.busy) return;
+      delete btn.dataset.busy;
+      btn.disabled = false;
+      if (canText) btn.textContent = prev;
+    };
   };
 })();

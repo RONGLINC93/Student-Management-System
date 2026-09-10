@@ -24,6 +24,7 @@ const DORM_APPS_FILE = path.join(__dirname, 'data', 'dorm_applications.json'); /
 const LEAVES_FILE = path.join(__dirname, 'data', 'leaves.json');               // 请假申请（学生在线申请 / 后台审批）
 const ANNOUNCEMENTS_FILE = path.join(__dirname, 'data', 'announcements.json'); // 通知公告（面向全校 / 年级 / 班级）
 const TRASH_FILE = path.join(__dirname, 'data', 'students_trash.json');        // 学生回收站（删除后软归档，可恢复）
+const NOTIFICATIONS_FILE = path.join(__dirname, 'data', 'notifications.json'); // 学生中心站内消息（各类事务变化通知）
 
 // 会话：Cookie 内 HMAC 签名（无服务端 session），Path=/ 以便所有页面共享
 const AUTH_COOKIE = 'icbs_auth';        // 后台工作台（管理员 / 查看）
@@ -359,6 +360,44 @@ const readAnnouncements = () => readJsonFile(ANNOUNCEMENTS_FILE, []);
 const writeAnnouncements = l => writeJsonFile(ANNOUNCEMENTS_FILE, l);
 const readTrash = () => readJsonFile(TRASH_FILE, []);
 const writeTrash = l => writeJsonFile(TRASH_FILE, l);
+const readNotifications = () => readJsonFile(NOTIFICATIONS_FILE, []);
+const writeNotifications = l => writeJsonFile(NOTIFICATIONS_FILE, l);
+
+// ===== 学生中心站内消息（事务变化通知）=====
+// 通知对象以学生内部 id（= students.json 的 id，与请假 sid / 宿舍 sid / 操行 studentId 同源）为主键
+const NOTIFY_LIMIT = 100;      // 每位学生最多保留的通知条数，超出丢弃最旧的
+const NOTIFY_MAX_LENGTH = 300; // 正文最大长度（超出截断）
+// 批量写入通知（仅落盘一次），items: [{ sid, type, title, body }]
+function notifyBatch(items) {
+  const list = (items || []).filter(x => x && String(x.sid || '').trim());
+  if (!list.length) return 0;
+  const now = new Date().toISOString();
+  const fresh = list.map(x => ({
+    id: genId(),
+    sid: String(x.sid),
+    type: x.type || 'system',
+    title: String(x.title || '').slice(0, 60),
+    body: String(x.body || '').slice(0, NOTIFY_MAX_LENGTH),
+    read: false,
+    createdAt: now
+  }));
+  // 新通知在前，同一学生只保留最近 NOTIFY_LIMIT 条
+  const seen = {};
+  const kept = [];
+  fresh.concat(readNotifications()).forEach(n => {
+    const key = String(n.sid);
+    const used = seen[key] || 0;
+    if (used >= NOTIFY_LIMIT) return;
+    seen[key] = used + 1;
+    kept.push(n);
+  });
+  writeNotifications(kept);
+  return fresh.length;
+}
+// 给单个学生推一条通知
+function notifyStudent(sid, type, title, body) {
+  return notifyBatch([{ sid: sid, type: type, title: title, body: body }]);
+}
 
 // 教师档案规范化
 function normalizeTeacher(raw) {
@@ -2046,6 +2085,7 @@ const server = http.createServer(async (req, res) => {
     if (!x) return sendJson(res, 404, { code: 1, msg: '考试不存在' });
     const want = body.studentIds && Array.isArray(body.studentIds) ? new Set(body.studentIds.map(String)) : null;
     let updated = 0;
+    const touchedIds = [];
     const apply = (s) => {
       if (want && !want.has(String(s.id))) return;
       const rec = x.records && x.records[String(s.id)];
@@ -2053,6 +2093,7 @@ const server = http.createServer(async (req, res) => {
       s.scores = s.scores || {};
       Object.keys(rec).forEach(k => { s.scores[k] = Math.max(0, Number(rec[k]) || 0); });
       updated++;
+      if (touchedIds.indexOf(String(s.id)) === -1) touchedIds.push(String(s.id));
     };
     const pool = readStudents();
     pool.forEach(apply);
@@ -2060,6 +2101,11 @@ const server = http.createServer(async (req, res) => {
     const classes = readClasses();
     classes.forEach(c => (c.students || []).forEach(apply));
     writeClasses(classes);
+    // 事务通知：档案成绩被该场考试更新过的学生
+    notifyBatch(touchedIds.map(sid => ({
+      sid: sid, type: 'score', title: '成绩已更新',
+      body: '「' + x.name + '」的成绩已同步到你的档案成绩。'
+    })));
     return sendJson(res, 200, { code: 0, msg: `已将 ${updated} 名学生的档案成绩更新为该场考试成绩` });
   }
 
@@ -2177,6 +2223,10 @@ const server = http.createServer(async (req, res) => {
     };
     const list = readConduct();
     list.unshift(item);
+    // 事务通知：操行（奖励 / 处分 / 评语）记录推送学生
+    notifyStudent(studentId, 'conduct', '操行记录更新',
+      item.date + ' 新增「' + (CONDUCT_TYPE[item.type] || '记录') + '」：' + item.title +
+      (item.detail ? '（' + item.detail + '）' : ''));
     writeConduct(list);
     return sendJson(res, 200, { code: 0, data: item });
   }
@@ -2246,6 +2296,8 @@ const server = http.createServer(async (req, res) => {
       app.status = 'rejected';
       app.handledAt = now;
       app.updatedAt = now;
+      notifyStudent(app.sid, 'dorm', '住宿申请未通过',
+        '你提交的住宿申请未通过审核，如需入住可在学生中心重新选择房间提交申请。');
       writeDormApps(apps);
       return sendJson(res, 200, { code: 0, msg: '已驳回申请' });
     }
@@ -2275,6 +2327,8 @@ const server = http.createServer(async (req, res) => {
     app.status = 'approved';
     app.handledAt = now;
     app.updatedAt = now;
+    notifyStudent(app.sid, 'dorm', '住宿申请已通过',
+      '已为你安排入住 ' + (room.building || '') + ' ' + (room.roomNo || '') + '，可在学生中心「宿舍安排」查看床位。');
     writeDormApps(apps);
     return sendJson(res, 200, { code: 0, msg: '已通过：' + stu.name + ' 已安排入住 ' + (room.building || '') + (room.roomNo || '') });
   }
@@ -2347,7 +2401,15 @@ const server = http.createServer(async (req, res) => {
       if (x.id === id) return;
       x.students = (x.students || []).filter(s => !ids.includes(String(s)));
     });
+    // 仅对本次新入住的学生发通知（原本已住本房间的不重复提醒）
+    const addedIds = ids.filter(sid => !(r.students || []).some(x => String(x) === String(sid)));
     r.students = Array.from(new Set([...(r.students || []).filter(s => !ids.includes(String(s))), ...ids]));
+    if (addedIds.length) {
+      notifyBatch(addedIds.map(sid => ({
+        sid: sid, type: 'dorm', title: '宿舍安排已更新',
+        body: '你已被安排入住 ' + (r.building || '') + ' ' + (r.roomNo || '') + '，可在学生中心「宿舍安排」查看。'
+      })));
+    }
     writeDorms(dorms);
     return sendJson(res, 200, { code: 0, msg: `已安排 ${ids.length} 名学生入住` });
   }
@@ -2361,6 +2423,8 @@ const server = http.createServer(async (req, res) => {
     const r = dorms.find(x => x.id === dormId);
     if (!r) return sendJson(res, 404, { code: 1, msg: '房间不存在' });
     r.students = (r.students || []).filter(s => String(s) !== String(stuId));
+    notifyStudent(stuId, 'dorm', '已办理退宿',
+      '你已从 ' + (r.building || '') + ' ' + (r.roomNo || '') + ' 退宿，如需重新入住可提交住宿申请。');
     writeDorms(dorms);
     return sendJson(res, 200, { code: 0, msg: '已退宿' });
   }
@@ -2406,6 +2470,18 @@ const server = http.createServer(async (req, res) => {
       (a.students || []).forEach(s => assignedIds.add(s.id));
     });
     const remaining = students.filter(s => !assignedIds.has(s.id));
+
+    // 事务通知：告知每位被分入班级的学生
+    const classNotes = [];
+    assignments.forEach(a => {
+      const cls = classes.find(c => c.id === a.classId);
+      if (!cls) return;
+      (a.students || []).forEach(s => classNotes.push({
+        sid: s.id, type: 'class', title: '分班结果已更新',
+        body: '你已被分入「' + cls.name + '」' + (cls.grade ? '（' + cls.grade + '）' : '') + '，可在学生中心「我的分班结果」查看。'
+      }));
+    });
+    notifyBatch(classNotes);
 
     writeClasses(classes);
     writeStudents(remaining);
@@ -2759,6 +2835,12 @@ const server = http.createServer(async (req, res) => {
     leaf.reviewedAt = new Date().toISOString();
     leaf.updatedAt = leaf.reviewedAt;
     if (action === 'approved') applyLeaveToAttendance(leaf);
+    // 事务通知：把审批结果推送到学生中心的消息通知
+    notifyStudent(leaf.sid, 'leave',
+      action === 'approved' ? '请假申请已通过' : '请假申请未通过',
+      leaf.type + '：' + leaf.startDate + ' 至 ' + leaf.endDate + '（' + (leaf.days || 0) + ' 天）' +
+      (action === 'approved' ? '，已批准' : '，未通过') +
+      (leaf.reviewNote ? '。审批意见：' + leaf.reviewNote : ''));
     writeLeaves(list);
     return sendJson(res, 200, { code: 0, data: leaf, msg: action === 'approved' ? '已批准，请假已同步写入该班考勤' : '已驳回该请假申请' });
   }
@@ -2890,6 +2972,41 @@ const server = http.createServer(async (req, res) => {
         };
       });
     return sendJson(res, 200, { code: 0, data: list });
+  }
+  // 我的消息通知：与本人相关的事务变化（请假审批 / 宿舍安排 / 分班结果 / 成绩 / 操行）
+  if (pathname === '/api/student/notifications' && req.method === 'GET') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生中心' });
+    const stu = findStudentByNo(s.username);
+    if (!stu) return sendJson(res, 404, { code: 1, msg: '未找到学生档案' });
+    const mine = readNotifications()
+      .filter(x => String(x.sid) === String(stu.id))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    return sendJson(res, 200, {
+      code: 0,
+      data: {
+        list: mine.slice(0, 50),
+        unread: mine.filter(x => !x.read).length,
+        total: mine.length
+      }
+    });
+  }
+  // 标记消息已读：{ all: true } 全部已读；{ id } 单条已读
+  if (pathname === '/api/student/notifications/read' && req.method === 'PUT') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生中心' });
+    const stu = findStudentByNo(s.username);
+    if (!stu) return sendJson(res, 404, { code: 1, msg: '未找到学生档案' });
+    const body = await readBody(req);
+    const all = readNotifications();
+    let n = 0;
+    all.forEach(x => {
+      if (String(x.sid) !== String(stu.id)) return;
+      if (!body.all && String(x.id) !== String(body.id || '')) return;
+      if (!x.read) { x.read = true; n++; }
+    });
+    if (n) writeNotifications(all);
+    return sendJson(res, 200, { code: 0, read: n, msg: n ? '已标记 ' + n + ' 条为已读' : '没有未读消息' });
   }
   if (pathname === '/api/student/leaves' && req.method === 'GET') {
     const s = authStudent(req);

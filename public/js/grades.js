@@ -134,6 +134,8 @@ async function saveGrade(e) {
     return;
   }
 
+  const done = busyBtn(e && e.submitter ? e.submitter : $('#gradeForm') && $('#gradeForm').querySelector('button[type="submit"]'), '保存中…');
+  if (!done) return;
   try {
     const url = oldName ? `${API}/${encodeURIComponent(oldName)}` : API;
     const method = oldName ? 'PUT' : 'POST';
@@ -155,6 +157,8 @@ async function saveGrade(e) {
     await loadData();
   } catch (e) {
     toast('保存失败：' + e.message, 'error');
+  } finally {
+    done();
   }
 }
 
@@ -255,7 +259,6 @@ function bindEvents() {
   $('#btnAdd').onclick = () => openModal();
   $('#modalClose').onclick = closeModal;
   $('#modalCancel').onclick = closeModal;
-  $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') closeModal(); };
   $('#gradeForm').onsubmit = saveGrade;
 
   $('#gradesTbody').onclick = (e) => {

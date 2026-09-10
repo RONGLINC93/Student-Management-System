@@ -105,8 +105,13 @@ async function loadGradeOptions() {
   }
 }
 
-// 保存筛选设置到服务端
-async function saveFilters() {
+// 保存筛选设置到服务端（速度/缩放滑块拖动会高频触发，合并为一次请求）
+let _filterTimer = null;
+function saveFilters() {
+  clearTimeout(_filterTimer);
+  _filterTimer = setTimeout(doSaveFilters, 300);
+}
+async function doSaveFilters() {
   try {
     const filters = {
       'allocate:grade': $('#gradeFilter')?.value || '',
@@ -482,6 +487,13 @@ async function startDeal() {
     toast(`班级总容量不足：待分学生 ${students.length} 人 > 总容量 ${totalCap} 人，请先在班级管理中调大容量或退回部分学生`, 'error');
     return;
   }
+  // 先上锁再 await 刷新设置，避免该窗口内二次点击穿透守卫导致重复分班
+  isDealing = true;
+  stopPhasePump(); // 排位提示帧让位：倒计时帧由 runDealCountdown 逐秒接管，随后每入班一人的实时帧自带 deal 阶段
+  setShuffleDisabled(true);
+  $('#btnDeal').disabled = true;
+  $('#btnReset').disabled = true;
+
   // 分班前刷新系统设置（均衡权重可能在设置页被调整过）
   if (typeof window.siteLoadSettings === 'function') {
     try { await window.siteLoadSettings(); } catch (e) {}
@@ -489,11 +501,6 @@ async function startDeal() {
 
   const strategy = $('#strategy').value;
   const showScale = Number($('#showScale')?.value || 1.6);
-  isDealing = true;
-  stopPhasePump(); // 排位提示帧让位：倒计时帧由 runDealCountdown 逐秒接管，随后每入班一人的实时帧自带 deal 阶段
-  setShuffleDisabled(true);
-  $('#btnDeal').disabled = true;
-  $('#btnReset').disabled = true;
 
   // 初始化大屏实时快照状态（每个班以班级块中已展示的学生为起点）
   liveGrade = $('#gradeFilter')?.value || '';
@@ -824,7 +831,6 @@ function bindEvents() {
   if (settingsClose) settingsClose.onclick = closeSettings;
   const settingsDone = $('#settingsDone');
   if (settingsDone) settingsDone.onclick = closeSettings;
-  if (settingsMask) settingsMask.onclick = (e) => { if (e.target === settingsMask) closeSettings(); };
 }
 
 bindEvents();

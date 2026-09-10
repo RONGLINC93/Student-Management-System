@@ -249,6 +249,7 @@
       document.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
 
       function doLogin() {
+        if (btn.disabled) return; // 登录请求进行中，避免连按回车重复提交
         hideErr();
         var username = user.value.trim();
         if (!username) { showErr('请输入账号'); user.focus(); return; }

@@ -256,6 +256,8 @@ async function saveClass(e) {
     capacity: $('#fCapacity').value
   };
   if (!data.name) { toast('请输入班级名称', 'error'); return; }
+  const done = busyBtn(e && e.submitter ? e.submitter : $('#clsForm') && $('#clsForm').querySelector('button[type="submit"]'), '保存中…');
+  if (!done) return;
   try {
     const res = await fetch(id ? `${API}/${id}` : API, {
       method: id ? 'PUT' : 'POST',
@@ -269,6 +271,8 @@ async function saveClass(e) {
     await loadData();
   } catch (e) {
     toast('保存失败：' + e.message, 'error');
+  } finally {
+    done();
   }
 }
 
@@ -386,6 +390,8 @@ async function returnAllStudents() {
   const cnt = cls.students?.length || 0;
   if (!cnt) { toast('该班暂无学生', 'error'); return; }
   if (!(await confirmDlg(`确定将「${cls.name}」的 ${cnt} 名学生全部退回学生池吗？`, { title: '整班退回', okText: '退回', danger: true }))) return;
+  const done = busyBtn($('#btnReturnAll'), '退回中…');
+  if (!done) return;
   try {
     await fetch(`${API}/${cls.id}/return-all`, { method: 'POST' });
     toast('已全部退回学生池', 'success');
@@ -395,7 +401,7 @@ async function returnAllStudents() {
     else closeRoster();
   } catch (e) {
     toast('操作失败：' + e.message, 'error');
-  }
+  } finally { done(); }
 }
 
 // ===== 批量入班（学生池多选加入本班） =====
@@ -650,19 +656,16 @@ function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
   $('#modalClose').onclick = closeModal;
   $('#modalCancel').onclick = closeModal;
-  $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') closeModal(); };
   $('#clsForm').onsubmit = saveClass;
   $('#searchInput').oninput = () => { renderClasses(); saveFilters(); };
   $('#gradeFilter').onchange = () => { renderClasses(); saveFilters(); };
   $('#rosterClose').onclick = closeRoster;
-  $('#rosterMask').onclick = (e) => { if (e.target.id === 'rosterMask') closeRoster(); };
   $('#btnExportRoster').onclick = exportRoster;
   $('#btnReturnAll').onclick = returnAllStudents;
 
   // 批量入班弹窗
   $('#batchClose').onclick = closeBatchDlg;
   $('#batchCancel').onclick = closeBatchDlg;
-  $('#batchMask').onclick = (e) => { if (e.target.id === 'batchMask') closeBatchDlg(); };
   $('#batchSearch').oninput = renderBatchList;
   $('#batchAll').onchange = onBatchAllChange;
   $('#batchTbody').onchange = onBatchTbodyChange;
@@ -682,12 +685,16 @@ function bindEvents() {
     if (act === 'batchadd') openBatchDlg(id);
   };
 
-  $('#rosterTbody').onclick = (e) => {
+  $('#rosterTbody').onclick = async (e) => {
     const btn = e.target.closest('[data-act="remove"]');
     if (!btn) return;
     const tr = btn.closest('tr');
     const stuId = tr.dataset.id;
-    if (rosterClassId) removeStudentFromClass(rosterClassId, stuId);
+    if (!rosterClassId) return;
+    const done = busyBtn(btn, '处理中…');
+    if (!done) return;
+    try { await removeStudentFromClass(rosterClassId, stuId); }
+    finally { done(); }
   };
 }
 

@@ -327,6 +327,31 @@
     }
     .cancel-mini:hover { background: #fef2f2; }
 
+    /* ===== 消息通知（学生端 · 事务变化）===== */
+    .bell { position: relative; padding: 7px 10px; display: inline-flex; align-items: center; gap: 6px; }
+    .bell svg { width: 16px; height: 16px; }
+    .bell-txt { font-size: 13px; }
+    .msg-badge {
+      position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px;
+      padding: 0 5px; box-sizing: border-box; border-radius: 999px;
+      background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
+      font-style: normal; line-height: 16px; text-align: center;
+    }
+    .msg-badge[hidden] { display: none; }
+    .msg-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -4px 0 10px; font-size: 12.5px; color: var(--muted); }
+    .msg-list { max-height: 54vh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+    .msg-item { display: flex; gap: 10px; align-items: flex-start; padding: 11px 13px; border-bottom: 1px solid #f1f3f5; cursor: pointer; }
+    .msg-item:last-child { border-bottom: 0; }
+    .msg-item:hover { background: #fbfdfc; }
+    .msg-item.unread { background: #f6fefb; }
+    .msg-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-top: 6px; background: #d1d5db; }
+    .msg-item.unread .msg-dot { background: var(--brand); }
+    .msg-main { flex: 1; min-width: 0; }
+    .msg-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+    .msg-body { margin-top: 3px; font-size: 12.5px; color: var(--ink-2); line-height: 1.7; word-break: break-all; }
+    .msg-time { margin-top: 5px; font-size: 11.5px; color: #9ca3af; }
+    @media (max-width: 720px) { .bell-txt { display: none; } }
+
     .hidden { display: none !important; }
     /* 恢复 hidden 属性语义：避免被 .force-cover/.board-banner 等 display 声明覆盖 */
     [hidden] { display: none !important; }
@@ -358,6 +383,11 @@
           <div class="u-no" id="uNo"></div>
         </div>
         <div class="avatar" id="uAvatar">…</div>
+        <button type="button" class="btn ghost bell" id="btnMsg" data-act="open-msg" title="消息通知">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="bell-txt">消息</span>
+          <i class="msg-badge" id="msgBadge" hidden></i>
+        </button>
         <button type="button" class="btn ghost" id="btnOpenPwd">修改密码</button>
         <button type="button" class="btn ghost danger" id="btnLogout">退出登录</button>
       </div>
@@ -532,6 +562,20 @@
         <button type="button" class="btn outline" data-act="close-leave">取消</button>
         <button type="button" class="btn grad" id="btnLvSubmit">提交申请</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== 消息通知（事务变化汇总） ===== -->
+  <div class="mask" id="msgMask">
+    <div class="modal" style="width:500px;">
+      <button type="button" class="m-close" data-act="close-msg">✕</button>
+      <h3>消息通知</h3>
+      <p class="msub">这里汇总与你本人相关的事务变动：请假审批结果、宿舍安排、分班结果、成绩更新、操行记录等。点击消息可标记为已读。</p>
+      <div class="msg-tools">
+        <span id="msgTip">加载中…</span>
+        <button type="button" class="btn soft" style="padding:5px 12px;font-size:12.5px;" data-act="read-all-msg">全部标为已读</button>
+      </div>
+      <div class="msg-list" id="msgList"><div class="empty-zone"><div class="big">🔔</div><div>消息加载中…</div></div></div>
     </div>
   </div>
 
@@ -798,6 +842,7 @@
             if (j.code === 0) renderAnn(j.data || []);
           })
           .catch(function () {});
+        loadNotices();
       }
 
       function reloadLeaves() {
@@ -883,6 +928,74 @@
       function toggleAnn(el) {
         var it = el.closest('.ann-item');
         if (it) it.classList.toggle('open');
+      }
+
+      /* ================= 消息通知（事务变化） ================= */
+      var MSG_KIND = {
+        leave: { label: '请假', cls: 'run' },
+        dorm: { label: '宿舍', cls: 'g' },
+        class: { label: '分班', cls: 'ok' },
+        score: { label: '成绩', cls: 'ok' },
+        conduct: { label: '操行', cls: 'no' },
+        system: { label: '系统', cls: 'g' }
+      };
+
+      function noticeItem(n) {
+        var k = MSG_KIND[n.type] || MSG_KIND.system;
+        return '<div class="msg-item' + (n.read ? '' : ' unread') + '" data-act="read-msg" data-id="' + esc(n.id) + '">' +
+          '<span class="msg-dot"></span>' +
+          '<div class="msg-main">' +
+          '<div class="msg-title"><span class="tag ' + k.cls + '">' + k.label + '</span>' + esc(n.title) + '</div>' +
+          (n.body ? '<div class="msg-body">' + esc(n.body) + '</div>' : '') +
+          '<div class="msg-time">' + fmtDT(n.createdAt) + (n.read ? ' · 已读' : ' · 未读') + '</div>' +
+          '</div></div>';
+      }
+
+      function renderNotices(list, unread) {
+        G.notices = list || [];
+        var badge = document.getElementById('msgBadge');
+        badge.textContent = unread > 99 ? '99+' : String(unread);
+        badge.hidden = !unread;
+        document.getElementById('msgTip').textContent = G.notices.length
+          ? ('共 ' + G.notices.length + ' 条' + (unread ? '，其中 ' + unread + ' 条未读' : '，已全部读过'))
+          : '暂无消息';
+        document.getElementById('msgList').innerHTML = G.notices.length
+          ? G.notices.map(noticeItem).join('')
+          : '<div class="empty-zone"><div class="big">🔔</div><div>暂时没有与你相关的消息</div>' +
+            '<div style="font-size:12.5px;color:#94a3b8;">请假审批、宿舍安排、分班结果、成绩与操行记录发生变动时，会在这里提醒你。</div></div>';
+      }
+
+      function loadNotices() {
+        return fetch('/api/student/notifications')
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (j.code === 0 && j.data) renderNotices(j.data.list || [], j.data.unread || 0);
+          })
+          .catch(function () {});
+      }
+
+      function markNoticesRead(payload, okMsg) {
+        return fetch('/api/student/notifications/read', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (j && j.code === 0) {
+              if (okMsg) toast(j.msg || okMsg);
+              loadNotices();
+            } else {
+              toast((j && j.msg) || '操作失败');
+            }
+          })
+          .catch(function () { toast('网络异常，请稍后重试'); });
+      }
+
+      function openMsgModal() {
+        document.getElementById('msgList').innerHTML = '<div class="empty-zone"><div class="big">🔔</div><div>消息加载中…</div></div>';
+        document.getElementById('msgMask').classList.add('show');
+        loadNotices();
       }
 
       function openLeaveModal() {
@@ -1060,6 +1173,10 @@
         if (act === 'open-leave') { openLeaveModal(); return; }
         if (act === 'close-leave') { closeLeaveModal(); return; }
         if (act === 'toggle-ann') { toggleAnn(el); return; }
+        if (act === 'open-msg') { openMsgModal(); return; }
+        if (act === 'close-msg') { document.getElementById('msgMask').classList.remove('show'); return; }
+        if (act === 'read-msg') { markNoticesRead({ id: el.getAttribute('data-id') }, ''); return; }
+        if (act === 'read-all-msg') { markNoticesRead({ all: true }, '已全部标为已读'); return; }
         if (act === 'cancel-leaf') { cancelLeaf(el.getAttribute('data-id')); return; }
         if (act === 'goto-class-help' || act === 'help-dorm') {
           toast('如需确认分班 / 宿舍安排，可联系班主任：' + ((G.me.profile && G.me.profile.headTeacher && G.me.profile.headTeacher.name) || '学校教务处'));
@@ -1119,13 +1236,7 @@
       document.getElementById('btnLogout').addEventListener('click', logout);
       document.getElementById('btnGoneLogout').addEventListener('click', logout);
 
-      // 关闭弹窗按钮
-      function maskHide(mask) {
-        if (mask.id !== 'pwdMask' || !G.me || !G.me.must) mask.classList.remove('show');
-      }
-      [document.getElementById('pwdMask'), document.getElementById('dormMask'), document.getElementById('leaveMask')].forEach(function (mask) {
-        mask.addEventListener('click', function (e) { if (e.target === mask) maskHide(mask); });
-      });
+      // 弹窗关闭方式：仅「关闭 / 取消」按钮，点击遮罩层不关闭，避免误关
 
       // 启动
       Promise.all([

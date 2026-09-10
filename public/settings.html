@@ -701,6 +701,8 @@
           var obj;
           try { obj = JSON.parse(rd.result); } catch (e) { toast('文件不是有效的备份 JSON', 'err'); return; }
           if (!ask('导入将覆盖当前全部数据，确认继续吗？')) return;
+          var done = busyBtn($el('btnPickImport'), '导入中…');
+          if (!done) return;
           fetch('/api/restore', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -711,7 +713,8 @@
             load();
             if (typeof window.siteLoadSettings === 'function') window.siteLoadSettings();
             try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'icst-settings', url: location.pathname }, location.origin); } catch (e) {}
-          }).catch(function (e) { toast(e.message || '恢复失败', 'err'); });
+          }).catch(function (e) { toast(e.message || '恢复失败', 'err'); })
+            .finally(function () { done(); });
         };
         rd.readAsText(file);
       });
@@ -727,9 +730,12 @@
         } else if (!(await window.confirmStrictDlg(tip, { title: '清空学生档案', okText: '清空学生' }))) {
           return;
         }
+        var done = busyBtn($el('btnClearStudents'), '清空中…');
+        if (!done) return;
         fetch('/api/students', { method: 'DELETE' }).then(function (r) { return r.json(); }).then(function (j) {
           toast(j.code === 0 ? '已清空全部学生档案' : (j.msg || '清空失败'), j.code === 0 ? 'ok' : 'err');
-        }).catch(function () { toast('清空失败，请重试', 'err'); });
+        }).catch(function () { toast('清空失败，请重试', 'err'); })
+          .finally(function () { done(); });
       });
 
       $el('btnClearClasses').addEventListener('click', async function () {
@@ -742,9 +748,12 @@
         } else if (!(await window.confirmStrictDlg(tip, { title: '清空全部班级', okText: '清空班级' }))) {
           return;
         }
+        var done = busyBtn($el('btnClearClasses'), '清空中…');
+        if (!done) return;
         fetch('/api/classes', { method: 'DELETE' }).then(function (r) { return r.json(); }).then(function (j) {
           toast(j.code === 0 ? '已清空全部班级' : (j.msg || '清空失败'), j.code === 0 ? 'ok' : 'err');
-        }).catch(function () { toast('清空失败，请重试', 'err'); });
+        }).catch(function () { toast('清空失败，请重试', 'err'); })
+          .finally(function () { done(); });
       });
 
       $el('btnDataManage').addEventListener('click', load);
@@ -863,6 +872,8 @@
         if (!oldP) return toast('请输入当前密码', 'err');
         if (n1.length < 6 || n1.length > 64) return toast('新密码需为 6～64 位', 'err');
         if (n1 !== n2) return toast('两次输入的新密码不一致', 'err');
+        var done = busyBtn($el('btnSavePwd'), '保存中…');
+        if (!done) return;
         fetch('/api/auth/password', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -871,7 +882,8 @@
           if (j.code !== 0) throw new Error(j.msg || '修改失败');
           $el('pwOld').value = $el('pwNew').value = $el('pwNew2').value = '';
           toast('密码已更新，请妥善保管', 'ok');
-        }).catch(function (e) { toast(e.message || '修改失败', 'err'); });
+        }).catch(function (e) { toast(e.message || '修改失败', 'err'); })
+          .finally(function () { done(); });
       });
 
       // —— 账号管理（仅管理员可见）——
@@ -970,6 +982,8 @@
         if (!name) return toast('请输入账号', 'err');
         if (!/^[\w\u4e00-\u9fa5-]{2,20}$/.test(name)) return toast('账号需为 2～20 位中英文、数字、下划线或短横线', 'err');
         if (pwd.length < 6 || pwd.length > 64) return toast('初始密码需为 6～64 位', 'err');
+        var done = busyBtn($el('btnAddAcc'), '创建中…');
+        if (!done) return;
         fetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -979,7 +993,8 @@
           toast('账号已创建', 'ok');
           $el('accUser').value = $el('accPwd').value = '';
           renderAccList();
-        }).catch(function (e) { toast(e.message || '创建失败', 'err'); });
+        }).catch(function (e) { toast(e.message || '创建失败', 'err'); })
+          .finally(function () { done(); });
       });
 
       function initAcc() {
@@ -1059,13 +1074,15 @@
           if (!(await window.confirmDlg(tip, { title: '重启服务', okText: '重启' }))) return;
         } else if (!window.confirm(tip)) return;
         var delaySec = Number($el('srvRestartDelay').value) || 0;
+        var done = busyBtn($el('btnRestartService'), '重启中…');
+        if (!done) return;
         fetch('/api/server/restart', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (j) {
           toast(j.msg || (j.code === 0 ? '正在重启服务' : '重启失败'), j.code === 0 ? 'ok' : 'err');
           if (j.code === 0) waitServerBack(delaySec + 1);
         }).catch(function () {
           toast('服务正在重启，恢复后页面会自动刷新', 'ok');
           waitServerBack(delaySec + 2);
-        });
+        }).finally(function () { done(); });
       });
 
       load();

@@ -220,6 +220,8 @@ async function submitForm() {
   if (!editingId && !$L('#stuSel').value) return toast('请从搜索结果中选择学生', 'error');
   if (!s || !e || s > e) return toast('请选择正确的起止日期', 'error');
   const reason = $L('#reason').value;
+  const done = busyBtn($L('#btnSave'), '提交中…');
+  if (!done) return;
   try {
     if (editingId) {
       await apiL(`${LEAF_API}/${editingId}`, 'PUT', { type, startDate: s, endDate: e, reason });
@@ -232,6 +234,7 @@ async function submitForm() {
     await loadLeaves();
     notifyLeavesChangedToParent();
   } catch (err) { toast(err.message, 'error'); }
+  finally { done(); }
 }
 function openReview(x) {
   curReview = x;
@@ -250,6 +253,11 @@ function openReview(x) {
 }
 async function doReview(action) {
   if (!curReview) return;
+  const approveBtn = $L('#btnApprove');
+  const rejectBtn = $L('#btnReject');
+  if (approveBtn.disabled || rejectBtn.disabled) return; // 审批进行中，拒绝重复提交
+  approveBtn.disabled = true;
+  rejectBtn.disabled = true;
   const note = $L('#reviewNote').value.trim();
   try {
     await apiL(`${LEAF_API}/${curReview.id}/review`, 'POST', { action, note });
@@ -258,6 +266,10 @@ async function doReview(action) {
     await loadLeaves();
     notifyLeavesChangedToParent();
   } catch (err) { toast(err.message, 'error'); }
+  finally {
+    approveBtn.disabled = false;
+    rejectBtn.disabled = false;
+  }
 }
 async function delLeaf(id) {
   const x = leaves.find(v => v.id === id);
@@ -292,7 +304,6 @@ function bindEvents() {
   $L('#btnExport').onclick = exportCsv;
   $L('#newX').onclick = closeForm;
   $L('#newCancel').onclick = closeForm;
-  $L('#newMask').addEventListener('click', e => { if (e.target === $L('#newMask')) closeForm(); });
   $L('#btnSave').onclick = submitForm;
   $L('#startDate').onchange = updateDaysTip;
   $L('#endDate').onchange = updateDaysTip;
@@ -329,7 +340,6 @@ function bindEvents() {
   });
 
   $L('#reviewX').onclick = () => $L('#reviewMask').classList.remove('show');
-  $L('#reviewMask').addEventListener('click', e => { if (e.target === $L('#reviewMask')) $L('#reviewMask').classList.remove('show'); });
   $L('#btnApprove').onclick = () => doReview('approve');
   $L('#btnReject').onclick = () => doReview('reject');
 

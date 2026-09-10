@@ -344,7 +344,13 @@ async function loadGradeOptions() {
   }
 }
 
-async function saveFilters() {
+let _filterTimer = null;
+// 搜索框逐字输入会高频触发，合并为一次保存，避免请求风暴
+function saveFilters() {
+  clearTimeout(_filterTimer);
+  _filterTimer = setTimeout(doSaveFilters, 300);
+}
+async function doSaveFilters() {
   try {
     const filters = {
       'students:grade': $('#gradeFilter')?.value || '',
@@ -622,6 +628,8 @@ async function saveStudent(e) {
   if (!inClass) data.grade = $('#fGrade').value;
   if (!data.studentId) { toast('请输入学号', 'error'); return; }
   if (!data.name) { toast('请输入姓名', 'error'); return; }
+  const done = busyBtn(e && e.submitter ? e.submitter : $('#stuForm') && $('#stuForm').querySelector('button[type="submit"]'), '保存中…');
+  if (!done) return;
   try {
     const url = inClass
       ? `/api/classes/${encodeURIComponent(cur.classId)}/students/${encodeURIComponent(id)}`
@@ -638,6 +646,8 @@ async function saveStudent(e) {
     await loadStudents();
   } catch (err) {
     toast('保存失败：' + err.message, 'error');
+  } finally {
+    done();
   }
 }
 
@@ -767,6 +777,8 @@ async function doAssignSave() {
   if (!stu) return;
   const classId = $('#assignSelect').value;
   if (!classId) { toast('请先选择目标班级', 'error'); return; }
+  const done = busyBtn($('#assignSave'), '处理中…');
+  if (!done) return;
   try {
     const res = await fetch(`${API}/${encodeURIComponent(stu.id)}/assign`, {
       method: 'POST',
@@ -780,6 +792,8 @@ async function doAssignSave() {
     await loadStudents();
   } catch (e) {
     toast('入班失败：' + e.message, 'error');
+  } finally {
+    done();
   }
 }
 
@@ -900,6 +914,8 @@ async function doDormSave() {
   const room = dorms.find(r => r.id === dormSelectedId);
   if (!room) { toast('所选房间不存在，请刷新后重试', 'error'); return; }
   if (dormCurrentId && dormCurrentId === dormSelectedId) { toast('该生当前已在此房间，无需更换', 'error'); return; }
+  const done = busyBtn($('#btnDormSave'), '处理中…');
+  if (!done) return;
   try {
     const res = await fetch(`${DORMS_API}/${encodeURIComponent(dormSelectedId)}/assign`, {
       method: 'POST',
@@ -914,6 +930,8 @@ async function doDormSave() {
     renderStuDormBox();
   } catch (e) {
     toast('分配失败：' + e.message, 'error');
+  } finally {
+    done();
   }
 }
 
@@ -938,10 +956,16 @@ async function leaveStudent(stu) {
 }
 async function doDormLeave() {
   if (!dormTarget || !dormCurrentId) return;
-  if (await leaveStudent(dormTarget)) {
-    closeDormDlg();
-    await loadStudents();
-    renderStuDormBox();
+  const done = busyBtn($('#btnDormLeave'), '处理中…');
+  if (!done) return;
+  try {
+    if (await leaveStudent(dormTarget)) {
+      closeDormDlg();
+      await loadStudents();
+      renderStuDormBox();
+    }
+  } finally {
+    done();
   }
 }
 
@@ -1056,6 +1080,8 @@ async function batchImport() {
     if (window.SUBJECTS && window.SUBJECTS.length >= 4) d.scores = { ...subDemo };
     else d.scores = { chinese: 85, math: 88, english: 82, science: 86 };
   });
+  const done = busyBtn($('#btnImport'), '导入中…');
+  if (!done) return;
   try {
     const res = await fetch(`${API}/batch`, {
       method: 'POST',
@@ -1067,6 +1093,8 @@ async function batchImport() {
     await loadStudents();
   } catch (e) {
     toast('导入失败：' + e.message, 'error');
+  } finally {
+    done();
   }
 }
 
@@ -1205,16 +1233,22 @@ async function importTableData(file) {
     });
     if (!list.length) return toast('未解析到有效学生数据（姓名列不能为空）', 'error');
 
-    const res = await fetch(`${API}/batch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(list)
-    });
-    const json = await res.json();
-    let msg = `成功导入 ${json.count} 名学生`;
-    if (skipped.length) msg += `，${skipped.length} 行姓名为空已跳过（第 ${skipped.join('、')} 行）`;
-    toast(msg, 'success');
-    await loadStudents();
+    const done = busyBtn(document.getElementById('btnImportFile'), '导入中…');
+    if (!done) return;
+    try {
+      const res = await fetch(`${API}/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(list)
+      });
+      const json = await res.json();
+      let msg = `成功导入 ${json.count} 名学生`;
+      if (skipped.length) msg += `，${skipped.length} 行姓名为空已跳过（第 ${skipped.join('、')} 行）`;
+      toast(msg, 'success');
+      await loadStudents();
+    } finally {
+      done();
+    }
   } catch (e) {
     toast('导入失败：' + e.message, 'error');
   }
@@ -1371,12 +1405,10 @@ function bindEvents() {
 
   $('#modalClose').onclick = closeModal;
   $('#modalCancel').onclick = closeModal;
-  $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') closeModal(); };
   $('#stuForm').onsubmit = saveStudent;
   // 安排入班 / 转班弹窗
   $('#assignClose').onclick = closeAssignDlg;
   $('#assignCancel').onclick = closeAssignDlg;
-  $('#assignMask').onclick = (e) => { if (e.target.id === 'assignMask') closeAssignDlg(); };
   $('#assignSelect').onchange = updateAssignSave;
   $('#assignSave').onclick = doAssignSave;
   $('#searchInput').oninput = () => { currentPage = 1; renderTable(); saveFilters(); };
@@ -1431,7 +1463,11 @@ function bindEvents() {
       if (act === 'sdb-assign' || act === 'sdb-swap') {
         openDormDlg(stu);
       } else if (act === 'sdb-leave') {
-        if (await leaveStudent(stu)) { await loadStudents(); renderStuDormBox(); }
+        const done = busyBtn(b, '处理中…');
+        if (!done) return;
+        try {
+          if (await leaveStudent(stu)) { await loadStudents(); renderStuDormBox(); }
+        } finally { done(); }
       } else if (act === 'sdb-view') {
         const r = dormRoomOfStudent(stu);
         if (r) openRoomPage(r.id, stu.id);
@@ -1442,7 +1478,6 @@ function bindEvents() {
   }
 
   // 宿舍弹窗
-  $('#dormMask').onclick = (e) => { if (e.target.id === 'dormMask') closeDormDlg(); };
   $('#dormClose').onclick = closeDormDlg;
   $('#dormCancel').onclick = closeDormDlg;
   $('#dormSearch').oninput = renderDormList;
@@ -1528,6 +1563,8 @@ async function doEnrollSave() {
   if (!enrollStu) return;
   const st = document.getElementById('enrollStatus').value;
   const note = document.getElementById('enrollNote').value.trim();
+  const done = busyBtn(document.getElementById('btnEnrollSave'), '保存中…');
+  if (!done) return;
   try {
     const res = await fetch(`${API}/${encodeURIComponent(enrollStu.id)}/status`, {
       method: 'PUT',
@@ -1541,6 +1578,8 @@ async function doEnrollSave() {
     await loadStudents();
   } catch (e) {
     toast(e.message || '保存失败', 'error');
+  } finally {
+    done();
   }
 }
 
@@ -1587,6 +1626,8 @@ async function onTrashBody(e) {
   const id = btn.dataset.id;
   if (btn.dataset.act === 'restore') {
     if (!(await confirmDlg('恢复后学生将回到待分班池；若原班级仍存在且有容量，会尽量放回原班。确定恢复？', { title: '恢复学生', okText: '恢复' }))) return;
+    const done = busyBtn(btn);
+    if (!done) return;
     try {
       const res = await fetch(`/api/trash/${encodeURIComponent(id)}/restore`, { method: 'POST' });
       const json = await res.json().catch(() => ({}));
@@ -1596,9 +1637,11 @@ async function onTrashBody(e) {
       document.getElementById('trashCount').textContent = trashListCache.length;
       renderTrashList();
       await loadStudents();
-    } catch (err) { toast(err.message || '恢复失败', 'error'); }
+    } catch (err) { toast(err.message || '恢复失败', 'error'); } finally { done(); }
   } else if (btn.dataset.act === 'purge') {
     if (!(await confirmDlg('彻底删除后不可恢复（不会自动删除该生的学生账号）。确定彻底删除？', { title: '彻底删除', okText: '彻底删除', danger: true }))) return;
+    const done = busyBtn(btn);
+    if (!done) return;
     try {
       const res = await fetch(`/api/trash/${encodeURIComponent(id)}/purge`, { method: 'POST' });
       const json = await res.json().catch(() => ({}));
@@ -1607,12 +1650,14 @@ async function onTrashBody(e) {
       trashListCache = trashListCache.filter(x => x.id !== id);
       document.getElementById('trashCount').textContent = trashListCache.length;
       renderTrashList();
-    } catch (err) { toast(err.message || '操作失败', 'error'); }
+    } catch (err) { toast(err.message || '操作失败', 'error'); } finally { done(); }
   }
 }
 async function clearTrash() {
   if (!trashListCache.length) return;
   if (!(await confirmDlg(`回收站中共 ${trashListCache.length} 条记录，清空后不可恢复。确定清空？`, { title: '清空回收站', okText: '清空', danger: true }))) return;
+  const done = busyBtn(document.getElementById('btnTrashClear'), '清空中…');
+  if (!done) return;
   try {
     const res = await fetch('/api/trash/clear', { method: 'POST' });
     const json = await res.json().catch(() => ({}));
@@ -1621,7 +1666,7 @@ async function clearTrash() {
     trashListCache = [];
     document.getElementById('trashCount').textContent = '0';
     renderTrashList();
-  } catch (err) { toast(err.message || '操作失败', 'error'); }
+  } catch (err) { toast(err.message || '操作失败', 'error'); } finally { done(); }
 }
 function initEnrollTrashUI() {
   const enrollMask = document.getElementById('enrollMask');
@@ -1631,7 +1676,6 @@ function initEnrollTrashUI() {
     $('#enrollX').onclick = hide;
     $('#enrollCancel').onclick = hide;
     $('#btnEnrollSave').onclick = doEnrollSave;
-    enrollMask.addEventListener('click', e => { if (e.target === enrollMask) hide(); });
   }
   const btnTrash = document.getElementById('btnTrash');
   if (btnTrash && trashMask) {
@@ -1642,7 +1686,6 @@ function initEnrollTrashUI() {
     $('#btnTrashClear').onclick = clearTrash;
     $('#trashKw').oninput = renderTrashList;
     $('#trashList').addEventListener('click', onTrashBody);
-    trashMask.addEventListener('click', e => { if (e.target === trashMask) hideT(); });
   }
 }
 

@@ -170,6 +170,8 @@ async function createExam(e) {
   e.preventDefault();
   const name = $('#nName').value.trim();
   if (!name) { toast('请填写考试名称', 'error'); return; }
+  const done = busyBtn(e && e.submitter ? e.submitter : $('#newExamForm') && $('#newExamForm').querySelector('button[type="submit"]'), '创建中…');
+  if (!done) return;
   try {
     const x = await api(EXAM_API, 'POST', {
       name,
@@ -184,6 +186,7 @@ async function createExam(e) {
     curId = '';
     await selectExam(x.id);
   } catch (err) { toast(err.message, 'error'); }
+  finally { done(); }
 }
 
 function collectEntryRows() {
@@ -303,6 +306,8 @@ function renderPersonal() {
 }
 
 async function saveMeta() {
+  const done = busyBtn($('#btnMetaSave'), '保存中…');
+  if (!done) return;
   try {
     await api(`${EXAM_API}/${curId}`, 'PUT', {
       name: $('#eName').value.trim(),
@@ -314,10 +319,13 @@ async function saveMeta() {
     await loadBase();
     await selectExam(curId);
   } catch (e) { toast(e.message, 'error'); }
+  finally { done(); }
 }
 
 async function saveScores() {
   const list = collectEntryRows();
+  const done = busyBtn($('#btnSaveScores'), '保存中…');
+  if (!done) return;
   try {
     await api(`${EXAM_API}/${curId}/records`, 'PUT', { list });
     toast(`已保存 ${list.length} 名学生的成绩`, 'success');
@@ -325,6 +333,7 @@ async function saveScores() {
     renderEntry();
     renderExamList();
   } catch (e) { toast(e.message, 'error'); }
+  finally { done(); }
 }
 
 function fillArchive() {
@@ -368,7 +377,6 @@ function bindEvents() {
   $('#btnNewExam').onclick = () => $('#modalMask').classList.add('show');
   $('#modalClose').onclick = () => $('#modalMask').classList.remove('show');
   $('#modalCancel').onclick = () => $('#modalMask').classList.remove('show');
-  $('#modalMask').onclick = (e) => { if (e.target.id === 'modalMask') $('#modalMask').classList.remove('show'); };
   $('#newExamForm').onsubmit = createExam;
   $('#examSearch').oninput = renderExamList;
 
@@ -385,6 +393,8 @@ function bindEvents() {
   $('#btnMetaSave').onclick = saveMeta;
   $('#btnDelExam').onclick = async () => {
     if (!(await confirmDlg(`确定删除考试「${cur.name}」及其全部成绩记录？`, { title: '删除考试', okText: '删除', danger: true }))) return;
+    const done = busyBtn(document.getElementById('btnDelExam'), '删除中…');
+    if (!done) return;
     try {
       await api(`${EXAM_API}/${curId}`, 'DELETE');
       toast('已删除', 'success');
@@ -394,13 +404,17 @@ function bindEvents() {
       $('#emptyHint').hidden = false;
       renderExamList();
     } catch (e) { toast(e.message, 'error'); }
+    finally { done(); }
   };
   $('#btnToArchive').onclick = async () => {
     if (!(await confirmDlg('将本场考试已录入的成绩覆盖同步为对应学生的「当前档案成绩」？\n该成绩将作为班级总览、分班均衡等参考。', { title: '设为档案成绩', okText: '同步', danger: false }))) return;
+    const done = busyBtn(document.getElementById('btnToArchive'), '同步中…');
+    if (!done) return;
     try {
       const data = await api(`${EXAM_API}/${curId}/archive`, 'POST', {});
       toast(data.msg || '同步完成', 'success');
     } catch (e) { toast(e.message, 'error'); }
+    finally { done(); }
   };
   $('#btnExportCsv').onclick = exportCsv;
   $('#btnViewConduct').onclick = () => {
