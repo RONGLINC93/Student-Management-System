@@ -1,6 +1,6 @@
 {
   "admin": {
-    "ts": 1789001486404,
+    "ts": 1789046761393,
     "tabs": [
       {
         "key": "dashboard",
@@ -27,14 +27,18 @@
         "side": false
       },
       {
+        "key": "settings",
+        "side": false
+      },
+      {
         "key": "classes",
-        "side": true
+        "side": false
       }
     ],
-    "splitOn": true,
-    "activeKey": "allocate",
-    "leftKey": "allocate",
-    "rightKey": "classes",
+    "splitOn": false,
+    "activeKey": "settings",
+    "leftKey": "",
+    "rightKey": "",
     "splitRatio": 0.55
   }
 }

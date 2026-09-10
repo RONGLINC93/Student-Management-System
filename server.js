@@ -2,6 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const os = require('os');
+const { spawn } = require('child_process');
 
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_FILE = path.join(__dirname, 'data', 'students.json');
@@ -45,7 +47,11 @@ const DEFAULT_SETTINGS = {
   schoolWebsite: '',         // 学校官网地址（http/https，各页顶栏「官网」入口 + 大屏页脚）
   balanceGender: 1.5,        // 综合均衡：性别均衡强度（越大越强调男女比例均衡）
   balanceSpecialty: 2,       // 综合均衡：特长均衡强度（越大越强调特长分布均衡）
-  subjects: []               // 考试科目配置：[{ key, name, max }]，空时使用 DEFAULT_SUBJECTS
+  subjects: [],              // 考试科目配置：[{ key, name, max }]，空时使用 DEFAULT_SUBJECTS
+  // 服务器管理（系统设置 → 服务器管理）：仅用于重启本服务自身
+  serverControl: {
+    restartDelay: 1          // 重启服务前的延迟（秒），留给前端接收响应
+  }
 };
 
 // 默认考试科目（语文 / 数学 / 英语 / 理综，兼容旧版系统的分班参考成绩）
@@ -714,6 +720,15 @@ function sanitizeSettings(body) {
       if (arr.length) s.subjects = arr;
     }
   }
+  // 服务器管理：仅保留重启延迟（同时清除历史版本遗留的电源控制字段）
+  if (body.serverControl && typeof body.serverControl === 'object') {
+    const def = DEFAULT_SETTINGS.serverControl;
+    const prev = (s.serverControl && typeof s.serverControl === 'object') ? s.serverControl : {};
+    const raw = body.serverControl.restartDelay !== undefined ? body.serverControl.restartDelay : prev.restartDelay;
+    s.serverControl = {
+      restartDelay: Math.min(30, Math.max(0, Number(raw !== undefined ? raw : def.restartDelay) || 0))
+    };
+  }
   return s;
 }
 
@@ -749,6 +764,140 @@ function readBody(req) {
       }
     });
   });
+}
+
+// ===== 服务器管理：本服务状态采集与自身重启 =====
+const SERVER_STARTED_AT = Date.now(); // 进程启动时间（用于计算运行时长）
+
+// 读取 serverControl 配置（settings.json 缺字段时回退默认值）
+function readServerControl() {
+  const def = DEFAULT_SETTINGS.serverControl;
+  let sc = {};
+  try {
+    const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    if (raw && typeof raw.serverControl === 'object' && raw.serverControl) sc = raw.serverControl;
+  } catch (e) {}
+  const raw = sc.restartDelay !== undefined ? sc.restartDelay : def.restartDelay;
+  return { restartDelay: Math.min(30, Math.max(0, Number(raw) || 0)) };
+}
+
+// 运行环境是否为容器（决定「重启服务」能否由外部守护自动拉起）
+function inContainer() {
+  try {
+    if (fs.existsSync('/.dockerenv') || fs.existsSync('/run/.containerenv')) return true;
+    const cg = fs.readFileSync('/proc/1/cgroup', 'utf-8');
+    return /docker|containerd|kubepods|lxc/i.test(cg);
+  } catch (e) {
+    return false;
+  }
+}
+
+// 是否被外部守护（容器 restart 策略 / PM2 / systemd），决定「重启服务」采用哪种方式
+function hasSupervisor() {
+  return inContainer() || !!process.env.pm_id || !!process.env.PM2_HOME || !!process.env.INVOCATION_ID;
+}
+
+function formatBytes(n) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let v = Number(n) || 0;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return (Math.round(v * 10) / 10) + ' ' + units[i];
+}
+
+function secondsToHuman(sec) {
+  sec = Math.max(0, Math.floor(Number(sec) || 0));
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const parts = [];
+  if (d) parts.push(d + ' 天');
+  if (h) parts.push(h + ' 小时');
+  if (m) parts.push(m + ' 分');
+  if (!d && !h) parts.push(s + ' 秒');
+  return parts.join(' ');
+}
+
+// 统计目录占用（data 目录文件数量有限，递归开销可忽略）
+function dirSize(dir) {
+  let total = 0;
+  try {
+    fs.readdirSync(dir, { withFileTypes: true }).forEach(d => {
+      const p = path.join(dir, d.name);
+      try {
+        if (d.isDirectory()) total += dirSize(p);
+        else total += fs.statSync(p).size;
+      } catch (e) {}
+    });
+  } catch (e) {}
+  return total;
+}
+
+// 汇总本服务运行状态（只读，供设置页展示）
+function collectServerStatus() {
+  const mem = process.memoryUsage();
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const cpus = os.cpus() || [];
+  const load = (typeof os.loadavg === 'function') ? os.loadavg() : [0, 0, 0];
+  const procUp = Math.floor((Date.now() - SERVER_STARTED_AT) / 1000);
+  const container = inContainer();
+  const managed = hasSupervisor();
+  const sc = readServerControl();
+  return {
+    hostname: os.hostname(),
+    platform: process.platform,
+    arch: process.arch,
+    osName: (typeof os.type === 'function' ? os.type() : '') + ' ' + (typeof os.release === 'function' ? os.release() : ''),
+    nodeVersion: process.version,
+    pid: process.pid,
+    port: PORT,
+    cwd: process.cwd(),
+    startedAt: new Date(SERVER_STARTED_AT).toISOString(),
+    uptime: procUp,
+    uptimeText: secondsToHuman(procUp),
+    hostUptimeText: secondsToHuman(typeof os.uptime === 'function' ? os.uptime() : 0),
+    cpuModel: cpus.length ? String(cpus[0].model || '').trim() : '',
+    cpuCount: cpus.length,
+    load1: Math.round((Number(load[0]) || 0) * 100) / 100,
+    load5: Math.round((Number(load[1]) || 0) * 100) / 100,
+    load15: Math.round((Number(load[2]) || 0) * 100) / 100,
+    memUsed: totalMem - freeMem,
+    memTotal: totalMem,
+    memText: formatBytes(totalMem - freeMem) + ' / ' + formatBytes(totalMem),
+    memPercent: totalMem ? Math.round(((totalMem - freeMem) / totalMem) * 100) : 0,
+    procRssText: formatBytes(mem.rss),
+    procHeapText: formatBytes(mem.heapUsed),
+    dataSizeText: formatBytes(dirSize(dataDir)),
+    container: container,
+    supervisor: managed,       // 是否由 Docker / PM2 / systemd 托管
+    restartDelay: sc.restartDelay
+  };
+}
+
+// 重启本服务自身：
+//  - 有外部守护时：退出进程，由守护（Docker restart 策略 / PM2 / systemd）自动拉起，最稳妥
+//  - 无守护（手动 node server.js）时：派生一个独立助手进程，待端口释放后重新拉起自身
+function restartService(delayMs) {
+  if (hasSupervisor()) {
+    setTimeout(() => process.exit(0), delayMs);
+    return 'supervisor';
+  }
+  try {
+    const helper = 'const{spawn}=require("child_process");setTimeout(function(){' +
+      'var p=spawn(process.execPath,[process.argv[1]],{cwd:process.argv[2],detached:true,stdio:"ignore",env:process.env});p.unref();},' +
+      delayMs + ');';
+    const child = spawn(process.execPath, ['-e', helper, __filename, __dirname], {
+      cwd: __dirname, detached: true, stdio: 'ignore', env: process.env
+    });
+    child.unref();
+    setTimeout(() => process.exit(0), 200); // 助手已在等待，本进程可立即退出释放端口
+    return 'self';
+  } catch (e) {
+    setTimeout(() => process.exit(0), delayMs);
+    return 'exit';
+  }
 }
 
 const server = http.createServer(async (req, res) => {
@@ -2360,6 +2509,36 @@ const server = http.createServer(async (req, res) => {
     }
     writeSettings(s);
     return sendJson(res, 200, { code: 0, data: s, msg: '设置已保存' });
+  }
+
+  // ===== 服务器管理 API（仅管理员）=====
+  // 运行状态：进程 / 系统 / 内存 / 负载 / 数据目录占用 / 是否容器托管
+  if (pathname === '/api/server/status' && req.method === 'GET') {
+    const u = authUser(req);
+    if (!u || u.role !== ROLES.ADMIN) {
+      return sendJson(res, 403, { code: 1, msg: '服务器管理仅限管理员账号' });
+    }
+    return sendJson(res, 200, { code: 0, data: collectServerStatus() });
+  }
+
+  // 重启本服务自身（不涉及宿主机 / 操作系统层面的重启或关机）
+  if (pathname === '/api/server/restart' && req.method === 'POST') {
+    const u = authUser(req);
+    if (!u || u.role !== ROLES.ADMIN) {
+      return sendJson(res, 403, { code: 1, msg: '服务器管理仅限管理员账号' });
+    }
+    const sc = readServerControl();
+    const delayMs = Math.max(500, (Number(sc.restartDelay) || 0) * 1000);
+    const delaySec = Math.round(delayMs / 1000);
+    const mode = restartService(delayMs);
+    sendJson(res, 200, {
+      code: 0,
+      data: { restarting: true, delay: delaySec, mode: mode },
+      msg: mode === 'supervisor'
+        ? '正在重启服务，约 ' + delaySec + ' 秒后自动恢复，请稍后刷新页面'
+        : '正在重启服务，约 ' + delaySec + ' 秒后自动恢复；若长时间无法访问，请手动执行 node server.js'
+    });
+    return;
   }
 
   // 导出全量数据备份（下载 JSON 文件）

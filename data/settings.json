@@ -29,5 +29,8 @@
       "name": "理综",
       "max": 300
     }
-  ]
+  ],
+  "serverControl": {
+    "restartDelay": 1
+  }
 }
