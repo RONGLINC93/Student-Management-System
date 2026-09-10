@@ -1,6 +1,12 @@
 # 学生管理系统 - 生产镜像
 # 零依赖纯 Node.js 项目，无需 npm install
-FROM node:20-alpine
+#
+# 基础镜像默认走国内加速源，避免直连 Docker Hub 超时。
+# 如需切换其它源或官方源，可在构建时覆盖：
+#   docker compose build --build-arg NODE_IMAGE=node:20-alpine
+#   docker compose build --build-arg NODE_IMAGE=docker.1ms.run/library/node:20-alpine
+ARG NODE_IMAGE=docker.m.daocloud.io/library/node:20-alpine
+FROM ${NODE_IMAGE}
 
 # 设置工作目录
 WORKDIR /app
