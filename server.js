@@ -1727,26 +1727,56 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, data: readClasses().find(c => c.id === id) });
   }
 
-  // 删除班级（学生退回学生池）
+  // 删除班级（要求班级内已无学生，需先退回学生池）
   if (pathname.startsWith('/api/classes/') && req.method === 'DELETE') {
     const id = pathname.split('/').pop();
     const classes = readClasses();
-    const students = readStudents();
     const cls = classes.find(c => c.id === id);
-    if (cls && cls.students && cls.students.length) {
-      // 学生退回池
-      students.push(...cls.students);
+    if (!cls) return sendJson(res, 404, { code: 1, msg: '班级不存在' });
+    const cnt = (cls.students || []).length;
+    if (cnt) {
+      return sendJson(res, 400, {
+        code: 1,
+        msg: `「${cls.name}」内还有 ${cnt} 名学生，请先在花名册中「全部退回」学生池后再删除班级`
+      });
     }
-    const next = classes.filter(c => c.id !== id);
-    writeClasses(next);
-    writeStudents(students);
+    writeClasses(classes.filter(c => c.id !== id));
     // 解除该班班主任教师在教师档案中的归属
     const teachers = readTeachers();
     if (teachers.some(t => t.classId === id)) {
       teachers.forEach(t => { if (t.classId === id) t.classId = ''; });
       writeTeachers(teachers);
     }
-    return sendJson(res, 200, { code: 0, msg: '已删除，学生已退回学生池' });
+    return sendJson(res, 200, { code: 0, msg: '已删除' });
+  }
+
+  // 批量删除班级（要求所选班级内均已无学生）
+  if (pathname === '/api/classes/batch-delete' && req.method === 'POST') {
+    const body = await readBody(req);
+    const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+    if (!ids.length) return sendJson(res, 400, { code: 1, msg: '请选择要删除的班级' });
+    const idSet = new Set(ids);
+    const classes = readClasses();
+    const hit = classes.filter(c => idSet.has(c.id));
+    if (!hit.length) return sendJson(res, 404, { code: 1, msg: '所选班级均不存在' });
+    // 班级内仍有学生时不允许删除，需先退回学生池
+    const blocked = hit.filter(c => (c.students || []).length);
+    if (blocked.length) {
+      const detail = blocked.slice(0, 3).map(c => `「${c.name}」（${c.students.length} 人）`).join('、')
+        + (blocked.length > 3 ? ` 等 ${blocked.length} 个班级` : '');
+      return sendJson(res, 400, {
+        code: 1,
+        msg: `${detail}内还有学生，请先在花名册中「全部退回」学生池后再删除班级`
+      });
+    }
+    writeClasses(classes.filter(c => !idSet.has(c.id)));
+    // 解除这些班级班主任教师在教师档案中的归属
+    const teachers = readTeachers();
+    if (teachers.some(t => idSet.has(t.classId))) {
+      teachers.forEach(t => { if (idSet.has(t.classId)) t.classId = ''; });
+      writeTeachers(teachers);
+    }
+    return sendJson(res, 200, { code: 0, msg: `已删除 ${hit.length} 个班级`, data: { removed: hit.length } });
   }
 
   // 清空所有班级（学生退回池）
@@ -1915,12 +1945,20 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, msg: '已修改' });
   }
 
-  // 删除年级
+  // 删除年级（要求该年级下已无班级，需先删除班级）
   if (pathname.startsWith('/api/grades/') && req.method === 'DELETE') {
     const name = decodeURIComponent(pathname.split('/').pop());
     const grades = readGrades();
     const idx = grades.indexOf(name);
     if (idx === -1) return sendJson(res, 404, { code: 1, msg: '年级不存在' });
+    // 年级下仍有班级时不允许删除，需先删除这些班级
+    const gradeClasses = readClasses().filter(c => c.grade === name);
+    if (gradeClasses.length) {
+      return sendJson(res, 400, {
+        code: 1,
+        msg: `「${name}」下还有 ${gradeClasses.length} 个班级，请先在班级管理中删除这些班级后再删除年级`
+      });
+    }
     grades.splice(idx, 1);
     writeGrades(grades);
     // 清空该年级的学生 / 班级 / 考试 / 考勤的年级字段
@@ -1933,6 +1971,40 @@ const server = http.createServer(async (req, res) => {
     writeExams(readExams().map(x => Object.assign({}, x, { grade: x.grade === name ? '' : x.grade })));
     writeAttendance(readAttendance().map(x => Object.assign({}, x, { grade: x.grade === name ? '' : x.grade })));
     return sendJson(res, 200, { code: 0, msg: '已删除' });
+  }
+
+  // 批量删除年级（所选年级下学生 / 班级 / 考试 / 考勤的年级字段一并清空）
+  if (pathname === '/api/grades/batch-delete' && req.method === 'POST') {
+    const body = await readBody(req);
+    const names = Array.isArray(body.names)
+      ? [...new Set(body.names.map(n => String(n).trim()).filter(Boolean))]
+      : [];
+    if (!names.length) return sendJson(res, 400, { code: 1, msg: '请选择要删除的年级' });
+    const grades = readGrades();
+    const hit = names.filter(n => grades.includes(n));
+    if (!hit.length) return sendJson(res, 404, { code: 1, msg: '所选年级均不存在' });
+    // 年级下仍有班级时不允许删除，需先删除这些班级
+    const classes = readClasses();
+    const blocked = hit.filter(n => classes.some(c => c.grade === n));
+    if (blocked.length) {
+      const detail = blocked.slice(0, 3)
+        .map(n => `「${n}」（${classes.filter(c => c.grade === n).length} 个班级）`).join('、')
+        + (blocked.length > 3 ? ` 等 ${blocked.length} 个年级` : '');
+      return sendJson(res, 400, {
+        code: 1,
+        msg: `${detail}下还有班级，请先在班级管理中删除这些班级后再删除年级`
+      });
+    }
+    const nameSet = new Set(hit);
+    writeGrades(grades.filter(g => !nameSet.has(g)));
+    const students = readStudents();
+    students.forEach(s => { if (nameSet.has(s.grade)) s.grade = ''; });
+    writeStudents(students);
+    classes.forEach(c => { if (nameSet.has(c.grade)) c.grade = ''; });
+    writeClasses(classes);
+    writeExams(readExams().map(x => Object.assign({}, x, { grade: nameSet.has(x.grade) ? '' : x.grade })));
+    writeAttendance(readAttendance().map(x => Object.assign({}, x, { grade: nameSet.has(x.grade) ? '' : x.grade })));
+    return sendJson(res, 200, { code: 0, msg: `已删除 ${hit.length} 个年级`, data: { removed: hit } });
   }
 
   // ===== 教师管理 API =====

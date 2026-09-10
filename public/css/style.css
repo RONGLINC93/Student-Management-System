@@ -1185,6 +1185,11 @@ input, select, textarea, button { font-family: inherit; }
 }
 .th-center { text-align: center; }
 
+/* 批量选择列（班级 / 年级表格）：表头全选 + 行首复选框 */
+.th-check,
+.td-check { text-align: center; }
+.row-cbox { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; vertical-align: middle; }
+
 /* 名称列 */
 .tb-name {
   display: flex;

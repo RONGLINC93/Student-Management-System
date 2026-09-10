@@ -1,13 +1,25 @@
 {
   "admin": {
-    "ts": 1789049249179,
+    "ts": 1789049612937,
     "tabs": [
       {
         "key": "dashboard",
         "side": false
       },
       {
+        "key": "leaves",
+        "side": false
+      },
+      {
+        "key": "notice",
+        "side": false
+      },
+      {
         "key": "students",
+        "side": false
+      },
+      {
+        "key": "classes",
         "side": false
       },
       {
@@ -19,36 +31,16 @@
         "side": false
       },
       {
-        "key": "exams",
-        "side": false
-      },
-      {
-        "key": "allocate",
-        "side": false
-      },
-      {
-        "key": "settings",
-        "side": false
-      },
-      {
-        "key": "classes",
-        "side": false
-      },
-      {
-        "key": "leaves",
-        "side": false
-      },
-      {
-        "key": "dorm",
-        "side": false
-      },
-      {
         "key": "analysis",
+        "side": false
+      },
+      {
+        "key": "conduct",
         "side": false
       }
     ],
     "splitOn": false,
-    "activeKey": "dashboard",
+    "activeKey": "classes",
     "leftKey": "",
     "rightKey": "",
     "splitRatio": 0.55

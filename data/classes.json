@@ -25,6 +25,8 @@
         "guardianRel": "",
         "enrollDate": "",
         "remark": "",
+        "status": "active",
+        "history": [],
         "scores": {
           "chinese": 88,
           "math": 92,
@@ -51,6 +53,8 @@
         "guardianRel": "",
         "enrollDate": "",
         "remark": "",
+        "status": "active",
+        "history": [],
         "scores": {
           "chinese": 78,
           "math": 85,

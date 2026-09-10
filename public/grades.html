@@ -10,7 +10,7 @@
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     /* 各列固定像素设宽（table-layout:fixed，固定列约 850px，含进度列 170px 合计约 1020px），
        窄屏时保持整行完整横向滑动 */
-    .grade-table { min-width: 1020px; }
+    .grade-table { min-width: 1062px; }
   </style>
 </head>
 <body>
@@ -74,6 +74,7 @@
         <span style="font-size: 13px; color: #94a3b8;">拖拽行可调整顺序</span>
       </div>
       <div class="toolbar-right">
+        <button class="btn btn-danger" id="btnBatchDel" disabled>批量删除</button>
         <button class="btn btn-primary" id="btnAdd"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加年级</button>
       </div>
     </section>
@@ -83,6 +84,7 @@
       <table class="student-table grade-table">
         <thead>
           <tr>
+            <th class="th-check" style="width: 42px;"><input type="checkbox" id="ckAll" class="row-cbox" title="全选 / 取消全选" /></th>
             <th style="width: 220px;">年级名称</th>
             <th class="th-center" style="width: 110px;">学生总数</th>
             <th class="th-center" style="width: 120px;">未分班</th>
@@ -93,7 +95,7 @@
           </tr>
         </thead>
         <tbody id="gradesTbody">
-          <tr><td colspan="7" class="empty-tip">加载中...</td></tr>
+          <tr><td colspan="8" class="empty-tip">加载中...</td></tr>
         </tbody>
       </table>
     </section>

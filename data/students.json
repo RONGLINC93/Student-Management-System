@@ -18,6 +18,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 85,
       "math": 91,
@@ -44,6 +46,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 88,
       "math": 76,
@@ -70,6 +74,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 72,
       "math": 80,
@@ -96,6 +102,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 93,
       "math": 89,
@@ -122,6 +130,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 80,
       "math": 75,
@@ -148,6 +158,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 92,
       "math": 88,
@@ -174,6 +186,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 68,
       "math": 72,
@@ -200,6 +214,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 85,
       "math": 91,
@@ -226,6 +242,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 76,
       "math": 83,
@@ -252,6 +270,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 96,
       "math": 90,
@@ -278,6 +298,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 87,
       "math": 93,
@@ -304,6 +326,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 91,
       "math": 85,
@@ -330,6 +354,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 75,
       "math": 79,
@@ -356,6 +382,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 89,
       "math": 82,
@@ -382,6 +410,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 83,
       "math": 96,
@@ -408,6 +438,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 94,
       "math": 88,
@@ -434,6 +466,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 70,
       "math": 65,
@@ -460,6 +494,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 90,
       "math": 86,
@@ -486,6 +522,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 81,
       "math": 77,
@@ -512,6 +550,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 97,
       "math": 94,
@@ -538,6 +578,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 94,
       "math": 90,
@@ -564,6 +606,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 90,
       "math": 78,
@@ -590,6 +634,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 73,
       "math": 68,
@@ -616,6 +662,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 79,
       "math": 88,
@@ -642,6 +690,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 91,
       "math": 84,
@@ -668,6 +718,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 95,
       "math": 87,
@@ -694,6 +746,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 86,
       "math": 80,
@@ -720,6 +774,8 @@
     "guardianRel": "",
     "enrollDate": "",
     "remark": "",
+    "status": "active",
+    "history": [],
     "scores": {
       "chinese": 82,
       "math": 95,

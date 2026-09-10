@@ -15,6 +15,7 @@ let batchSelected = new Set(); // 已勾选的学生 id
 let batchEligible = 0;  // 学生池中可加入当前班级的人数（不含关键字过滤）
 let batchHidden = 0;    // 学生池中因不符合条件（年级不符等）被隐藏的人数
 let batchStartTouched = false; // 添加班级-批量模式：用户是否手动改过起始序号（改过则不再自动推荐）
+let selectedIds = new Set();   // 批量删除：已勾选的班级 id
 
 const $ = (s) => document.querySelector(s);
 
@@ -156,14 +157,20 @@ function renderClasses() {
     );
   }
   const tbody = $('#classesTbody');
+  // 清掉已不存在的勾选（班级可能已在别处被删除）
+  if (selectedIds.size) {
+    const valid = new Set(classes.map(c => c.id));
+    [...selectedIds].forEach(id => { if (!valid.has(id)) selectedIds.delete(id); });
+  }
   if (!list.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-tip">
+        <td colspan="9" class="empty-tip">
           <p style="margin:0 0 4px;font-size:15px;font-weight:600;">暂无班级</p>
           <small>点击右上角「添加班级」创建班级，或前往「智能分班」一键分班</small>
         </td>
       </tr>`;
+    syncBatchUI();
     return;
   }
   tbody.innerHTML = list.map(c => {
@@ -175,6 +182,7 @@ function renderClasses() {
     const avg = count ? (c.students.reduce((a, s) => a + totalScore(s), 0) / count).toFixed(1) : '—';
     return `
       <tr class="data-row" data-id="${c.id}" draggable="true" title="拖拽行可调整顺序">
+        <td class="td-check"><input type="checkbox" class="row-cbox" data-id="${c.id}" title="勾选后可批量删除"${selectedIds.has(c.id) ? ' checked' : ''} /></td>
         <td>
           <div class="tb-name">
             <span class="tb-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/></svg></span>
@@ -206,6 +214,7 @@ function renderClasses() {
       </tr>
     `;
   }).join('');
+  syncBatchUI();
 }
 
 // 班主任下拉：引用教师列表中的教师（以教师档案的班主任归属 classId 为准）
@@ -396,15 +405,111 @@ async function saveBatchClasses(e) {
 
 async function deleteClass(id) {
   const cls = classes.find(c => c.id === id);
-  const cnt = cls?.students?.length || 0;
-  const tip = `确定删除班级「${cls?.name || ''}」？${cnt ? `\n其中 ${cnt} 名学生将退回学生池。` : ''}`;
-  if (!(await confirmDlg(tip, { title: '删除班级', okText: '删除', danger: true }))) return;
+  if (!cls) return;
+  const cnt = cls.students?.length || 0;
+  // 班级内仍有学生时不允许删除：先引导去花名册把学生全部退回学生池
+  if (cnt) {
+    const go = await confirmDlg(
+      `「${cls.name}」内还有 ${cnt} 名学生，请先在花名册中「全部退回」学生池，再删除班级。\n是否现在打开花名册？`,
+      { title: '无法删除班级', okText: '打开花名册' }
+    );
+    if (go) openRoster(cls);
+    return;
+  }
+  if (!(await confirmDlg(`确定删除班级「${cls.name}」？`, { title: '删除班级', okText: '删除', danger: true }))) return;
   try {
-    await fetch(`${API}/${id}`, { method: 'DELETE' });
-    toast('已删除', 'success');
+    const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+    const json = await res.json().catch(() => ({}));
+    if (json.code !== 0) { toast(json.msg || '删除失败', 'error'); return; }
+    toast(json.msg || '已删除', 'success');
     await loadData();
   } catch (e) {
     toast('删除失败：' + e.message, 'error');
+  }
+}
+
+// ===== 批量删除 =====
+// 同步「批量删除」按钮与表头全选框的状态（数量、可用性、半选）
+function syncBatchUI() {
+  const btn = $('#btnBatchDel');
+  const n = selectedIds.size;
+  if (btn) {
+    btn.disabled = n === 0;
+    btn.textContent = n ? `批量删除（${n}）` : '批量删除';
+  }
+  const all = $('#ckAll');
+  if (!all) return;
+  const boxes = [...document.querySelectorAll('#classesTbody tr.data-row .row-cbox')];
+  const sel = boxes.filter(b => b.checked).length;
+  all.disabled = boxes.length === 0;
+  all.checked = boxes.length > 0 && sel === boxes.length;
+  all.indeterminate = sel > 0 && sel < boxes.length;
+}
+
+// 行首勾选变化
+function onRowCheckChange(e) {
+  const cb = e.target;
+  if (!cb.classList || !cb.classList.contains('row-cbox')) return;
+  const id = cb.dataset.id;
+  if (!id) return;
+  if (cb.checked) selectedIds.add(id);
+  else selectedIds.delete(id);
+  syncBatchUI();
+}
+
+// 表头全选：仅作用于当前列表（搜索/筛选后即可见行）
+function onCheckAllChange() {
+  const all = $('#ckAll');
+  if (!all) return;
+  const on = all.checked;
+  document.querySelectorAll('#classesTbody tr.data-row').forEach(tr => {
+    const cb = tr.querySelector('.row-cbox');
+    if (!cb) return;
+    cb.checked = on;
+    if (on) selectedIds.add(tr.dataset.id);
+    else selectedIds.delete(tr.dataset.id);
+  });
+  syncBatchUI();
+}
+
+// 批量删除：仅允许删除已清空学生的班级，并解除相关班主任归属
+async function batchDeleteClasses() {
+  const ids = [...selectedIds];
+  if (!ids.length) { toast('请先勾选要删除的班级', 'error'); return; }
+  const list = ids.map(id => classes.find(c => c.id === id)).filter(Boolean);
+  if (!list.length) { toast('所选班级已不存在，请刷新后重试', 'error'); return; }
+  // 班级内仍有学生时不允许删除：先引导去花名册退回学生
+  const blocked = list.filter(c => (c.students?.length || 0) > 0);
+  if (blocked.length) {
+    const detail = blocked.slice(0, 3).map(c => `「${c.name}」（${c.students.length} 人）`).join('、')
+      + (blocked.length > 3 ? ` 等 ${blocked.length} 个班级` : '');
+    const go = await confirmDlg(
+      `${detail}内还有学生，请先在花名册中「全部退回」学生池，再删除班级。\n是否现在打开花名册？`,
+      { title: '无法删除班级', okText: '打开花名册' }
+    );
+    if (go) openRoster(blocked[0]);
+    return;
+  }
+  const names = list.slice(0, 3).map(c => `「${c.name}」`).join('、')
+    + (list.length > 3 ? ` 等 ${list.length} 个班级` : '');
+  if (!(await confirmDlg(`确定删除 ${names}？`, { title: '批量删除班级', okText: '删除', danger: true }))) return;
+  const done = busyBtn($('#btnBatchDel'), '删除中…');
+  if (!done) return;
+  try {
+    const res = await fetch(`${API}/batch-delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    const json = await res.json();
+    if (json.code !== 0) { toast(json.msg || '删除失败', 'error'); return; }
+    toast(json.msg || '已删除', 'success');
+    selectedIds.clear();
+    await loadData();
+  } catch (e) {
+    toast('删除失败：' + e.message, 'error');
+  } finally {
+    done();
   }
 }
 
@@ -782,6 +887,10 @@ function bindEvents() {
   $('#fGrade').onchange = syncAddForm;
   $('#searchInput').oninput = () => { renderClasses(); saveFilters(); };
   $('#gradeFilter').onchange = () => { renderClasses(); saveFilters(); };
+  // 批量删除：表头全选 / 行首勾选 / 工具栏按钮
+  $('#ckAll').onchange = onCheckAllChange;
+  $('#classesTbody').onchange = onRowCheckChange;
+  $('#btnBatchDel').onclick = batchDeleteClasses;
   $('#rosterClose').onclick = closeRoster;
   $('#btnExportRoster').onclick = exportRoster;
   $('#btnReturnAll').onclick = returnAllStudents;
