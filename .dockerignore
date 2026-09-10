@@ -1,0 +1,21 @@
+# 依赖与日志
+node_modules
+npm-debug.log*
+
+# 数据与密钥（运行时通过卷挂载，不打包进镜像）
+data
+
+# 版本控制与文档
+.git
+.gitignore
+docs
+README.md
+
+# Docker 自身与本地脚本
+Dockerfile
+docker-compose.yml
+.dockerignore
+*.bat
+pull.js
+push.js
+login.yaml

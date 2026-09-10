@@ -1,0 +1,15 @@
+services:
+  student-management-system:
+    build: .
+    image: student-management-system:latest
+    # 始终使用本地构建的镜像，不去 Docker Hub 拉取同名镜像
+    pull_policy: build
+    container_name: student-management-system
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./vol2/1000/web/Student-Management-System:/app
