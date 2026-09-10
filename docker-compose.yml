@@ -1,6 +1,10 @@
 services:
   student-management-system:
-    build: .
+    build:
+      context: .
+      # 显式指定基础镜像源，避免直连 Docker Hub 拉取元数据超时
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-docker.m.daocloud.io/library/node:20-alpine}
     image: student-management-system:latest
     # 始终使用本地构建的镜像，不去 Docker Hub 拉取同名镜像
     pull_policy: build
@@ -12,4 +16,5 @@ services:
       - PORT=3000
       - TZ=Asia/Shanghai
     volumes:
-      - ./vol2/1000/web/Student-Management-System:/app
+      # 挂载项目目录：data/ 自动持久化，git 拉取后代码即时生效
+      - /vol2/1000/web/Student-Management-System:/app
