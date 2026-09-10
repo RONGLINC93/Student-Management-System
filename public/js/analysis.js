@@ -173,7 +173,7 @@ function renderCompare() {
     if (!groups.has(cls.name)) groups.set(cls.name, []);
     groups.get(cls.name).push(r);
   });
-  // 未分班（同年级学生池）
+  // 未分班学生（同年级）
   const pool = rows.filter(r => {
     const cls = classOfStudent(r.sid);
     return !cls;

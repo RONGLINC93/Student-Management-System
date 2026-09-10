@@ -401,10 +401,10 @@
         <div class="set-field">
           <label class="set-label">清空业务数据</label>
           <div class="set-row">
-            <button class="btn btn-danger btn-sm" id="btnClearStudents" title="删除学生池全部档案、各班花名册、宿舍入住与操行记录；保留班级结构">清空学生档案</button>
-            <button class="btn btn-danger btn-sm" id="btnClearClasses" title="删除全部班级及其顺序与班主任配置；已分班学生退回学生池，学生档案保留">清空全部班级</button>
+            <button class="btn btn-danger btn-sm" id="btnClearStudents" title="删除全部未分班学生档案、各班花名册、宿舍入住与操行记录；保留班级结构">清空学生档案</button>
+            <button class="btn btn-danger btn-sm" id="btnClearClasses" title="删除全部班级及其顺序与班主任配置；已分班学生退回未分班，学生档案保留">清空全部班级</button>
           </div>
-          <p class="set-tip">两者均为<b>不可恢复</b>的高危操作：<b>清空学生档案</b> 将删除学生、各班花名册及宿舍 / 操行记录，但保留班级结构；<b>清空全部班级</b> 将删除班级本身，已分班学生退回学生池，学生档案保留。操作前建议先「导出数据备份」。</p>
+          <p class="set-tip">两者均为<b>不可恢复</b>的高危操作：<b>清空学生档案</b> 将删除学生、各班花名册及宿舍 / 操行记录，但保留班级结构；<b>清空全部班级</b> 将删除班级本身，已分班学生退回未分班，学生档案保留。操作前建议先「导出数据备份」。</p>
         </div>
         <div class="set-card-foot">
           <span class="muted-note" style="margin-right:auto">版本 v1.0 · 本地演示</span>
@@ -722,7 +722,7 @@
       // 清空业务数据：两个高危操作，均需输入验证短语「确认清空」经严格验证后执行
       $el('btnClearStudents').addEventListener('click', async function () {
         var tip = '确定清空全部学生档案吗？此操作不可恢复。\n\n'
-          + '将清空：学生池中的全部档案、各班花名册及分班结果、宿舍入住记录与操行记录。\n'
+          + '将清空：全部未分班学生档案、各班花名册及分班结果、宿舍入住记录与操行记录。\n'
           + '保留：班级结构、年级、教师、考试科目与系统设置。\n\n'
           + '如需留存数据，请先点击上方「导出数据备份」。';
         if (typeof window.confirmStrictDlg !== 'function') {
@@ -740,7 +740,7 @@
 
       $el('btnClearClasses').addEventListener('click', async function () {
         var tip = '确定清空全部班级吗？此操作不可恢复。\n\n'
-          + '将删除：全部班级及其顺序与班主任配置，所有已分班学生将退回学生池。\n'
+          + '将删除：全部班级及其顺序与班主任配置，所有已分班学生将退回未分班。\n'
           + '保留：学生档案、年级、教师、考试科目与系统设置。\n\n'
           + '如需留存数据，请先点击上方「导出数据备份」。';
         if (typeof window.confirmStrictDlg !== 'function') {

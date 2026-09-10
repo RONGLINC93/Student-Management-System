@@ -9,11 +9,11 @@ let teacherList = []; // 教师列表，班主任下拉选项引用该列表
 let poolCount = 0;
 let rosterClassId = ''; // 当前打开花名册的班级 id（导出/退生以 id 精确对应，避免按班级名匹配出错）
 let gradesList = [];
-let poolStudents = []; // 学生池明细（批量入班弹窗候选）
+let poolStudents = []; // 未分班学生明细（批量入班弹窗候选）
 let batchClass = null;  // 批量入班的目标班级
 let batchSelected = new Set(); // 已勾选的学生 id
-let batchEligible = 0;  // 学生池中可加入当前班级的人数（不含关键字过滤）
-let batchHidden = 0;    // 学生池中因不符合条件（年级不符等）被隐藏的人数
+let batchEligible = 0;  // 未分班学生中可加入当前班级的人数（不含关键字过滤）
+let batchHidden = 0;    // 未分班学生中因不符合条件（年级不符等）被隐藏的人数
 let batchStartTouched = false; // 添加班级-批量模式：用户是否手动改过起始序号（改过则不再自动推荐）
 let selectedIds = new Set();   // 批量删除：已勾选的班级 id
 
@@ -206,7 +206,7 @@ function renderClasses() {
         <td>
           <div class="row-actions">
             <button class="btn-sm btn-view" data-act="view">花名册</button>
-            <button class="btn-sm btn-assign" data-act="batchadd" title="从学生池多选学生一次加入本班">批量入班</button>
+            <button class="btn-sm btn-assign" data-act="batchadd" title="从未分班学生中多选一次加入本班">批量入班</button>
             <button class="btn-sm btn-edit" data-act="edit">编辑</button>
             <button class="btn-sm btn-del" data-act="del">删除</button>
           </div>
@@ -407,10 +407,10 @@ async function deleteClass(id) {
   const cls = classes.find(c => c.id === id);
   if (!cls) return;
   const cnt = cls.students?.length || 0;
-  // 班级内仍有学生时不允许删除：先引导去花名册把学生全部退回学生池
+  // 班级内仍有学生时不允许删除：先引导去花名册把学生全部退回未分班
   if (cnt) {
     const go = await confirmDlg(
-      `「${cls.name}」内还有 ${cnt} 名学生，请先在花名册中「全部退回」学生池，再删除班级。\n是否现在打开花名册？`,
+      `「${cls.name}」内还有 ${cnt} 名学生，请先在花名册中「全部退回」后再删除班级。\n是否现在打开花名册？`,
       { title: '无法删除班级', okText: '打开花名册' }
     );
     if (go) openRoster(cls);
@@ -484,7 +484,7 @@ async function batchDeleteClasses() {
     const detail = blocked.slice(0, 3).map(c => `「${c.name}」（${c.students.length} 人）`).join('、')
       + (blocked.length > 3 ? ` 等 ${blocked.length} 个班级` : '');
     const go = await confirmDlg(
-      `${detail}内还有学生，请先在花名册中「全部退回」学生池，再删除班级。\n是否现在打开花名册？`,
+      `${detail}内还有学生，请先在花名册中「全部退回」后再删除班级。\n是否现在打开花名册？`,
       { title: '无法删除班级', okText: '打开花名册' }
     );
     if (go) openRoster(blocked[0]);
@@ -530,7 +530,7 @@ function openRoster(cls) {
   `;
   const tbody = $('#rosterTbody');
   if (!(cls.students || []).length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-tip">该班级暂无学生，可在班级列表点击「批量入班」从学生池一次加入多名学生，或前往「智能分班」自动分配</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-tip">该班级暂无学生，可在班级列表点击「批量入班」从未分班学生一次加入多名学生，或前往「智能分班」自动分配</td></tr>`;
   } else {
     tbody.innerHTML = cls.students.map(s => `
       <tr data-id="${s.id}">
@@ -540,7 +540,7 @@ function openRoster(cls) {
         <td><span class="gender-tag ${s.gender === '男' ? 'gender-male' : 'gender-female'}">${s.gender}</span></td>
         <td class="total-score">${totalScore(s)}</td>
         <td>${s.specialty ? `<span class="specialty-tag">${escapeHtml(s.specialty)}</span>` : '—'}</td>
-        <td><button class="btn-sm btn-del" data-act="remove">退回池</button></td>
+        <td><button class="btn-sm btn-del" data-act="remove">退回</button></td>
       </tr>
     `).join('');
   }
@@ -595,7 +595,7 @@ function exportRoster() {
 async function removeStudentFromClass(classId, stuId) {
   try {
     await fetch(`${API}/${classId}/remove/${stuId}`, { method: 'POST' });
-    toast('已退回学生池', 'success');
+    toast('已退回未分班', 'success');
     // 刷新数据并重开花名册
     await loadData();
     const cls = classes.find(c => c.id === classId);
@@ -606,18 +606,18 @@ async function removeStudentFromClass(classId, stuId) {
   }
 }
 
-// 整班退回：将该班所有学生退回学生池（班级保留，便于重新分班）
+// 整班退回：将该班所有学生退回未分班（班级保留，便于重新分班）
 async function returnAllStudents() {
   const cls = classes.find(c => c.id === rosterClassId);
   if (!cls) return;
   const cnt = cls.students?.length || 0;
   if (!cnt) { toast('该班暂无学生', 'error'); return; }
-  if (!(await confirmDlg(`确定将「${cls.name}」的 ${cnt} 名学生全部退回学生池吗？`, { title: '整班退回', okText: '退回', danger: true }))) return;
+  if (!(await confirmDlg(`确定将「${cls.name}」的 ${cnt} 名学生全部退回未分班吗？`, { title: '整班退回', okText: '退回', danger: true }))) return;
   const done = busyBtn($('#btnReturnAll'), '退回中…');
   if (!done) return;
   try {
     await fetch(`${API}/${cls.id}/return-all`, { method: 'POST' });
-    toast('已全部退回学生池', 'success');
+    toast('已全部退回未分班', 'success');
     await loadData();
     const fresh = classes.find(c => c.id === cls.id);
     if (fresh) openRoster(fresh);
@@ -627,7 +627,7 @@ async function returnAllStudents() {
   } finally { done(); }
 }
 
-// ===== 批量入班（学生池多选加入本班） =====
+// ===== 批量入班（未分班学生多选加入本班） =====
 // 学生能否加入当前班级：班级未设年级 → 均可；否则学生未设年级或与本班同年级 → 可加入
 function batchCanAdd(stu) {
   const clsGrade = String(batchClass?.grade || '').trim();
@@ -643,13 +643,13 @@ function batchRemain() {
 async function openBatchDlg(clsId) {
   const cls = classes.find(c => c.id === clsId);
   if (!cls) return;
-  // 打开前刷新学生池，保证候选是最新的
+  // 打开前刷新未分班学生，保证候选是最新的
   try {
     const res = await fetch(STU_API);
     const j = await res.json();
     poolStudents = (j && j.data) || [];
   } catch (e) {
-    toast('加载学生池失败：' + e.message, 'error');
+    toast('加载未分班学生失败：' + e.message, 'error');
     return;
   }
   batchClass = cls;
@@ -692,9 +692,9 @@ function renderBatchList() {
   if (!poolAvail.length || !list.length) {
     let tipTxt;
     if (!poolAvail.length) {
-      tipTxt = '学生池暂无未分班学生，请先在「学生档案」添加学生或把学生退回学生池';
+      tipTxt = '暂无可入班的未分班学生，请先在「学生档案」添加学生，或把已在班学生退回未分班';
     } else if (batchEligible === 0) {
-      tipTxt = `学生池中没有符合「${batchClass.name}」入班条件的未分班学生${batchHidden ? `（另有 ${batchHidden} 名因年级不符已隐藏）` : ''}`;
+      tipTxt = `没有符合「${batchClass.name}」入班条件的未分班学生${batchHidden ? `（另有 ${batchHidden} 名因年级不符已隐藏）` : ''}`;
     } else {
       tipTxt = '没有匹配搜索的可加入学生';
     }
@@ -706,7 +706,7 @@ function renderBatchList() {
   tbody.innerHTML = list.map(s => {
     const gradeTxt = String(s.grade || '').trim();
     // 学生原本未设年级且班级已设年级 → 入班时按本班年级补填
-    const note = (!gradeTxt && clsGrade) ? '入班按本班年级' : '学生池';
+    const note = (!gradeTxt && clsGrade) ? '入班按本班年级' : '未分班';
     return `
       <tr class="batch-row" data-id="${escapeHtml(s.id)}">
         <td><input type="checkbox" class="batch-cbox" data-id="${escapeHtml(s.id)}" ${batchSelected.has(s.id) ? 'checked' : ''} /></td>
@@ -774,9 +774,9 @@ function updateBatchSave() {
   if (remain === 0) {
     msg = `「${batchClass.name}」已满员，不能再加入学生。`;
   } else if (batchEligible === 0) {
-    msg = `学生池中没有可加入「${batchClass.name}」的未分班学生${clsGrade ? `（仅限「${clsGrade}」年级或未设年级）` : ''}。`;
+    msg = `没有可加入「${batchClass.name}」的未分班学生${clsGrade ? `（仅限「${clsGrade}」年级或未设年级）` : ''}。`;
   } else {
-    msg = `可从学生池勾选学生加入，本次最多可加入 ${remain} 人${clsGrade ? `（仅限「${clsGrade}」年级或未设年级）` : ''}。`;
+    msg = `可从未分班学生中勾选加入，本次最多可加入 ${remain} 人${clsGrade ? `（仅限「${clsGrade}」年级或未设年级）` : ''}。`;
   }
   if (batchHidden > 0 && batchEligible > 0) msg += `另有 ${batchHidden} 名因年级不符已隐藏。`;
   if (n > 0) msg = `已选 ${n} 人。` + msg;

@@ -572,7 +572,7 @@ function openModal(stu) {
   $('#fStudentId').value = stu ? stu.studentId : '';
   $('#fGrade').value = stu ? stu.grade : (gradesList[0] || '');
   $('#fGrade').disabled = inClass;
-  $('#fGrade').title = inClass ? '已分班学生的年级由所属班级决定，如需调整请退回学生池' : '';
+  $('#fGrade').title = inClass ? '已分班学生的年级由所属班级决定，如需调整请先退回未分班' : '';
   $('#fPhoto').value = stu ? stu.photo : '';
   $('#fName').value = stu ? stu.name : '';
   $('#fGender').value = stu ? stu.gender : '男';
@@ -686,7 +686,7 @@ async function resetStudentPassword(id, stu) {
 function assignInfoHtml(stu) {
   const curTxt = stu.allocated
     ? `${escapeHtml(stu.grade || '')} · ${escapeHtml(stu.className || '')}`
-    : '未分班（学生池）';
+    : '未分班';
   return `
     <div class="dorm-stu-avatar">${photoHtml(stu)}</div>
     <div class="di-main">
@@ -1596,7 +1596,7 @@ function renderTrashList() {
   }
   box.innerHTML = list.map(t => {
     const when = t.deletedAt ? new Date(t.deletedAt).toLocaleString('zh-CN', { hour12: false }) : '';
-    const from = t.sourceClassName || (t.deletedFrom === 'pool' ? '待分班池' : '—');
+    const from = t.sourceClassName || (t.deletedFrom === 'pool' ? '未分班' : '—');
     return `<div class="trash-item">
       <div><div class="trash-main"><strong>${escapeHtml(t.name || '')}</strong> <span class="dim">${escapeHtml(t.studentId || '')}</span>${escapeHtml(t.gender ? ' · ' + t.gender : '')}</div>
       <div class="trash-sub">删除于 ${escapeHtml(when)} · 原在：${escapeHtml(from)} · ${escapeHtml(t.grade || '—')}</div></div>
@@ -1625,7 +1625,7 @@ async function onTrashBody(e) {
   if (!btn) return;
   const id = btn.dataset.id;
   if (btn.dataset.act === 'restore') {
-    if (!(await confirmDlg('恢复后学生将回到待分班池；若原班级仍存在且有容量，会尽量放回原班。确定恢复？', { title: '恢复学生', okText: '恢复' }))) return;
+    if (!(await confirmDlg('恢复后学生将回到未分班；若原班级仍存在且有容量，会尽量放回原班。确定恢复？', { title: '恢复学生', okText: '恢复' }))) return;
     const done = busyBtn(btn);
     if (!done) return;
     try {

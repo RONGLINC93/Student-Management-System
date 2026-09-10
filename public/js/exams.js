@@ -106,9 +106,9 @@ function renderClassOptions() {
   scope.innerHTML = '<option value="">' + (grade ? `全部${esc(grade)}班级` : '全部班级') + '</option>' +
     items.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
   if (grade) {
-    // 含学生池
+    // 含未分班学生
     const hasPool = allStudents.some(s => !s.classId && s.grade === grade);
-    if (hasPool) scope.insertAdjacentHTML('beforeend', `<option value="__pool">${esc(grade)}（学生池）</option>`);
+    if (hasPool) scope.insertAdjacentHTML('beforeend', `<option value="__pool">${esc(grade)}（未分班）</option>`);
   }
 }
 
@@ -134,7 +134,7 @@ function renderEntry() {
     }).join('');
     const totalV = totalOf(rec);
     return `<tr data-sid="${esc(s.id)}">
-      <td><span class="cls-cell">${s.classId ? esc(s.className) : '<span class="dim">池</span>'}</span></td>
+      <td><span class="cls-cell">${s.classId ? esc(s.className) : '<span class="dim">未分班</span>'}</span></td>
       <td style="text-align:left">${esc(s.studentId || '')}</td>
       <td style="text-align:left" class="st-name">${esc(s.name)}</td>
       ${cells}
@@ -256,7 +256,7 @@ function renderStats() {
   });
   $('#statTable').innerHTML = head + keys.map(k => {
     const ps = groups[k];
-    const name = k === '__pool' ? esc(cur.grade || '') + '（学生池）' : esc(ps[0].stu.className || '未知班级');
+    const name = k === '__pool' ? esc(cur.grade || '') + '（未分班）' : esc(ps[0].stu.className || '未知班级');
     const cells = subjList().map(sj => {
       const arr = ps.map(p => {
         const v = p.rec[sj.key];
@@ -361,7 +361,7 @@ function exportCsv() {
       return (v === null || v === undefined || v === '') ? '' : v;
     });
     const t = totalOf(rec);
-    rows.push([s.className || (s.grade || '') + '（池）', s.studentId || '', s.name, ...cells, t === null ? '' : t]);
+    rows.push([s.className || (s.grade || '') + '（未分班）', s.studentId || '', s.name, ...cells, t === null ? '' : t]);
   });
   const csv = '\uFEFF' + rows.map(r => r.map(v => {
     const str = String(v === undefined || v === null ? '' : v);

@@ -219,7 +219,7 @@ function applyGradeFilter() {
     $('#stageTip').style.display = 'flex';
     $('#stageTip').innerHTML = `
       <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
-      <p>学生池已空</p>
+      <p>未分班学生已全部分班</p>
       <small>所有学生已分入班级，请到 <a href="/classes.html" style="color:#a5b4fc">班级管理</a> 查看</small>`;
     setShuffleDisabled(true);
   } else {
@@ -610,7 +610,7 @@ async function startDeal() {
   renderResultStats();
   toast('分班完成！学生已存入各班', 'success');
 
-  // 刷新学生池显示（移除已分配的学生），班级列表由 applyGradeFilter 重新渲染
+  // 刷新未分班学生显示（移除已分配的学生），班级列表由 applyGradeFilter 重新渲染
   await loadStudents();
   allocationResult = null;
 }

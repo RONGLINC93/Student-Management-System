@@ -526,7 +526,7 @@ function renderStats() {
   const grade = gradeFilter;
   const assigned = classes.reduce((a, c) => a + (c.students || []).length, 0);
   const capacity = classes.reduce((a, c) => a + (Number(c.capacity) || 0), 0);
-  // 「学生池剩余」只统计当前年级的未分班学生；实时分班中学生尚未真正从服务端池移除，
+  // 「未分班学生」只统计当前年级的未分班学生；实时分班中学生尚未真正从服务端未分班名单移除，
   // 用 live 快照中「当前年级」新增入班人数做减法，让数值随动画同步递减
   let poolLeft = grade ? boardData.students.filter(s => s.grade === grade).length : 0;
   if (liveFresh() && grade) {

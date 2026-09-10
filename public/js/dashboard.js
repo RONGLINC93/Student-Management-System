@@ -1,6 +1,6 @@
 /* ============================================================
    数据总览模块页（工作台选项卡 /dashboard.html，也可独立整页访问）
-   数据来源：/api/board（学生池 + 班级 + 年级 + 实时快照）
+   数据来源：/api/board（未分班学生 + 班级 + 年级 + 实时快照）
    统计项：学生总数、分班进度、性别、年级概况、
           学科均分、班级容量占用、特长分布、实时分班横幅
    ============================================================ */
@@ -69,7 +69,7 @@
     var live = data.live || null;
     var now = Date.now();
 
-    // 汇总全量学生：池 + 各班名单（保留 scores 等完整档案）
+    // 汇总全量学生：未分班学生 + 各班名单（保留 scores 等完整档案）
     var allocated = [];
     classes.forEach(function (c) {
       (c.students || []).forEach(function (s) {
@@ -113,7 +113,7 @@
     $('#dashCards').innerHTML =
       statCard(total, '学生总数', male + ' 男 · ' + female + ' 女', 'c-blue') +
       statCard(assigned, '已分班人数', waiting + ' 人待分', 'c-green') +
-      statCard(waiting, '学生池待分', '待编入 ' + gradeLabel + ' 等班级', 'c-orange') +
+      statCard(waiting, '待分班学生', '待编入 ' + gradeLabel + ' 等班级', 'c-orange') +
       statCard(classes.length, '班级总数', teacherCount + ' 个班级有班主任', 'c-purple') +
       statCard(gradeList.length, '年级总数', '共 ' + gradeList.length + ' 个年级设置', 'c-rose') +
       statCard(avgTotal, '平均总分', '(满分 ' + fullMark() + (st.n ? ' · ' + st.n + ' 人有成绩' : '') + ')', 'c-teal') +
@@ -125,7 +125,7 @@
     setRing($('#ringAllot'), allotPct, allotPct >= 100 ? '#22c55e' : (total && waiting ? '#4f6df5' : '#cbd5e1'));
     $('#allotRingNum').textContent = Math.round(allotPct) + '%';
     $('#allotNote').textContent = total
-      ? '已分班 ' + assigned + ' 人 · 学生池待分 ' + waiting + ' 人 · 共 ' + total + ' 人'
+      ? '已分班 ' + assigned + ' 人 · 未分班 ' + waiting + ' 人 · 共 ' + total + ' 人'
       : '系统中暂无学生，请先到「学生档案」添加或批量导入';
 
     var malePct = total ? male / total * 100 : 0;
