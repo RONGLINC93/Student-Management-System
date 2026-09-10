@@ -1648,6 +1648,35 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { code: 0, data: cls });
   }
 
+  // 批量新增班级：按「年级 + 序号 + 班」一次生成多个（如 高一1班 ~ 高一6班），同名自动跳过
+  if (pathname === '/api/classes/batch' && req.method === 'POST') {
+    const body = await readBody(req);
+    const grade = String(body.grade || '').trim();
+    if (!grade) return sendJson(res, 400, { code: 1, msg: '请选择年级' });
+    const start = Math.max(1, Math.min(99, parseInt(body.start, 10) || 1));
+    const count = Math.max(1, Math.min(60, parseInt(body.count, 10) || 1));
+    const capacity = Number(body.capacity) || 50;
+    const list = readClasses();
+    const existNames = new Set(list.map(c => String(c.name || '').trim()));
+    const created = [];
+    const skipped = [];
+    for (let i = 0; i < count; i++) {
+      const name = grade + (start + i) + '班';
+      if (existNames.has(name)) { skipped.push(name); continue; }
+      let id = genId();
+      while (list.some(c => c.id === id)) id = genId();
+      const cls = { id, name, grade, headTeacher: '', capacity, students: [] };
+      list.push(cls);
+      existNames.add(name);
+      created.push(cls);
+    }
+    if (created.length) writeClasses(list);
+    const msg = skipped.length
+      ? `已添加 ${created.length} 个班级，${skipped.length} 个同名班级已跳过`
+      : `已添加 ${created.length} 个班级`;
+    return sendJson(res, 200, { code: 0, data: { created, skipped }, msg });
+  }
+
   // 更新班级内某位已分班学生（直接编辑名单里的学生，无需先退回池）
   if (pathname.startsWith('/api/classes/') && pathname.includes('/students/') && req.method === 'PUT') {
     const parts = pathname.split('/');

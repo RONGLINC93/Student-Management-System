@@ -262,6 +262,7 @@
       barSplitOn = false;   // 强制按记忆的分屏/单栏重建一次选项卡条
       applySplitRatio();    // 恢复后应用记忆的分割比例
       layoutPanes();
+      syncActiveChrome();   // 标题按记忆的当前页同步（恢复期间 openTab 会把它停在最后打开的页签上）
       return true;
     } finally {
       wbSuspended = false;
@@ -772,10 +773,7 @@
       leftKey = key;
     }
 
-    var m = MODULES[key];
-    if (currentTitle) currentTitle.textContent = m.title;
-    if (btnNewWin) btnNewWin.href = m.src;
-    setTopTitle();
+    syncActiveChrome();
 
     // 已有内容的选项卡在切回时静默刷新数据
     if (t.loaded) sendTo(t, 'icst-active');
@@ -1091,6 +1089,17 @@
   function setTopTitle() {
     var m = activeKey ? MODULES[activeKey] : null;
     if (m) document.title = m.title + ' · ' + siteBase() + '后台';
+  }
+
+  // 顶栏标题 / 浏览器标题 / “新窗口打开”按钮：统一跟随当前操作目标页。
+  // 注意：恢复记忆的工作台时会直接改写 activeKey，必须重新同步一次，
+  // 否则标题会停留在恢复过程中最后一个打开页签上，与高亮页签不一致。
+  function syncActiveChrome() {
+    var m = activeKey ? MODULES[activeKey] : null;
+    if (!m) return;
+    if (currentTitle) currentTitle.textContent = m.title;
+    if (btnNewWin) btnNewWin.href = m.src;
+    setTopTitle();
   }
 
   function moduleByUrl(href) {

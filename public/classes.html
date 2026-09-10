@@ -108,9 +108,9 @@
       </div>
       <form class="modal-body" id="clsForm">
         <input type="hidden" id="fId" />
-        <div class="form-row">
-          <label class="form-label">班级名称 <span class="req">*</span></label>
-          <input type="text" id="fName" required placeholder="如：高三1班" />
+        <div class="form-row" id="rowName">
+          <label class="form-label">班级名称 <span class="label-tip">选填</span></label>
+          <input type="text" id="fName" placeholder="如：高三实验班；留空则按下方序号批量生成" />
         </div>
         <div class="form-grid">
           <div class="form-row">
@@ -118,15 +118,26 @@
             <select id="fGrade" required>
             </select>
           </div>
-          <div class="form-row">
+          <div class="form-row" id="rowHeadTeacher">
             <label class="form-label">班主任</label>
             <select id="fHeadTeacher" title="从教师列表中选择班主任（已担任其他班级班主任的教师不可选）">
               <option value="">未设置</option>
             </select>
           </div>
+          <div class="form-row" id="rowStartNo" hidden>
+            <label class="form-label">起始序号</label>
+            <input type="number" id="fStartNo" min="1" max="99" value="1" title="从该序号开始命名，如起始 1、数量 6 生成 1班~6班" />
+          </div>
+          <div class="form-row" id="rowCount" hidden>
+            <label class="form-label">生成数量</label>
+            <input type="number" id="fCount" min="1" max="60" value="6" />
+          </div>
           <div class="form-row form-row-full">
             <label class="form-label">容量上限</label>
             <input type="number" id="fCapacity" min="1" max="200" value="50" />
+          </div>
+          <div class="form-row form-row-full" id="rowPreview" hidden>
+            <div class="batch-preview" id="batchPreview"></div>
           </div>
         </div>
         <div class="modal-footer">
@@ -145,10 +156,12 @@
         <button class="modal-close" id="rosterClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="modal-body">
-        <div id="rosterInfo" class="roster-info"></div>
-        <div style="text-align:right;margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn btn-danger btn-sm" id="btnReturnAll" title="将该班所有学生退回学生池，便于重新分班">全部退回</button>
-          <button class="btn btn-primary btn-sm" id="btnExportRoster"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 导出表格</button>
+        <div class="roster-bar">
+          <div id="rosterInfo" class="roster-info"></div>
+          <div class="roster-actions">
+            <button class="btn btn-danger btn-sm" id="btnReturnAll" title="将该班所有学生退回学生池，便于重新分班">全部退回</button>
+            <button class="btn btn-primary btn-sm" id="btnExportRoster"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 导出表格</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table class="student-table">

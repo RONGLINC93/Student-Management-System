@@ -14,6 +14,7 @@ let batchClass = null;  // 批量入班的目标班级
 let batchSelected = new Set(); // 已勾选的学生 id
 let batchEligible = 0;  // 学生池中可加入当前班级的人数（不含关键字过滤）
 let batchHidden = 0;    // 学生池中因不符合条件（年级不符等）被隐藏的人数
+let batchStartTouched = false; // 添加班级-批量模式：用户是否手动改过起始序号（改过则不再自动推荐）
 
 const $ = (s) => document.querySelector(s);
 
@@ -235,12 +236,18 @@ function renderHeadTeacherOptions(cls) {
 
 // ===== 班级编辑弹窗 =====
 function openModal(cls) {
-  $('#modalTitle').textContent = cls ? '编辑班级' : '添加班级';
-  $('#fId').value = cls ? cls.id : '';
-  $('#fName').value = cls ? cls.name : '';
-  $('#fGrade').value = cls ? cls.grade : (gradesList[0] || '');
+  const isEdit = !!cls;
+  $('#modalTitle').textContent = isEdit ? '编辑班级' : '添加班级';
+  $('#fId').value = isEdit ? cls.id : '';
+  $('#fName').value = isEdit ? cls.name : '';
+  $('#fName').required = isEdit;         // 新增时名称可留空（留空即批量生成）
+  $('#fGrade').value = isEdit ? cls.grade : (gradesList[0] || '');
   renderHeadTeacherOptions(cls);
-  $('#fCapacity').value = cls ? cls.capacity : 50;
+  $('#fCapacity').value = isEdit ? cls.capacity : 50;
+  // 新增：数量默认 6，起始序号按当前年级已有班级推荐
+  batchStartTouched = false;
+  $('#fCount').value = 6;
+  syncAddForm();
   $('#modalMask').classList.add('show');
   setTimeout(() => $('#fName').focus(), 100);
 }
@@ -249,8 +256,11 @@ function closeModal() { $('#modalMask').classList.remove('show'); }
 async function saveClass(e) {
   e.preventDefault();
   const id = $('#fId').value;
+  const name = $('#fName').value.trim();
+  // 新增且未填名称 → 按「年级 + 起始序号 + 数量」批量生成
+  if (!id && !name) { await saveBatchClasses(e); return; }
   const data = {
-    name: $('#fName').value.trim(),
+    name,
     grade: $('#fGrade').value,
     headTeacher: $('#fHeadTeacher').value.trim(),
     capacity: $('#fCapacity').value
@@ -271,6 +281,114 @@ async function saveClass(e) {
     await loadData();
   } catch (e) {
     toast('保存失败：' + e.message, 'error');
+  } finally {
+    done();
+  }
+}
+
+// ===== 批量添加班级（年级 + 序号 + 班，一次生成多个） =====
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// 名称留空 → 按「年级 + 起始序号 + 数量」批量生成；填了名称 → 只创建这一个自定义班级
+function syncAddForm() {
+  const isEdit = !!$('#fId').value;
+  const name = $('#fName').value.trim();
+  const batch = !isEdit && !name;
+  $('#rowStartNo').hidden = isEdit;   // 编辑班级时只有名称/年级/班主任/容量
+  $('#rowCount').hidden = isEdit;
+  $('#rowPreview').hidden = isEdit;
+  $('#fStartNo').disabled = !batch;   // 自定义名称时序号/数量不生效，置灰避免误解
+  $('#fCount').disabled = !batch;
+  const submitBtn = $('#clsForm').querySelector('button[type="submit"]');
+  if (submitBtn && !submitBtn.querySelector('svg')) submitBtn.textContent = batch ? '批量创建' : '保存';
+  if (isEdit) return;
+  if (batch) {
+    if (!batchStartTouched) $('#fStartNo').value = suggestStartNo($('#fGrade').value);
+    renderBatchPreview();
+  } else {
+    renderSinglePreview(name);
+  }
+}
+
+// 自定义名称时的预览（只创建这一个班级）
+function renderSinglePreview(name) {
+  const box = $('#batchPreview');
+  if (!box) return;
+  box.innerHTML = `
+    <div class="bp-names"><span class="bp-chip">${escapeHtml(name)}</span></div>
+    <div class="bp-tip">将新建 <b>1</b> 个自定义班级（可设置班主任）；若要一次建多个，清空班级名称即可按序号批量生成</div>
+  `;
+}
+
+// 按已有班级名（年级+序号+班）推荐下一个可用序号，方便接着往后编号
+function suggestStartNo(grade) {
+  const g = String(grade || '').trim();
+  if (!g) return 1;
+  const re = new RegExp('^' + escapeRegExp(g) + '(\\d+)班$');
+  let max = 0;
+  classes.forEach(c => {
+    const m = String(c.name || '').trim().match(re);
+    if (m) max = Math.max(max, parseInt(m[1], 10) || 0);
+  });
+  return max + 1;
+}
+
+// 待生成的班级名称列表
+function batchNames() {
+  const grade = String($('#fGrade').value || '').trim();
+  const start = Math.max(1, parseInt($('#fStartNo').value, 10) || 1);
+  const count = Math.min(60, Math.max(1, parseInt($('#fCount').value, 10) || 1));
+  const names = [];
+  for (let i = 0; i < count; i++) names.push(`${grade}${start + i}班`);
+  return names;
+}
+
+// 预览将创建的班级名，同名班级标红提示会自动跳过
+function renderBatchPreview() {
+  const box = $('#batchPreview');
+  if (!box) return;
+  const grade = String($('#fGrade').value || '').trim();
+  if (!grade) { box.innerHTML = '<div class="bp-tip">请先选择年级</div>'; return; }
+  const exist = new Set(classes.map(c => String(c.name || '').trim()));
+  const names = batchNames();
+  const dup = names.filter(n => exist.has(n)).length;
+  box.innerHTML = `
+    <div class="bp-names">${names.map(n => `<span class="bp-chip${exist.has(n) ? ' dup' : ''}">${escapeHtml(n)}</span>`).join('')}</div>
+    <div class="bp-tip">共 ${names.length} 个，将新建 <b>${names.length - dup}</b> 个${dup ? `，${dup} 个已存在会自动跳过` : ''}（命名规则：年级 + 序号 + 班）</div>
+  `;
+}
+
+// 提交批量添加
+async function saveBatchClasses(e) {
+  const grade = String($('#fGrade').value || '').trim();
+  if (!grade) { toast('请选择年级', 'error'); return; }
+  const start = Math.max(1, parseInt($('#fStartNo').value, 10) || 1);
+  const count = Math.min(60, Math.max(1, parseInt($('#fCount').value, 10) || 1));
+  const exist = new Set(classes.map(c => String(c.name || '').trim()));
+  if (!batchNames().some(n => !exist.has(n))) {
+    toast('这些班级都已存在，无需重复创建', 'error');
+    return;
+  }
+  const submitBtn = (e && e.submitter) || $('#clsForm').querySelector('button[type="submit"]');
+  const done = busyBtn(submitBtn, '创建中…');
+  if (!done) return;
+  try {
+    const res = await fetch(`${API}/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grade, start, count, capacity: $('#fCapacity').value })
+    });
+    const json = await res.json();
+    if (json.code !== 0) { toast(json.msg || '批量添加失败', 'error'); return; }
+    const created = (json.data && json.data.created ? json.data.created.length : 0);
+    const skipped = (json.data && json.data.skipped ? json.data.skipped.length : 0);
+    toast(`已添加 ${created} 个班级${skipped ? `，${skipped} 个同名班级已跳过` : ''}`, 'success');
+    closeModal();
+    await loadData();
+  } catch (err) {
+    toast('批量添加失败：' + err.message, 'error');
   } finally {
     done();
   }
@@ -657,6 +775,11 @@ function bindEvents() {
   $('#modalClose').onclick = closeModal;
   $('#modalCancel').onclick = closeModal;
   $('#clsForm').onsubmit = saveClass;
+  // 添加班级弹窗：名称留空即按序号批量生成，输入时实时预览
+  $('#fName').oninput = syncAddForm;
+  $('#fStartNo').oninput = () => { batchStartTouched = true; syncAddForm(); };
+  $('#fCount').oninput = syncAddForm;
+  $('#fGrade').onchange = syncAddForm;
   $('#searchInput').oninput = () => { renderClasses(); saveFilters(); };
   $('#gradeFilter').onchange = () => { renderClasses(); saveFilters(); };
   $('#rosterClose').onclick = closeRoster;

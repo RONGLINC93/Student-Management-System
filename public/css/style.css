@@ -1145,12 +1145,30 @@ input, select, textarea, button { font-family: inherit; }
 .modal-lg .modal-body { padding: 20px; }
 .table-wrap { border-radius: 8px; border: 1px solid var(--border); }
 
-/* 花名册信息 */
+/* 花名册信息 + 操作按钮：同一行两端对齐，垂直居中，避免上下错位 */
+.roster-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
 .roster-info {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 14px;
+}
+.roster-bar .roster-info { margin-bottom: 0; }
+/* 花名册操作按钮组 */
+.roster-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .roster-tag {
   background: #eef2ff;
@@ -2464,6 +2482,28 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
   .cap-name { justify-content: space-between; }
   .cap-num { text-align: left; }
 }
+
+/* ===== 添加班级：名称留空即按序号批量生成（班级管理） ===== */
+.label-tip { font-size: 12px; font-weight: 400; color: var(--text-light); margin-left: 2px; }
+.form-row input:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+/* 命名预览 */
+.batch-preview {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+.bp-names { display: flex; flex-wrap: wrap; gap: 6px; }
+.bp-chip {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: #eef2ff;
+  color: var(--primary-dark);
+}
+.bp-chip.dup { background: #fee2e2; color: #b91c1c; text-decoration: line-through; }
+.bp-tip { margin-top: 8px; font-size: 12px; color: var(--text-light); }
+.bp-tip b { color: var(--primary-dark); }
 
 /* ===== 批量入班（班级管理） ===== */
 .btn-sm.btn-assign { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
