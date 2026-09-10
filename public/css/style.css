@@ -13,14 +13,18 @@
   --border: #e5e7eb;
   --shadow: 0 4px 20px rgba(0,0,0,.06);
   --shadow-lg: 0 12px 40px rgba(0,0,0,.12);
+  /* 全站统一字体栈：与 css/admin.css、login/slogin/student 内联样式保持一致，改动请同步 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
 }
+/* 表单控件默认不继承字体，统一为与正文一致，避免出现浏览器默认字体 */
+input, select, textarea, button { font-family: inherit; }
 
 /* ========== 头部 ========== */
 .app-header {
@@ -373,7 +377,7 @@ body {
 .gender-male { background: #dbeafe; color: #1e40af; }
 .gender-female { background: #fce7f3; color: #9d174d; }
 .score { font-weight: 600; }
-.stu-id { font-family: 'SF Mono', 'Consolas', monospace; font-size: 12px; color: var(--text-light); }
+.stu-id { font-family: var(--font-mono); font-size: 12px; color: var(--text-light); }
 .total-score { color: var(--primary); font-weight: 700; }
 .specialty-tag {
   background: #fef3c7;

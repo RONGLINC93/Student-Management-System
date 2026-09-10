@@ -80,6 +80,9 @@
   // 侧边栏「宿舍管理」菜单项及其待审核角标
   var dormItem = document.querySelector('.menu-item[data-mod="dorm"]');
   var dormBadge = document.getElementById('menuDormBadge');
+  // 侧边栏「请假管理」菜单项及其待审批角标
+  var leafItem = document.querySelector('.menu-item[data-mod="leaves"]');
+  var leafBadge = document.getElementById('menuLeafBadge');
 
   // “更多”溢出下拉：主/副两个栏各建一个，页签放不下时收起部分页签到按钮里
   //（菜单挂到 body；按钮恒为所在栏的最后一个子元素，避免影响顺序类逻辑）
@@ -1137,6 +1140,8 @@
       if (key) openTab(key, d.url);
     } else if (d.type === 'icst-dorm-apps') {
       refreshDormBadge();
+    } else if (d.type === 'icst-leaves') {
+      refreshLeafBadge();
     }
   });
 
@@ -1199,6 +1204,29 @@
       });
   }
 
+  // ===== 侧边栏「请假管理」待审批角标 =====
+  function refreshLeafBadge() {
+    if (!leafItem) return;
+    fetch('/api/leaves?status=pending')
+      .then(function (r) { return r.json(); })
+      .catch(function () { return { code: 1 }; })
+      .then(function (j) {
+        if (!j || j.code !== 0 || !Array.isArray(j.data)) return; // 未登录/接口异常：保持现状
+        var n = j.data.length;
+        if (leafBadge) {
+          leafBadge.textContent = n > 99 ? '99+' : String(n);
+          leafBadge.hidden = n <= 0;
+        }
+        leafItem.title = n > 0 ? ('请假管理 · 待审批 ' + n + ' 条') : '请假管理';
+      });
+  }
+
+  // 两处角标统一刷新（定时轮询 / 切回窗口 / 子页操作后通知共用）
+  function refreshBadges() {
+    refreshDormBadge();
+    refreshLeafBadge();
+  }
+
   // 登录角色：查看模式账号隐藏「系统设置」菜单；登录就绪后刷新角标并定时轮询
   window.addEventListener('cb-auth-ready', function () {
     if (!window.AUTH) return;
@@ -1206,13 +1234,13 @@
       var it = document.querySelector('.menu-item[data-mod="settings"]');
       if (it) it.style.display = 'none';
     }
-    refreshDormBadge();
-    setInterval(refreshDormBadge, 20000);
+    refreshBadges();
+    setInterval(refreshBadges, 20000);
   });
 
   // 从别处切回工作台窗口时立即刷新（学生在学生中心提交/撤销申请后回到后台即可看到）
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && window.AUTH) refreshDormBadge();
+    if (!document.hidden && window.AUTH) refreshBadges();
   });
 
   // ---------- 选项卡拖拽：栏内排序 / 跨两栏移动 ----------

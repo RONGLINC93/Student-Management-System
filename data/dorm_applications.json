@@ -24,5 +24,17 @@
     "createdAt": "2026-09-09T03:40:29.452Z",
     "updatedAt": "2026-09-09T03:40:44.250Z",
     "handledAt": "2026-09-09T03:40:44.250Z"
+  },
+  {
+    "id": "cls_mtvktjpi4ige",
+    "sid": "mtlkhfhivmdv",
+    "no": "2024001",
+    "name": "张伟",
+    "grade": "高一",
+    "className": "高一1班",
+    "roomId": "cls_mtsbabcqg8rc",
+    "status": "pending",
+    "createdAt": "2026-09-10T13:42:00.198Z",
+    "updatedAt": "2026-09-10T13:42:00.198Z"
   }
 ]

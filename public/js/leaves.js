@@ -11,6 +11,7 @@ let allStudents = [];
 let gradesList = [];
 let statusTab = 'all';
 let curReview = null;
+let editingId = null;      // 正在编辑的请假 id；null 表示新增（代登记）
 let stuFocused = -1;
 let stuFiltered = [];
 
@@ -82,6 +83,7 @@ function renderList() {
     if (isAdmin) {
       if (x.status === 'pending') {
         ops.push('<button class="btn btn-sm btn-success" data-act="review" data-id="' + x.id + '">审批</button>');
+        ops.push('<button class="btn btn-sm btn-default" data-act="edit" data-id="' + x.id + '">编辑</button>');
       } else {
         ops.push('<button class="btn btn-sm btn-default" data-act="review" data-id="' + x.id + '" title="查看">查看</button>');
       }
@@ -89,7 +91,7 @@ function renderList() {
     }
     return `<tr>
       <td><strong>${escL(x.name)}</strong><div class="type-line">${escL(x.no || '')}${x.gender ? ' · ' + escL(x.gender) : ''}</div></td>
-      <td>${escL(x.className || '<span class="type-line">待分班</span>')}</td>
+      <td>${x.className ? escL(x.className) : '<span class="type-line">待分班</span>'}</td>
       <td><span class="tag tag-p">${escL(x.type)}</span><div class="type-line">${x.days || daysBetween(x.startDate, x.endDate)} 天</div></td>
       <td>${escL(x.startDate || '—')} ~ ${escL(x.endDate || '—')}</td>
       <td style="max-width:220px">${escL(x.reason || '—')}</td>
@@ -142,18 +144,29 @@ function loadStudents() {
     });
   });
 }
-function openNew() {
+// 打开表单弹窗：x 为空 = 代登记，传入记录 = 编辑（与其他页面「同一弹窗复用」一致）
+function openForm(x) {
   if (!canWrite()) { toast('查看模式仅可浏览', 'error'); return; }
+  editingId = x ? x.id : null;
+  $L('#formTitle').textContent = x ? '编辑请假' : '代登记请假';
+  $L('#btnSave').textContent = x ? '保存修改' : '提交（待审批）';
   $L('#stuSug').hidden = true;
+  // 编辑时不允许更换学生（后端 PUT 也不接收 studentId），仅只读展示
+  $L('#stuSearch').disabled = !!x;
+  $L('#stuSearch').value = x ? `${x.name || ''}（${x.no || '—'}${x.className ? ' · ' + x.className : ''}）` : '';
   $L('#stuSel').value = '';
-  $L('#stuSearch').value = '';
-  $L('#typeSel').innerHTML = TYPES.map(t => `<option>${t}</option>`).join('');
+  $L('#typeSel').innerHTML = TYPES.map(t => `<option${x && x.type === t ? ' selected' : ''}>${t}</option>`).join('');
   const t = localToday();
-  $L('#startDate').value = t;
-  $L('#endDate').value = t;
-  $L('#reason').value = '';
+  $L('#startDate').value = x ? (x.startDate || t) : t;
+  $L('#endDate').value = x ? (x.endDate || t) : t;
+  $L('#reason').value = x ? (x.reason || '') : '';
   updateDaysTip();
   $L('#newMask').classList.add('show');
+}
+// 关闭表单弹窗并复位编辑态
+function closeForm() {
+  editingId = null;
+  $L('#newMask').classList.remove('show');
 }
 function stuLabel(s) {
   return `${s.name}（${s.studentId || '—'}${s.className ? ' · ' + s.className : ' · 待分班'}）`;
@@ -194,18 +207,30 @@ function updateDaysTip() {
   const n = daysBetween($L('#startDate').value, $L('#endDate').value);
   $L('#daysTip').textContent = n ? n + ' 天' : '结束日期不能早于开始日期';
 }
-async function submitNew() {
-  const sid = $L('#stuSel').value;
+// 数据变化后通知父工作台刷新侧边栏「请假管理」待审批角标（独立打开页面时无操作）
+function notifyLeavesChangedToParent() {
+  try {
+    if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'icst-leaves' }, location.origin);
+  } catch (e) {}
+}
+async function submitForm() {
   const type = $L('#typeSel').value;
   const s = $L('#startDate').value;
   const e = $L('#endDate').value;
-  if (!sid) return toast('请从搜索结果中选择学生', 'error');
+  if (!editingId && !$L('#stuSel').value) return toast('请从搜索结果中选择学生', 'error');
   if (!s || !e || s > e) return toast('请选择正确的起止日期', 'error');
+  const reason = $L('#reason').value;
   try {
-    await apiL(LEAF_API, 'POST', { studentId: sid, type, startDate: s, endDate: e, reason: $L('#reason').value });
-    toast('已登记，等待审批', 'success');
-    $L('#newMask').classList.remove('show');
+    if (editingId) {
+      await apiL(`${LEAF_API}/${editingId}`, 'PUT', { type, startDate: s, endDate: e, reason });
+      toast('请假已更新', 'success');
+    } else {
+      await apiL(LEAF_API, 'POST', { studentId: $L('#stuSel').value, type, startDate: s, endDate: e, reason });
+      toast('已登记，等待审批', 'success');
+    }
+    closeForm();
     await loadLeaves();
+    notifyLeavesChangedToParent();
   } catch (err) { toast(err.message, 'error'); }
 }
 function openReview(x) {
@@ -231,6 +256,7 @@ async function doReview(action) {
     toast(action === 'approve' ? '已批准，请假已同步写入该班考勤' : '已驳回', 'success');
     $L('#reviewMask').classList.remove('show');
     await loadLeaves();
+    notifyLeavesChangedToParent();
   } catch (err) { toast(err.message, 'error'); }
 }
 async function delLeaf(id) {
@@ -240,6 +266,7 @@ async function delLeaf(id) {
     await apiL(`${LEAF_API}/${id}`, 'DELETE');
     toast('已删除', 'success');
     await loadLeaves();
+    notifyLeavesChangedToParent();
   } catch (err) { toast(err.message, 'error'); }
 }
 function exportCsv() {
@@ -261,12 +288,12 @@ function exportCsv() {
 }
 
 function bindEvents() {
-  $L('#btnNew').onclick = openNew;
+  $L('#btnNew').onclick = () => openForm(null);
   $L('#btnExport').onclick = exportCsv;
-  $L('#newX').onclick = () => $L('#newMask').classList.remove('show');
-  $L('#newCancel').onclick = () => $L('#newMask').classList.remove('show');
-  $L('#newMask').addEventListener('click', e => { if (e.target === $L('#newMask')) $L('#newMask').classList.remove('show'); });
-  $L('#btnSave').onclick = submitNew;
+  $L('#newX').onclick = closeForm;
+  $L('#newCancel').onclick = closeForm;
+  $L('#newMask').addEventListener('click', e => { if (e.target === $L('#newMask')) closeForm(); });
+  $L('#btnSave').onclick = submitForm;
   $L('#startDate').onchange = updateDaysTip;
   $L('#endDate').onchange = updateDaysTip;
 
@@ -321,6 +348,7 @@ function bindEvents() {
     const id = btn.dataset.id;
     const x = leaves.find(v => v.id === id);
     if (btn.dataset.act === 'review') openReview(x);
+    else if (btn.dataset.act === 'edit') openForm(x);
     else if (btn.dataset.act === 'del') delLeaf(id);
   });
 }
