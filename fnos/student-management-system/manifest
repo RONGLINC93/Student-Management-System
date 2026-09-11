@@ -1,5 +1,5 @@
 appname               = student-management-system
-version               = 1.1.0
+version               = 1.2.0
 display_name          = 学生管理系统
 desc                  = 纯 Node.js 学生管理系统，覆盖学籍档案、班级年级、教师档案、多科目成绩、考勤操行、请假、通知公告、成绩分析、宿舍安排与智能分班，数据以 JSON 本地持久化，开箱即用。
 platform              = all
