@@ -1409,9 +1409,52 @@
   document.addEventListener('pointerup', endDrag);
   document.addEventListener('pointercancel', endDrag);
 
+  /* ===== 小屏适配：左侧导航抽屉 =====
+     窄屏（<=900px，与 CSS 断点一致）下侧边栏默认移出屏幕，
+     由顶栏“菜单”按钮滑出；点遮罩 / 关闭按钮 / 任一菜单项 / Esc 收回；
+     视口拉宽到断点以上时自动复位，避免残留遮罩。 */
+  var NARROW_W = 900;
+  var aside = document.querySelector('.admin-aside');
+  var asideToggle = $('#btnAsideToggle');
+  var asideClose = $('#btnAsideClose');
+  var asideBackdrop = $('#asideBackdrop');
+
+  function asideOpened() {
+    return !!(aside && aside.classList.contains('open'));
+  }
+  function setAside(open) {
+    if (!aside) return;
+    open = !!open;
+    aside.classList.toggle('open', open);
+    if (asideBackdrop) asideBackdrop.classList.toggle('show', open);
+    if (asideToggle) asideToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.body.classList.toggle('aside-open', open);
+  }
+  function closeAside() { if (asideOpened()) setAside(false); }
+
+  if (asideToggle) {
+    asideToggle.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setAside(!asideOpened());
+    });
+  }
+  if (asideClose) asideClose.addEventListener('click', closeAside);
+  if (asideBackdrop) asideBackdrop.addEventListener('click', closeAside);
+  // 窄屏下点任一菜单项（打开功能页 / 外链）后收回抽屉
+  if (aside) {
+    aside.addEventListener('click', function (e) {
+      var item = e.target && e.target.closest ? e.target.closest('.menu-item') : null;
+      if (item) closeAside();
+    });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' || e.key === 'Esc') closeAside();
+  });
+
   // 视口宽度在“左右分屏/上下堆叠”断点间切换时，重排选项卡条分栏
   var resizeTimer = null;
   window.addEventListener('resize', function () {
+    if (window.innerWidth > NARROW_W) closeAside();   // 拉宽后复位抽屉
     if (resizeTimer) clearTimeout(resizeTimer);
     resizeTimer = setTimeout(layoutPanes, 120);
   });

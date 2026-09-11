@@ -90,6 +90,16 @@
     .ctx-list { max-height: 250px; overflow: auto; }
     .ctx-divider { height: 1px; background: var(--border); margin: 5px 4px; }
     #modalMask .modal { max-width: 560px; }
+
+    /* ===== 小屏适配 ===== */
+    @media (max-width: 900px) {
+      /* 表格区高度按小屏可视高度重算，并保证横向可滑动 */
+      .table-scroll { max-height: 62vh; max-height: calc(100dvh - 300px); }
+      .t-table thead th { padding: 11px 12px; }
+      .t-table tbody td { padding: 9px 12px; }
+      #ctxMenu { width: min(250px, calc(100vw - 24px)); }
+      .ctx-list { max-height: 40vh; }
+    }
   </style>
 </head>
 <body>

@@ -255,6 +255,62 @@
   }
   window.siteLoadAuth = loadAuth;
 
+  // ===== 小屏适配：顶栏导航折叠为下拉菜单 =====
+  // 窄屏（<=900px，与 style.css 断点一致）下顶部导航默认收起，
+  // 由顶栏右侧汉堡按钮展开；点导航项 / 页面空白 / Esc 收起，
+  // 视口拉宽到断点以上时自动复位。按钮由本脚本注入，页面无需改动。
+  var IC_MENU = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+  var IC_CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  var NARROW_W = 900;
+
+  function setupMobileNav() {
+    var inner = document.querySelector('.header-inner');
+    var nav = inner ? inner.querySelector('.nav') : null;
+    if (!inner || !nav || !nav.querySelector('.nav-item')) return;
+    if (inner.querySelector('.nav-toggle')) return;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'nav-toggle';
+    btn.setAttribute('aria-label', '展开导航菜单');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = IC_MENU;
+    inner.insertBefore(btn, nav);
+
+    function isOpen() { return nav.classList.contains('open'); }
+    function setOpen(open) {
+      open = !!open;
+      nav.classList.toggle('open', open);
+      btn.classList.toggle('on', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.setAttribute('aria-label', open ? '收起导航菜单' : '展开导航菜单');
+      btn.innerHTML = open ? IC_CLOSE : IC_MENU;
+    }
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setOpen(!isOpen());
+    });
+    // 点到任一导航项即收起（导航项通常跳转，视觉上更连贯）
+    nav.addEventListener('click', function (e) {
+      var item = e.target && e.target.closest ? e.target.closest('.nav-item') : null;
+      if (item) setOpen(false);
+    });
+    document.addEventListener('pointerdown', function (e) {
+      if (!isOpen()) return;
+      if (nav.contains(e.target) || btn.contains(e.target)) return;
+      setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' || e.key === 'Esc') setOpen(false);
+    });
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > NARROW_W && isOpen()) setOpen(false);
+    });
+  }
+
+  setupMobileNav();
+
   // 工作台切换选项卡 / 手动刷新 / 系统设置保存后：静默重拉并应用
   window.addEventListener('message', function (ev) {
     if (!ev.data) return;

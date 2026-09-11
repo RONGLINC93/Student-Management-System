@@ -35,6 +35,32 @@
     .picked .st-name { font-weight:600; }
     .empty-tip2 { padding: 40px 10px; text-align:center; color:#9ca3af; }
     .stat-table th { font-size:12px; }
+
+    /* ===== 小屏适配 ===== */
+    @media (max-width: 900px) {
+      /* 左栏考试列表折叠为上方横向卡片条 */
+      .exam-wrap { grid-template-columns: 1fr; gap: 12px; }
+      .exam-side { padding: 12px; border-radius: 12px; }
+      .exam-list {
+        flex-direction: row; gap: 8px; max-height: none;
+        overflow-x: auto; overflow-y: hidden; padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .exam-item { flex: 0 0 auto; min-width: 168px; max-width: 240px; }
+      .exam-main { min-height: 0; padding: 12px; border-radius: 12px; }
+      /* 页签横向滑动 */
+      .main-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .main-tabs .mt { flex: none; white-space: nowrap; padding: 8px 13px; }
+      .e-head { align-items: stretch; }
+      .e-name-input { flex: 1 1 100%; font-size: 15px; }
+      .entry-bar .btn { flex: 1 1 auto; justify-content: center; }
+      .entry-table-wrap { max-height: 52vh; }
+      .entry-table { min-width: 560px; }
+    }
+    @media (max-width: 640px) {
+      .exam-list .exam-side-title { flex-wrap: wrap; gap: 6px; }
+      .exam-item { min-width: 150px; }
+    }
   </style>
 </head>
 <body>

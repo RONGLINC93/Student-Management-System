@@ -46,6 +46,27 @@
     .sel-list { max-height:180px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:8px; margin-top:4px; background:#fff; }
     .sel-item { padding:6px 10px; font-size:13px; cursor:pointer; }
     .sel-item:hover { background:#eff6ff; }
+
+    /* ===== 小屏适配 ===== */
+    @media (max-width: 900px) {
+      .cd-wrap { padding: 14px 12px; border-radius: 12px; }
+      /* 页签横向滑动，避免换行错位 */
+      .cd-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .cd-tab { flex: none; white-space: nowrap; padding: 9px 14px; }
+      /* 筛选条控件加大点按区域并整行铺开 */
+      .att-bar { gap: 8px; }
+      .att-bar > input, .att-bar > select { flex: 1 1 138px; min-width: 0; height: 40px; }
+      .att-bar > .spacer { display: none; }
+      .att-bar .btn { height: 40px; line-height: 38px; flex: 1 1 auto; }
+      .att-bar > input[type="date"] { flex: 1 1 100%; }
+      /* 弹窗表单改单列 */
+      .modal .form-grid { grid-template-columns: 1fr; }
+      .sel-list { max-height: 40vh; }
+    }
+    @media (max-width: 640px) {
+      .stat-c { gap: 8px 14px; }
+      .student-table .empty-tip { padding: 40px 12px !important; }
+    }
   </style>
 </head>
 <body>

@@ -18,6 +18,18 @@
     .scope.all{background:#ecfdf5;color:#059669;}
     .pin{display:inline-block;padding:1px 8px;border-radius:8px;font-size:12px;background:#fff7e6;color:#b45309;}
     .ann-ops{display:flex;gap:6px;flex-shrink:0;}
+    /* 发布表单三列栅格（窄屏降为单列，见下方断点） */
+    .form-3{grid-template-columns:1fr 1fr 1fr;}
+
+    /* ===== 小屏适配 ===== */
+    @media (max-width: 900px) {
+      .ann-head{flex-direction:column;gap:10px;}
+      .ann-head .btn{width:100%;justify-content:center;}
+      .ann-item{flex-direction:column;gap:10px;padding:12px 14px;}
+      .ann-ops{width:100%;justify-content:flex-end;}
+      .ann-ops .btn{flex:1 1 auto;justify-content:center;}
+      .form-3{grid-template-columns:1fr;}
+    }
   </style>
 </head>
 <body>
@@ -81,7 +93,7 @@
       </div>
       <div class="modal-body">
         <div class="form-row"><label class="form-label">标题 *</label><input type="text" id="aTitle" maxlength="100" placeholder="公告标题" /></div>
-        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="form-grid form-3">
           <div class="form-row"><label class="form-label">面向范围 *</label>
             <select id="scopeType">
               <option value="all">全校</option>

@@ -2523,3 +2523,155 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
 .batch-row.disabled .batch-cbox { cursor: not-allowed; }
 .batch-note { margin: 10px 0 0; font-size: 12px; color: #64748b; line-height: 1.7; }
 
+/* ============================================================================
+   全站小屏适配（所有功能页共用）
+   断点：900px（平板竖屏 / 大屏手机）、640px（手机）、420px（小手机）
+   与页面内联样式里既有的 760 / 900 / 520 断点互为补充、互不冲突。
+   ============================================================================ */
+
+/* ---- 顶栏汉堡按钮：仅窄屏由 site.js 注入并显示 ---- */
+.nav-toggle {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .38);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  cursor: pointer;
+  transition: background .18s;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-toggle svg { width: 19px; height: 19px; }
+.nav-toggle:hover, .nav-toggle.on { background: rgba(255, 255, 255, .3); }
+
+@media (max-width: 900px) {
+  /* ---------- 顶栏：logo 与汉堡按钮同排，导航在下一行整行展开 ---------- */
+  .header-inner { padding: 10px 14px; gap: 10px; }
+  .logo { flex: 1 1 auto; min-width: 0; }
+  .logo > div { min-width: 0; }
+  .logo h1 { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .subtitle { font-size: 11px; }
+  .logo-icon, .logo > .site-logo-img { width: 30px; height: 30px; }
+
+  .logo { order: 1; }
+  .nav-toggle { display: inline-flex; order: 2; }
+
+  .nav {
+    order: 3;
+    flex: 1 0 100%;
+    width: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    margin-top: 2px;
+    padding: 8px 0 2px;
+    border-top: 1px solid rgba(255, 255, 255, .22);
+    max-height: calc(100vh - 96px);
+    max-height: calc(100dvh - 96px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav.open { display: flex; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-item { padding: 11px 12px; border-radius: 10px; font-size: 15px; }
+  .nav-item svg { width: 16px; height: 16px; }
+  .nav .site-web { margin: 8px 0 0; justify-content: center; }
+  .nav .auth-chip { margin: 8px 0 0; align-self: flex-start; max-width: 100%; }
+
+  /* ---------- 页面容器 ---------- */
+  .container { padding: 16px 14px; }
+
+  /* ---------- 工具栏 / 筛选条 ---------- */
+  .toolbar { padding: 10px 12px; gap: 8px 10px; border-radius: 12px; }
+  .toolbar-left, .toolbar-right { width: 100%; }
+  .toolbar-right { justify-content: flex-start; }
+  .toolbar .search-input { width: 100%; }
+  .toolbar .grade-filter, .toolbar select { flex: 1 1 auto; min-width: 0; }
+  .toolbar-right .btn { flex: 1 1 auto; justify-content: center; }
+  .toolbar .meta { max-width: none; }
+
+  /* ---------- 数据表格：窄屏改为横向滚动，避免内容被裁切 ---------- */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .student-table th, .student-table td { padding: 10px 12px; }
+
+  /* ---------- 统计卡片 ---------- */
+  .stats { gap: 12px; }
+  .stat-card { padding: 15px 12px; }
+  .stat-num { font-size: 24px; }
+
+  /* ---------- 弹窗 / 对话框 ---------- */
+  .modal { width: calc(100% - 20px); border-radius: 14px; }
+  .modal-header { padding: 14px 16px; }
+  .modal-header h3 { font-size: 16px; }
+  .modal-body { padding: 16px; }
+  .modal-footer { padding: 14px 16px; gap: 8px; flex-wrap: wrap; }
+  .modal-footer .btn { flex: 1 1 auto; justify-content: center; }
+  .form-grid { grid-template-columns: 1fr; gap: 12px; }
+  .dialog-panel { max-width: none; padding: 26px 20px 22px; }
+  .dialog-btns { flex-wrap: wrap; }
+  .dialog-btns .btn { flex: 1 1 110px; justify-content: center; }
+
+  /* ---------- 分页 / 提示 ---------- */
+  .pagination { flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .page-left, .page-btns { width: 100%; justify-content: center; }
+  .toast { bottom: 16px; max-width: calc(100% - 32px); padding: 11px 18px; font-size: 13px; }
+
+  /* ---------- 班级卡片 / 名册 ---------- */
+  .classes-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .roster-bar { padding: 12px 14px; }
+  .roster-info { width: 100%; }
+  .roster-tools { width: 100%; flex-wrap: wrap; }
+  .roster-tools .btn { flex: 1 1 auto; justify-content: center; }
+
+  /* ---------- 通用页面标题 ---------- */
+  .page-title { font-size: 19px; }
+
+  /* ---------- 分班舞台（智能分班 / 大屏看板） ---------- */
+  .stage { height: 420px; border-radius: 14px; }
+  .stage-grade-watermark { font-size: 92px; letter-spacing: 10px; text-indent: 10px; }
+  .stage-tip p { font-size: 16px; }
+  .control-panel { padding: 14px 16px; }
+  .control-right { width: 100%; }
+  .control-right .btn { flex: 1 1 auto; justify-content: center; }
+}
+
+@media (max-width: 640px) {
+  .container { padding: 14px 12px; }
+
+  /* 统计卡片改双列，信息密度更高 */
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .stat-card { padding: 13px 10px; }
+  .stat-num { font-size: 21px; }
+  .stat-label { font-size: 12px; }
+
+  /* 表格字号与内边距收紧 */
+  .student-table { font-size: 12.5px; }
+  .student-table th, .student-table td { padding: 9px 10px; }
+
+  /* 弹窗按钮整行铺满，便于拇指点按 */
+  .modal-footer { flex-direction: column-reverse; }
+  .modal-footer .btn { width: 100%; }
+  .modal-footer .btn[style*="margin-right"] { margin-right: 0 !important; }
+
+  .classes-grid { grid-template-columns: 1fr; }
+  .nav-item { font-size: 14.5px; }
+  .stage { height: 340px; }
+  .stage-grade-watermark { font-size: 68px; letter-spacing: 6px; text-indent: 6px; }
+  .control-left { gap: 12px; }
+}
+
+@media (max-width: 420px) {
+  .container { padding: 12px 10px; }
+  .logo h1 { font-size: 15.5px; }
+  .subtitle { display: none; }
+  .toolbar-right .btn { font-size: 13px; }
+  .stat-num { font-size: 19px; }
+}
+

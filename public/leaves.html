@@ -29,6 +29,22 @@
     .sug-no{color:#6b7280;font-weight:400;font-size:12px;margin-left:4px;}
     .sug-info{color:#9ca3af;font-size:12px;white-space:nowrap;}
     .sug-empty{padding:10px 12px;color:#9ca3af;font-size:13px;text-align:center;}
+
+    /* ===== 小屏适配 ===== */
+    @media (max-width: 900px) {
+      .sum-chips{gap:8px;}
+      .sum-chip{flex:1 1 140px;min-width:0;padding:10px 13px;}
+      .sum-chip b{font-size:19px;}
+      .btn-row{width:100%;}
+      .btn-row .btn{flex:1 1 auto;justify-content:center;}
+      .review-info{font-size:13px;line-height:1.7;}
+      .stu-sug{max-height:46vh;}
+    }
+    @media (max-width: 640px) {
+      .sum-chip{flex:1 1 100%;}
+      .sug-item{flex-wrap:wrap;gap:2px 10px;}
+      .sug-info{white-space:normal;}
+    }
   </style>
 </head>
 <body>

@@ -26,7 +26,8 @@ body.admin-body {
 /* 表单控件默认不继承字体，统一为与正文一致，与 css/style.css 保持同步 */
 input, select, textarea, button { font-family: inherit; }
 
-.admin-layout { display: flex; height: 100vh; }
+/* 100dvh：移动端浏览器地址栏伸缩时的高度更稳定（不支持时回退 100vh） */
+.admin-layout { display: flex; height: 100vh; height: 100dvh; }
 
 /* ---------- 左侧导航 ---------- */
 .admin-aside {
@@ -45,6 +46,7 @@ input, select, textarea, button { font-family: inherit; }
   border-bottom: 1px solid rgba(255, 255, 255, .08);
 }
 .brand-icon {
+  flex: none;
   width: 40px;
   height: 40px;
   border-radius: 11px;
@@ -59,7 +61,8 @@ input, select, textarea, button { font-family: inherit; }
   width: 40px; height: 40px; border-radius: 11px;
   object-fit: contain; padding: 7px; box-sizing: border-box;
 }
-.brand-text strong { display: block; font-size: 15px; letter-spacing: .5px; }
+.brand-text { flex: 1; min-width: 0; }
+.brand-text strong { display: block; font-size: 15px; letter-spacing: .5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .brand-text span { font-size: 12px; color: rgba(255, 255, 255, .55); }
 
 .menu-scroll {
@@ -565,4 +568,116 @@ input, select, textarea, button { font-family: inherit; }
 }
 .tab-more-item .tmi-close svg { width: 12px; height: 12px; }
 .tab-more-item .tmi-close:hover { background: #fee2e2; color: #dc2626; }
+
+/* ============================================================
+   小屏适配（<=900px）
+   左侧导航由常驻栏改为「抽屉」：默认移出屏幕，经顶栏菜单按钮滑出，
+   点遮罩 / 关闭按钮 / 任一菜单项 / Esc 收回；视口拉宽后自动复位。
+   同时收紧顶栏与页签条的尺寸，保证窄屏下内容区仍完整可用。
+   断点 900px 与工作台分屏断点（1100 / 760px）相互独立、互不影响。
+   ============================================================ */
+
+/* 顶栏菜单按钮（仅窄屏显示） */
+.aside-toggle {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.aside-toggle svg { width: 19px; height: 19px; }
+.aside-toggle:hover { background: #eef2ff; color: var(--brand); }
+.aside-toggle:active { background: #e0e7ff; color: var(--brand); }
+
+/* 抽屉右上角关闭按钮（仅窄屏显示） */
+.aside-close {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .1);
+  color: rgba(255, 255, 255, .8);
+  cursor: pointer;
+}
+.aside-close svg { width: 15px; height: 15px; }
+.aside-close:hover { background: rgba(255, 255, 255, .22); color: #fff; }
+
+/* 抽屉遮罩：桌面端恒不可见，仅窄屏开抽屉时淡入 */
+.aside-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1290;
+  background: rgba(15, 23, 42, .48);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .26s ease, visibility .26s;
+  -webkit-tap-highlight-color: transparent;
+}
+.aside-backdrop.show { opacity: 1; visibility: visible; }
+
+@media (max-width: 900px) {
+  /* 侧栏抽屉化：脱离文档流浮在内容之上，内容区独占整屏 */
+  .admin-aside {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1300;
+    width: 250px;
+    max-width: 82vw;
+    transform: translateX(-100%);
+    transition: transform .26s ease;
+    box-shadow: 0 0 36px rgba(15, 23, 42, .45);
+  }
+  .admin-aside.open { transform: translateX(0); }
+  .menu-scroll { -webkit-overflow-scrolling: touch; }
+  .aside-toggle { display: flex; }
+  .aside-close { display: flex; }
+
+  /* 顶栏收紧：隐藏面包屑，标题可省略号收缩 */
+  .admin-topbar { height: 50px; padding: 0 10px; gap: 8px; }
+  .tb-title { flex: 1 1 auto; min-width: 0; gap: 6px; }
+  .tb-title strong {
+    min-width: 0;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tb-crumb, .tb-sep { display: none; }
+  .tb-actions { flex: none; gap: 6px; }
+  .icon-btn { width: 32px; height: 32px; border-radius: 8px; }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .tb-actions .auth-chip { height: 32px; max-width: 160px; padding: 0 4px 0 10px; }
+  .tb-actions .auth-chip .auth-name { max-width: 76px; }
+
+  /* 页签条收紧：单个页签更窄，一屏容纳更多页签 */
+  .tab-bar { padding: 6px 8px 0; }
+  .worktab { height: 34px; max-width: 170px; padding: 0 8px 0 11px; font-size: 12.5px; }
+  .worktab-slot { height: 34px; }
+  .worktab .wt-icon svg { width: 13px; height: 13px; }
+}
+
+/* 超窄屏（<=560px）：进一步精简顶栏，优先保证标题与页签可见 */
+@media (max-width: 560px) {
+  .admin-topbar { padding: 0 8px; }
+  .tb-actions .auth-chip .auth-name { max-width: 56px; font-size: 11px; }
+  .tb-actions .auth-chip .auth-role { display: none; }
+  .tb-actions .auth-chip a.auth-exit { width: 20px; height: 20px; }
+  .worktab { max-width: 140px; }
+}
 
