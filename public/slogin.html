@@ -8,19 +8,28 @@
     :root {
       --brand: #12b886;
       --brand-2: #0ea5b7;
+      /* 自适应尺寸（小屏幕由媒体查询覆盖，大屏幕保持原样） */
+      --page-pad: 24px;
+      --card-radius: 22px;
+      --form-pad-y: 40px;
+      --form-pad-x: 38px;
+      --intro-pad-y: 40px;
+      --intro-pad-x: 34px;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
+      min-height: 100dvh; /* 移动端地址栏收起后仍铺满整屏 */
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
       background: #0d1b18;
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px;
-      overflow: hidden;
+      padding: var(--page-pad);
+      overflow-x: hidden; /* 小屏幕内容超高时允许纵向滚动 */
+      -webkit-text-size-adjust: 100%;
       position: relative;
     }
     /* 表单控件默认不继承字体，统一为与正文一致 */
@@ -46,15 +55,14 @@
       width: 860px; max-width: 100%;
       display: grid; grid-template-columns: 1.05fr 1fr;
       background: #fff; color: #1f2937;
-      border-radius: 22px; overflow: hidden;
+      border-radius: var(--card-radius); overflow: hidden;
       box-shadow: 0 30px 80px rgba(0,0,0,.5);
     }
-    @media (max-width: 760px) { .login-card { grid-template-columns: 1fr; } .login-intro { display: none; } }
 
     /* 左侧品牌区 */
     .login-intro {
       background: linear-gradient(150deg, #10a37f 0%, #0ea5b7 100%);
-      color: #fff; padding: 40px 34px;
+      color: #fff; padding: var(--intro-pad-y) var(--intro-pad-x);
       display: flex; flex-direction: column;
       position: relative; overflow: hidden;
     }
@@ -79,7 +87,7 @@
     .lg-points svg { width: 15px; height: 15px; flex: none; }
 
     /* 右侧表单 */
-    .login-form-side { padding: 40px 38px; display: flex; flex-direction: column; }
+    .login-form-side { padding: var(--form-pad-y) var(--form-pad-x); display: flex; flex-direction: column; }
     .login-form-side h2 { margin: 0 0 6px; font-size: 22px; color: #111827; }
     .login-form-side .lg-sub { font-size: 13px; color: #6b7280; margin-bottom: 22px; }
     .field { margin-bottom: 16px; }
@@ -125,6 +133,58 @@
     .lg-foot a:hover { text-decoration: underline; }
     .divider { color: #d1d5db; }
     .hint { margin-top: 14px; font-size: 12px; color: #9ca3af; line-height: 1.7; text-align: center; }
+
+    /* ─── 小屏幕 / 矮屏适配（大屏幕维持原有版式，故置于末尾以覆盖上方规则） ─── */
+    /* 窄屏：改为单列，品牌区压缩为顶部条，保留校徽与校名 */
+    @media (max-width: 760px) {
+      :root {
+        --page-pad: 16px;
+        --card-radius: 18px;
+        --form-pad-y: 26px;
+        --form-pad-x: 20px;
+      }
+      .login-card { grid-template-columns: 1fr; }
+      .login-intro { padding: 16px 20px; }
+      .login-intro::after { display: none; }
+      .lg-title, .lg-points { display: none; }
+      .lg-brand h1 { font-size: 18px; }
+      .lg-brand .lg-en { font-size: 10px; letter-spacing: .8px; }
+      .lg-logo { width: 38px; height: 38px; border-radius: 10px; }
+      .login-form-side h2 { font-size: 20px; }
+      .login-form-side .lg-sub { margin-bottom: 18px; }
+      .inp { font-size: 16px; } /* ≥16px 可避免 iOS 聚焦输入框时自动放大页面 */
+      .btn-login { padding: 12px; }
+      .notice { line-height: 1.7; }
+      .lg-foot { margin-top: 16px; }
+    }
+
+    /* 超窄屏（小屏手机竖屏） */
+    @media (max-width: 400px) {
+      :root { --page-pad: 10px; --card-radius: 14px; --form-pad-y: 20px; --form-pad-x: 15px; }
+      .lg-brand h1 { font-size: 16px; }
+      .lg-brand .lg-en { letter-spacing: .5px; }
+      .login-form-side h2 { font-size: 19px; }
+      .notice { font-size: 11px; padding: 8px 10px; }
+      .lg-foot { gap: 10px; }
+      .hint { font-size: 11px; }
+    }
+
+    /* 矮屏（横屏手机 / 小窗口）：压缩纵向间距，保证表单完整可见 */
+    @media (max-height: 640px) {
+      :root { --page-pad: 12px; --form-pad-y: 22px; --form-pad-x: 22px; --intro-pad-y: 22px; }
+      .lg-points { display: none; }
+      .lg-title { margin: 18px 0 0; font-size: 20px; }
+      .lg-title small { margin-top: 6px; font-size: 12px; line-height: 1.6; }
+      .field { margin-bottom: 12px; }
+      .opt-row { margin: 0 0 12px; }
+      .notice, .lg-foot, .hint { margin-top: 12px; }
+    }
+
+    /* 横屏手机：宽度虽够也不并排，隐藏品牌区让表单独占 */
+    @media (orientation: landscape) and (max-height: 520px) and (max-width: 950px) {
+      .login-card { grid-template-columns: 1fr; }
+      .login-intro { display: none; }
+    }
   </style>
 </head>
 <body>
