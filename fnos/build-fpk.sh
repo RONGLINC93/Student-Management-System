@@ -13,13 +13,22 @@ SERVER="${PKG}/app/server"
 
 echo "=== 飞牛 fpk 打包：学生管理系统 ==="
 
-echo "[1/4] 复制程序文件到打包目录 ..."
+echo "[1/5] 复制程序文件到打包目录 ..."
 rm -rf "${SERVER}"
 mkdir -p "${SERVER}"
 cp "${PROJ}/server.js" "${PROJ}/package.json" "${SERVER}/"
 cp -r "${PROJ}/public" "${SERVER}/public"
 
-echo "[2/4] 统一换行符为 LF，并赋予脚本可执行权限 ..."
+echo "[2/5] 同步 manifest 版本号（唯一来源 package.json） ..."
+PKG_VERSION="$(awk -F'"' '/"version"/ { print $4; exit }' "${PROJ}/package.json")"
+if [ -n "${PKG_VERSION}" ]; then
+  sed -i "s/^[[:space:]]*version[[:space:]]*=.*$/version               = ${PKG_VERSION}/" "${PKG}/manifest"
+  echo "    manifest version = ${PKG_VERSION}"
+else
+  echo "    package.json 中未找到 version，保持 manifest 原值"
+fi
+
+echo "[3/5] 统一换行符为 LF，并赋予脚本可执行权限 ..."
 while IFS= read -r -d '' f; do
   case "${f}" in
     *.png|*.jpg|*.jpeg|*.ico|*.gif) continue ;;
@@ -28,7 +37,7 @@ while IFS= read -r -d '' f; do
 done < <(find "${PKG}" -type f ! -path "*/app/server/*" -print0)
 chmod 0755 "${PKG}"/cmd/* 2>/dev/null || true
 
-echo "[3/4] 查找 fnpack ..."
+echo "[4/5] 查找 fnpack ..."
 FNPACK="${FNPACK:-}"
 if [ -z "${FNPACK}" ] && [ -x "${HERE}/fnpack" ]; then
   FNPACK="${HERE}/fnpack"
@@ -43,7 +52,7 @@ if [ -z "${FNPACK}" ]; then
 fi
 echo "    使用 ${FNPACK}"
 
-echo "[4/4] 打包并重命名产物（带版本号） ..."
+echo "[5/5] 打包并重命名产物（带版本号） ..."
 ( cd "${PKG}" && "${FNPACK}" build )
 
 # 读取 manifest 中的字段（去掉首尾空白）

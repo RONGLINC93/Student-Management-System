@@ -10,6 +10,7 @@
       - 学年标签：写入 [data-site-year]（大屏副标题行胶囊）
       - 校训/地址/电话/官网：写入 [data-site-meta]（大屏页脚）
       - 官网：配置后显示 [data-site-web] 顶栏入口，指向学校官网
+      - 版本号：写入 [data-app-version]（服务端来自 package.json，唯一来源）
    3. 完成后广播 cb-site-ready 事件，供工作台刷新标题等；
    4. 收到 icst-active / icst-refresh / icst-settings 时静默重拉，
       保证设置变更后在已打开的功能页中即时生效。
@@ -183,6 +184,15 @@
     }
   }
 
+  // 版本号：由 /api/settings 下发（唯一来源 package.json），写入 [data-app-version]。
+  // 取不到时保留 HTML 中的回退文案，不写入空串。
+  function applyVersion(v) {
+    v = String(v || '').trim().replace(/^v/i, '');
+    if (!v) return;
+    var els = document.querySelectorAll('[data-app-version]');
+    for (var i = 0; i < els.length; i++) els[i].textContent = 'v' + v;
+  }
+
   function apply() {
     var s = window.SITE || {};
     refreshSubjects(s);
@@ -191,6 +201,7 @@
     applyYear(String(s.schoolYear || '').trim());
     applyMeta(s);
     applyWeb(String(s.schoolWebsite || '').trim());
+    applyVersion(s.version);
   }
 
   function broadcast() {

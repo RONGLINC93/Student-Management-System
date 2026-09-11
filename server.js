@@ -5,6 +5,16 @@ const crypto = require('crypto');
 const os = require('os');
 const { spawn } = require('child_process');
 
+// 应用版本号（单一来源：package.json 的 version）
+// 界面由 GET /api/settings 下发后写入 [data-app-version]，飞牛 fpk 打包脚本亦从此处同步
+const APP_VERSION = (() => {
+  try {
+    return String(require('./package.json').version || '');
+  } catch (e) {
+    return '';
+  }
+})();
+
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_FILE = path.join(__dirname, 'data', 'students.json');
 const CLASSES_FILE = path.join(__dirname, 'data', 'classes.json');
@@ -2669,8 +2679,9 @@ const server = http.createServer(async (req, res) => {
 
   // ===== 系统设置 API =====
   if (pathname === '/api/settings' && req.method === 'GET') {
-    const s = readSettings();
+    const s = Object.assign({}, readSettings()); // 副本：version 不写入设置文件
     s.subjects = readSubjects(); // 始终返回生效科目
+    s.version = APP_VERSION;     // 版本号（来自 package.json），供 [data-app-version] 渲染
     return sendJson(res, 200, { code: 0, data: s });
   }
   if (pathname === '/api/settings' && req.method === 'PUT') {

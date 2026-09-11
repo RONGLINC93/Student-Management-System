@@ -2,14 +2,15 @@
 
 本文件记录「学生管理系统」的版本变更。
 
-界面上的版本号有 **两处**，发布新版本时请一并同步：
+**版本号单一来源：`package.json` 的 `version` 字段。** 发布新版本时只需改这一处：
 
-- 后台工作台 → 侧栏底部：`<span data-site-name>学生管理系统</span> · 后台工作台 / v1.0 · 本地演示`
-- 系统设置 → 数据管理 → 卡片页脚：`版本 v1.0 · 本地演示`
+- **界面**：服务端在 `GET /api/settings` 响应中下发 `version`，`public/js/site.js` 把它写入页面里所有 `[data-app-version]` 占位元素（工作台侧栏底部、系统设置 → 数据管理 → 卡片页脚）。占位元素内的文字是接口取不到时的回退值，可忽略。
+- **飞牛 fpk 包**：`fnos/build-fpk.bat` / `build-fpk.sh` 在打包前把 `package.json` 的版本写入 `fnos/student-management-system/manifest` 的 `version`（Windows 走 `fnos/sync-version.ps1`，Linux/macOS 走 `sed`），产物随之命名为 `student-management-system-<version>.fpk`。
+- **本文件**：版本条目需手动补充。
 
 ---
 
-## v1.1 — 2026-09-11
+## v1.1.0 — 2026-09-11
 
 ### 全站小屏适配
 
@@ -83,7 +84,7 @@
 
 ---
 
-## v1.0
+## v1.0.0
 
 首个版本。所有数据以 JSON 文件本地持久化（`data/`），零依赖纯 Node.js，开箱即用。
 

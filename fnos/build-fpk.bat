@@ -15,7 +15,7 @@ set "SERVER=%PKG%\app\server"
 echo === Build fnOS fpk: Student Management System ===
 echo.
 
-echo [1/4] Copy application files...
+echo [1/5] Copy application files...
 if exist "%SERVER%" rmdir /s /q "%SERVER%"
 mkdir "%SERVER%"
 copy /y "%PROJ%\server.js" "%SERVER%\server.js" >nul
@@ -24,18 +24,22 @@ copy /y "%PROJ%\package.json" "%SERVER%\package.json" >nul
 xcopy "%PROJ%\public" "%SERVER%\public" /e /i /y /q >nul
 if errorlevel 1 goto fail
 
-echo [2/4] Normalize newlines to LF...
+echo [2/5] Sync manifest version from package.json...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%HERE%sync-version.ps1" -From "%PROJ%\package.json" -Manifest "%PKG%\manifest"
+if errorlevel 1 goto fail
+
+echo [3/5] Normalize newlines to LF...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%HERE%normalize-lf.ps1" -Path "%PKG%"
 if errorlevel 1 goto fail
 
-echo [3/4] Locate fnpack...
+echo [4/5] Locate fnpack...
 set "FNPACK="
 if exist "%HERE%fnpack.exe" set "FNPACK=%HERE%fnpack.exe"
 if not defined FNPACK for %%I in (fnpack.exe) do if not "%%~$PATH:I"=="" set "FNPACK=%%~$PATH:I"
 if not defined FNPACK goto nofnpack
 echo     %FNPACK%
 
-echo [4/4] Packing and renaming (with version)...
+echo [5/5] Packing and renaming (with version)...
 pushd "%PKG%"
 "%FNPACK%" build
 set "RC=%ERRORLEVEL%"
