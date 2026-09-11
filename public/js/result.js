@@ -882,6 +882,19 @@ function applyAuthUI(auth) {
   }
 }
 
+// 「返回」的目标页：来源页（document.referrer）必须同为本站、不是登录页、
+// 也不是大屏自己（刷新页面时 referrer 会指向本页，此时回它等于原地不动）才可用；
+// 不可用时返回空串，由调用方按登录状态决定回工作台还是登录页。
+function backTarget() {
+  const ref = document.referrer || '';
+  if (ref.indexOf(location.origin) !== 0) return '';
+  if (/\/s?login\.html/i.test(ref)) return '';
+  let u;
+  try { u = new URL(ref); } catch (err) { return ''; }
+  if (u.pathname === location.pathname && u.search === location.search) return '';
+  return ref;
+}
+
 function bindEvents() {
   $('#gradeFilter').onchange = () => {
     const v = $('#gradeFilter').value;
@@ -904,15 +917,20 @@ function bindEvents() {
     syncGradeOptions();
     renderBoard();
   };
-  // 大屏页不走顶栏导航（site.js 不为本页注入 .nav），单独提供返回入口：
-  // 同源且确有上一页时回退（如从工作台 / 分班页跳来）；否则落到登录页——
-  // 已登录访问登录页会被服务端重定向到工作台，未登录则停在登录页。
+  // 大屏页不走顶栏导航（site.js 不为本页注入 .nav），单独提供返回入口。
+  // 统一用「跳到确定的地址」，不用 history.back()：大屏多由链接新开标签打开，
+  // 历史栈里可能只有本页（或含 about:blank），刷新后又会出现两个本页条目，
+  // 此时 history.length > 1 也退不到有意义的页面，表现为「点了没反应 / 变成空白页」。
   $('#boardBack').onclick = (e) => {
-    const ref = document.referrer || '';
-    if (ref.indexOf(location.origin) === 0 && history.length > 1) {
-      e.preventDefault();
-      history.back();
-    }
+    e.preventDefault();
+    const target = backTarget();
+    if (target) { location.href = target; return; }
+    // 来源页不是本页也不是登录页时不可用 → 现查登录状态：已登录回工作台，未登录回登录页
+    // （大屏可能是在登录前打开的，页面加载时缓存的登录态已过期，故点击时重新查询）
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(j => { location.href = (j && j.code === 0 && j.data) ? '/index.html' : '/login.html'; })
+      .catch(() => { location.href = '/login.html'; });
   };
   $('#followBtn').onclick = () => {
     autoGrade = !autoGrade;
