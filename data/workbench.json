@@ -1,50 +1,14 @@
 {
   "admin": {
-    "ts": 1789097911981,
+    "ts": 1789107052858,
     "tabs": [
       {
         "key": "dashboard",
         "side": false
-      },
-      {
-        "key": "leaves",
-        "side": false
-      },
-      {
-        "key": "notice",
-        "side": false
-      },
-      {
-        "key": "students",
-        "side": false
-      },
-      {
-        "key": "classes",
-        "side": false
-      },
-      {
-        "key": "grades",
-        "side": false
-      },
-      {
-        "key": "teachers",
-        "side": false
-      },
-      {
-        "key": "analysis",
-        "side": false
-      },
-      {
-        "key": "conduct",
-        "side": false
-      },
-      {
-        "key": "settings",
-        "side": false
       }
     ],
     "splitOn": false,
-    "activeKey": "settings",
+    "activeKey": "dashboard",
     "leftKey": "",
     "rightKey": "",
     "splitRatio": 0.55
