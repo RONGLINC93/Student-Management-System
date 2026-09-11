@@ -41,6 +41,9 @@ let lastCdDigit = 0;   // 倒计时遮罩上次显示的数字（仅数字变化
 let wasLive = false;   // 上一轮数据是否处于有效直播帧
 let lastLiveGrade = '';// 最近一帧有效直播对应的年级（回落提示是否与当前年级相关）
 let wasDealLive = false; // 上一轮是否处于「分班进行中」直播（仅该模式结束时回落才提示已同步）
+// 当前访问者能否进「分班 / 班级管理」后台页（未登录或查看模式为 false）。
+// 默认 true=按原样展示，登录状态拿到后再纠正；空态文案与顶栏「去分班」入口都据此显隐。
+let boardCanAllocate = true;
 
 // 展示队列：直播帧间检测到的新学生，逐个上台展示后飞入班级
 let flyQueue = [];
@@ -781,6 +784,12 @@ function updateEmptyTip() {
   const p = empty.querySelector('p');
   const small = empty.querySelector('small');
   if (!p || !small) return;
+  // 未登录 / 查看模式：别指向需要登录的后台页（点了只会被弹回登录页）
+  if (!boardCanAllocate) {
+    p.textContent = '暂无数据';
+    small.innerHTML = '请先用管理员账号 <a href="/login.html">登录</a>，再到「班级管理」创建班级、「智能分班」开始分班';
+    return;
+  }
   if (!gradeFilter) {
     p.textContent = '等待年级同步…';
     small.innerHTML = '请到 <a href="/allocate.html">智能分班</a> 页选择年级并开始分班，大屏只展示当前年级的数据';
@@ -870,16 +879,13 @@ function autoFollowGrade() {
   if (g && g !== gradeFilter) gradeFilter = g;
 }
 
-// 大屏是公开页面（未登录也能看）：未登录 / 查看模式下「去分班」会被登录守卫弹回登录页，
-// 因此按登录状态显隐该入口，并把空态里的「班级管理 / 智能分班」链接改成登录引导。
+// 大屏是公开页面（未登录也能看）：未登录 / 查看模式下「去分班」与空态里的后台页链接
+// 都会被登录守卫弹回登录页，因此按登录状态显隐顶栏入口，并让空态改用登录引导文案。
 function applyAuthUI(auth) {
-  const canAllocate = !!(auth && auth.username) && auth.role !== 'viewer';
+  boardCanAllocate = !!(auth && auth.username) && auth.role !== 'viewer';
   const btn = $('#boardAllocate');
-  if (btn) btn.style.display = canAllocate ? '' : 'none';
-  const hint = $('#emptyTipHint');
-  if (hint && !canAllocate) {
-    hint.innerHTML = '请先用管理员账号 <a href="/login.html">登录</a>，再到「班级管理」创建班级、「智能分班」开始分班';
-  }
+  if (btn) btn.style.display = boardCanAllocate ? '' : 'none';
+  updateEmptyTip(); // 空态文案由 updateEmptyTip 统一生成（每帧重写，不能在这里直接改）
 }
 
 // 「返回」的目标页：来源页（document.referrer）必须同为本站、不是登录页、
