@@ -35,17 +35,32 @@ if not defined FNPACK for %%I in (fnpack.exe) do if not "%%~$PATH:I"=="" set "FN
 if not defined FNPACK goto nofnpack
 echo     %FNPACK%
 
-echo [4/4] Packing...
+echo [4/4] Packing and renaming (with version)...
 pushd "%PKG%"
 "%FNPACK%" build
 set "RC=%ERRORLEVEL%"
 popd
 if not "%RC%"=="0" goto fail
 
+rem --- append version from manifest: <appname>-<version>.fpk ---
+set "APPNAME="
+set "VERSION="
+for /f "tokens=2 delims==" %%V in ('findstr /b /c:"appname" "%PKG%\manifest"') do set "APPNAME=%%V"
+for /f "tokens=2 delims==" %%V in ('findstr /b /c:"version" "%PKG%\manifest"') do set "VERSION=%%V"
+set "APPNAME=%APPNAME: =%"
+set "VERSION=%VERSION: =%"
+if not defined APPNAME set "APPNAME=student-management-system"
+set "OUT=%PKG%\%APPNAME%.fpk"
+if not defined VERSION goto noversion
+set "OUTV=%PKG%\%APPNAME%-%VERSION%.fpk"
+if exist "%PKG%\%APPNAME%.fpk" move /y "%PKG%\%APPNAME%.fpk" "%OUTV%" >nul
+if exist "%OUTV%" set "OUT=%OUTV%"
+:noversion
+
 echo.
-echo Done: %PKG%\student-management-system.fpk
+echo Done: %OUT%
 echo Install: upload it in the fnOS App Center, or over SSH run
-echo   appcenter-cli install-fpk student-management-system.fpk
+echo   appcenter-cli install-fpk "%OUT%"
 echo.
 pause
 exit /b 0

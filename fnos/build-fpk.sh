@@ -43,10 +43,38 @@ if [ -z "${FNPACK}" ]; then
 fi
 echo "    使用 ${FNPACK}"
 
-echo "[4/4] 打包 ..."
+echo "[4/4] 打包并重命名产物（带版本号） ..."
 ( cd "${PKG}" && "${FNPACK}" build )
 
+# 读取 manifest 中的字段（去掉首尾空白）
+read_field() {
+  awk -F= -v k="$1" '
+    $1 ~ "^[[:space:]]*" k "[[:space:]]*$" {
+      v = $2
+      sub(/^[[:space:]]+/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      print v
+      exit
+    }
+  ' "${PKG}/manifest"
+}
+
+APPNAME="$(read_field appname)"
+VERSION="$(read_field version)"
+APPNAME="${APPNAME:-student-management-system}"
+
+RAW="${PKG}/${APPNAME}.fpk"
+OUT="${RAW}"
+if [ -f "${RAW}" ] && [ -n "${VERSION}" ]; then
+  VPKG="${PKG}/${APPNAME}-${VERSION}.fpk"
+  if [ "${VPKG}" != "${RAW}" ]; then
+    mv -f "${RAW}" "${VPKG}"
+  fi
+  OUT="${VPKG}"
+fi
+
 echo
-echo "打包完成：${PKG}/student-management-system.fpk"
+echo "打包完成：${OUT}"
+echo "  应用：${APPNAME}   版本：${VERSION:-未知}"
 echo "安装：把 fpk 上传到飞牛应用中心，或 SSH 登录后执行："
-echo "  appcenter-cli install-fpk student-management-system.fpk"
+echo "  appcenter-cli install-fpk $(basename "${OUT}")"
