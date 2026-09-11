@@ -4,33 +4,36 @@
 #          -From ..\package.json -Manifest .\student-management-system\manifest
 # NOTE: keep this file ASCII-only (Windows PowerShell 5.1 reads .ps1 as ANSI
 #       when there is no BOM, so non-ASCII literals would be garbled).
+# NOTE: always read/write UTF-8 explicitly. Get-Content without -Encoding uses
+#       the ANSI code page on Windows PowerShell, which would double-encode the
+#       manifest's Chinese display_name/desc and corrupt the file.
 param(
   [Parameter(Mandatory = $true)][string]$From,
   [Parameter(Mandatory = $true)][string]$Manifest
 )
 
+$utf8 = New-Object System.Text.UTF8Encoding($false)
 $fromPath = (Resolve-Path -LiteralPath $From).Path
 $manifestPath = (Resolve-Path -LiteralPath $Manifest).Path
 
-$version = (Get-Content -LiteralPath $fromPath -Raw -Encoding UTF8 | ConvertFrom-Json).version
+$json = ConvertFrom-Json ([System.IO.File]::ReadAllText($fromPath, $utf8))
+$version = ([string]$json.version).Trim()
 if (-not $version) {
   Write-Error ("no 'version' field in " + $fromPath)
   exit 1
 }
-$version = ([string]$version).Trim()
 
-$lines = @(Get-Content -LiteralPath $manifestPath)
-$found = $false
-for ($i = 0; $i -lt $lines.Count; $i++) {
-  if ($lines[$i] -match '^\s*version\s*=') {
-    $lines[$i] = 'version               = ' + $version
-    $found = $true
-  }
+$text = [System.IO.File]::ReadAllText($manifestPath, $utf8)
+if ($text -match '(?m)^[ \t]*version[ \t]*=') {
+  # only the version line is touched; every other byte (incl. UTF-8 Chinese) is kept
+  $text = [regex]::Replace($text, '(?m)^[ \t]*version[ \t]*=.*$',
+    ('version               = ' + $version))
+} else {
+  $text = $text.TrimEnd("`r", "`n") + "`n" + 'version               = ' + $version + "`n"
 }
-if (-not $found) { $lines += ('version               = ' + $version) }
 
-# write UTF-8 (no BOM) + LF, matching the rest of the package
-$utf8 = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($manifestPath, (($lines -join "`n") + "`n"), $utf8)
+# keep the package LF-only
+$text = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+[System.IO.File]::WriteAllText($manifestPath, $text, $utf8)
 
 Write-Host ("    manifest version -> " + $version)
