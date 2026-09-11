@@ -1,0 +1,37 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e9]:
+      - heading "学生管理系统" [level=1] [ref=e10]
+      - generic [ref=e11]: STUDENT MANAGEMENT SYSTEM
+    - generic [ref=e12]:
+      - text: 均衡 · 公平 · 高效
+      - generic [ref=e13]: 一站式学生管理：学籍档案、成绩统计、教师管理、考勤操行与宿舍安排全覆盖，配合均衡公平的分班与可视化大屏，让教务管理更高效。
+    - generic [ref=e14]:
+      - generic [ref=e15]: 学籍 / 成绩 / 考勤等模块一站式管理
+      - generic [ref=e18]: 均衡分班过程大屏实时直播
+      - generic [ref=e21]: 学生 / 班级 / 数据一键备份恢复
+  - generic [ref=e24]:
+    - heading "欢迎回来" [level=2] [ref=e25]
+    - paragraph [ref=e26]: 请使用系统账号登录后台工作台
+    - generic [ref=e27]:
+      - generic [ref=e28]: 账号
+      - textbox "账号" [active] [ref=e29]:
+        - /placeholder: 请输入账号
+    - generic [ref=e30]:
+      - generic [ref=e31]: 密码
+      - generic [ref=e32]:
+        - textbox "密码" [ref=e33]:
+          - /placeholder: 请输入密码
+        - button "显示密码" [ref=e34] [cursor=pointer]
+    - generic [ref=e39] [cursor=pointer]:
+      - checkbox "记住我（7 天内免登录）" [ref=e40]
+      - text: 记住我（7 天内免登录）
+    - button "登 录" [ref=e41] [cursor=pointer]
+    - button [ref=e42] [cursor=pointer]:
+      - text: 学生登录入口
+      - emphasis [ref=e46]: · 学号登录 · 查分班 / 宿舍
+    - paragraph [ref=e47]: 首次使用默认管理员账号 admin / admin123，登录后请及时在「系统设置 → 账号与安全」中修改密码。
+    - generic [ref=e48]:
+      - text: 需要展示分班结果？
+      - link "直接打开分班大屏" [ref=e49] [cursor=pointer]:
+        - /url: /result.html

@@ -22,7 +22,9 @@
       </div>
       <div class="board-head-right">
         <span class="live-badge" id="liveBadge"><span class="live-dot"></span><span id="liveText">连接中…</span></span>
-        <a href="/allocate.html" class="board-back-link">去分班 &gt;</a>
+        <a href="/login.html" class="board-back-link" id="boardBack" title="返回上一页；无上一页时回到登录页 / 工作台">&lt; 返回</a>
+        <!-- 「去分班」需登录（分班页受登录守卫保护）：默认隐藏，由 js/result.js 按登录状态显示 -->
+        <a href="/allocate.html" class="board-back-link" id="boardAllocate" style="display:none">去分班 &gt;</a>
       </div>
     </div>
   </header>
@@ -74,7 +76,7 @@
       <div class="empty-tip-card board-empty" id="emptyTip" style="display:none">
         <svg class="stage-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="16" rx="2"/><path d="M7 1h12a2 2 0 0 1 2 2v14"/></svg>
         <p>暂无数据</p>
-        <small>请先到 <a href="/classes.html">班级管理</a> 创建班级，再到 <a href="/allocate.html">智能分班</a> 开始分班</small>
+        <small id="emptyTipHint">请先到 <a href="/classes.html">班级管理</a> 创建班级，再到 <a href="/allocate.html">智能分班</a> 开始分班</small>
       </div>
     </section>
   </main>

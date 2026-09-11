@@ -1,14 +1,22 @@
 {
   "admin": {
-    "ts": 1789107052858,
+    "ts": 1789115730224,
     "tabs": [
       {
         "key": "dashboard",
         "side": false
+      },
+      {
+        "key": "dorm",
+        "side": false
+      },
+      {
+        "key": "leaves",
+        "side": false
       }
     ],
     "splitOn": false,
-    "activeKey": "dashboard",
+    "activeKey": "leaves",
     "leftKey": "",
     "rightKey": "",
     "splitRatio": 0.55

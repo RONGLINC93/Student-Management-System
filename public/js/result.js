@@ -870,6 +870,18 @@ function autoFollowGrade() {
   if (g && g !== gradeFilter) gradeFilter = g;
 }
 
+// 大屏是公开页面（未登录也能看）：未登录 / 查看模式下「去分班」会被登录守卫弹回登录页，
+// 因此按登录状态显隐该入口，并把空态里的「班级管理 / 智能分班」链接改成登录引导。
+function applyAuthUI(auth) {
+  const canAllocate = !!(auth && auth.username) && auth.role !== 'viewer';
+  const btn = $('#boardAllocate');
+  if (btn) btn.style.display = canAllocate ? '' : 'none';
+  const hint = $('#emptyTipHint');
+  if (hint && !canAllocate) {
+    hint.innerHTML = '请先用管理员账号 <a href="/login.html">登录</a>，再到「班级管理」创建班级、「智能分班」开始分班';
+  }
+}
+
 function bindEvents() {
   $('#gradeFilter').onchange = () => {
     const v = $('#gradeFilter').value;
@@ -891,6 +903,16 @@ function bindEvents() {
     }
     syncGradeOptions();
     renderBoard();
+  };
+  // 大屏页不走顶栏导航（site.js 不为本页注入 .nav），单独提供返回入口：
+  // 同源且确有上一页时回退（如从工作台 / 分班页跳来）；否则落到登录页——
+  // 已登录访问登录页会被服务端重定向到工作台，未登录则停在登录页。
+  $('#boardBack').onclick = (e) => {
+    const ref = document.referrer || '';
+    if (ref.indexOf(location.origin) === 0 && history.length > 1) {
+      e.preventDefault();
+      history.back();
+    }
   };
   $('#followBtn').onclick = () => {
     autoGrade = !autoGrade;
@@ -930,6 +952,11 @@ function bindEvents() {
 }
 
 bindEvents();
+// 登录状态：只影响「去分班」入口与空态文案，接口不可用时按未登录处理（最保守）
+fetch('/api/auth/me')
+  .then(r => r.json())
+  .then(j => applyAuthUI(j && j.code === 0 ? j.data : null))
+  .catch(() => applyAuthUI(null));
 setFollowUI();
 tickClock();
 setInterval(tickClock, 1000);
