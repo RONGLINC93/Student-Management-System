@@ -383,7 +383,7 @@
           </span>
           <div>
             <div class="set-card-title">数据备份与维护</div>
-            <div class="set-card-desc">导出 / 导入数据备份，集中管理「清空学生档案」「清空全部班级」等高危维护操作</div>
+            <div class="set-card-desc">导出 / 导入数据备份，导入示例年级 / 班级 / 宿舍 / 学生数据，集中管理「清空学生档案」「清空全部班级」等高危维护操作</div>
           </div>
         </div>
         <div class="set-field">
@@ -396,6 +396,21 @@
           <p class="set-tip">
             导出得到一个 JSON 备份文件；换电脑 / 误删后可在“导入备份文件”中选择该文件一键恢复。
             导入将 <b>覆盖</b> 当前全部数据，请谨慎操作。
+          </p>
+        </div>
+        <div class="set-field">
+          <label class="set-label">示例数据</label>
+          <div class="set-row">
+            <button class="btn btn-default btn-sm" id="btnDemoImport" title="依次追加写入示例年级 / 班级 / 宿舍 / 学生，已存在的自动跳过，可安全重复点击">导入示例数据</button>
+          </div>
+          <p class="set-tip">
+            一键写入体验用的示例数据，按 <b>年级 → 班级 → 宿舍 → 学生</b> 顺序执行：<b>3 个年级</b>（高一 / 高二 / 高三）、
+            <b>6 个班级</b>（每个年级 2 个班，容量 50）、<b>6 间宿舍</b>（1 号楼男生 101～103、2 号楼女生 101～103，4 人间）、
+            <b>12 名学生</b>（覆盖三个年级，含各科成绩与特长）。
+          </p>
+          <p class="set-tip">
+            全部为<b>追加</b>写入：已存在的年级 / 班级 / 房间会自动跳过，<b>不会覆盖或删除</b>已有数据；示例成绩按当前「<b>考试科目设置</b>」的科目生成；
+            示例学生导入后为<b>未分班、未住宿</b>状态，可自行体验智能分班、宿舍分配与成绩统计。学生重复导入会产生同学号的多条档案，可用下方「清空学生档案」一次性移除。
           </p>
         </div>
         <div class="set-field">
@@ -754,6 +769,132 @@
           toast(j.code === 0 ? '已清空全部班级' : (j.msg || '清空失败'), j.code === 0 ? 'ok' : 'err');
         }).catch(function () { toast('清空失败，请重试', 'err'); })
           .finally(function () { done(); });
+      });
+
+      // ===== 示例数据导入（原「学生管理 → 更多 → 批量导入示例」，扩展至年级 / 班级 / 宿舍） =====
+      // 按「年级 → 班级 → 宿舍 → 学生」顺序追加写入，已存在的自动跳过，可安全重复点击
+      var DEMO_GRADES = ['高一', '高二', '高三'];
+      var DEMO_CLASS_COUNT = 2;        // 每个年级生成的班级数（高一1班 / 高一2班 …）
+      var DEMO_CLASS_CAPACITY = 50;
+      var DEMO_ROOM_CAPACITY = 4;
+      var DEMO_ROOMS = [
+        { building: '1号楼', roomNo: '101', gender: 'male' },
+        { building: '1号楼', roomNo: '102', gender: 'male' },
+        { building: '1号楼', roomNo: '103', gender: 'male' },
+        { building: '2号楼', roomNo: '101', gender: 'female' },
+        { building: '2号楼', roomNo: '102', gender: 'female' },
+        { building: '2号楼', roomNo: '103', gender: 'female' }
+      ];
+      var DEMO_ROSTER = [
+        ['2024001', '张伟', '男', '高一'], ['2024002', '李娜', '女', '高一'], ['2024003', '王强', '男', '高一'],
+        ['2024004', '赵敏', '女', '高一'], ['2024005', '刘洋', '男', '高一'], ['2024006', '陈静', '女', '高一'],
+        ['2024011', '徐鹏', '男', '高二'], ['2024012', '孙芳', '女', '高二'], ['2024013', '马超', '男', '高二'],
+        ['2024021', '唐明', '男', '高三'], ['2024022', '许婷', '女', '高三'], ['2024030', '姜媛', '女', '高三']
+      ];
+      var DEMO_SPECIALTY = ['篮球', '舞蹈', '', '钢琴', '编程', '绘画'];
+      // 生成 12 名示例学生：成绩按当前科目生成（各科 70~99，逐生/逐科错开），特长轮换
+      function demoStudents() {
+        var subs = window.SUBJECTS || [];
+        return DEMO_ROSTER.map(function (row, i) {
+          var scores = {};
+          if (subs.length) {
+            subs.forEach(function (sj, k) {
+              scores[sj.key] = 70 + ((i * 17 + k * 11) % 30);
+            });
+          } else {
+            scores = { chinese: 85, math: 88, english: 82, science: 86 };
+          }
+          return {
+            studentId: row[0], name: row[1], gender: row[2], grade: row[3],
+            scores: scores, specialty: DEMO_SPECIALTY[i % DEMO_SPECIALTY.length]
+          };
+        });
+      }
+      // 统一的示例数据请求：始终返回 { ok, body }，网络异常时返回 ok=false 而不中断后续步骤
+      function demoReq(url, opt) {
+        return fetch(url, opt).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            return { ok: r.ok, body: j || {} };
+          });
+        }).catch(function () { return { ok: false, body: {} }; });
+      }
+      function demoPost(url, payload) {
+        return demoReq(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+      // 依次写入四类示例数据，返回各项实际新增数量与跳过数量
+      async function runDemoImport() {
+        var out = { grades: 0, classes: 0, dorms: 0, students: 0, skipped: 0 };
+        // 1) 年级：先比对现有年级，已存在的不重复添加（服务端对重名会返回 400）
+        var g = await demoReq('/api/grades');
+        var known = (g.ok && g.body.data) || [];
+        for (var i = 0; i < DEMO_GRADES.length; i++) {
+          if (known.indexOf(DEMO_GRADES[i]) !== -1) { out.skipped++; continue; }
+          var gr = await demoPost('/api/grades', { name: DEMO_GRADES[i] });
+          if (gr.ok && gr.body.code === 0) out.grades++; else out.skipped++;
+        }
+        // 2) 班级：按示例年级各建 N 个班，同名班级由服务端自动跳过
+        for (var k = 0; k < DEMO_GRADES.length; k++) {
+          var cr = await demoPost('/api/classes/batch', {
+            grade: DEMO_GRADES[k], start: 1, count: DEMO_CLASS_COUNT, capacity: DEMO_CLASS_CAPACITY
+          });
+          if (cr.ok && cr.body.code === 0 && cr.body.data) {
+            out.classes += (cr.body.data.created || []).length;
+            out.skipped += (cr.body.data.skipped || []).length;
+          }
+        }
+        // 3) 宿舍：同楼栋同房号已存在时跳过（服务端会拒绝重复房号）
+        var d = await demoReq('/api/dorms');
+        var rooms = (d.ok && d.body.data) || [];
+        for (var m = 0; m < DEMO_ROOMS.length; m++) {
+          var want = DEMO_ROOMS[m];
+          var dup = rooms.some(function (r) {
+            return String(r.building) === want.building && String(r.roomNo) === want.roomNo;
+          });
+          if (dup) { out.skipped++; continue; }
+          var rr = await demoPost('/api/dorms', {
+            building: want.building, roomNo: want.roomNo,
+            capacity: DEMO_ROOM_CAPACITY, gender: want.gender
+          });
+          if (rr.ok && rr.body.code === 0) out.dorms++; else out.skipped++;
+        }
+        // 4) 学生：追加示例学生（未分班、未住宿，可自行体验分班与宿舍分配）
+        var sr = await demoPost('/api/students/batch', demoStudents());
+        if (sr.ok && sr.body.code === 0) out.students += (sr.body.count || 0);
+        return out;
+      }
+
+      $el('btnDemoImport').addEventListener('click', async function () {
+        var tip = '将按「年级 → 班级 → 宿舍 → 学生」顺序追加写入示例数据：\n\n'
+          + '· 年级：' + DEMO_GRADES.join(' / ') + '\n'
+          + '· 班级：每个年级 ' + DEMO_CLASS_COUNT + ' 个班（容量 ' + DEMO_CLASS_CAPACITY + '）\n'
+          + '· 宿舍：1 号楼男生 101～103、2 号楼女生 101～103（' + DEMO_ROOM_CAPACITY + ' 人间）\n'
+          + '· 学生：' + DEMO_ROSTER.length + ' 名，含各科成绩与特长\n\n'
+          + '已存在的年级 / 班级 / 房间会自动跳过，不会覆盖或删除已有数据。\n'
+          + '导入后可在「年级管理」「班级管理」「宿舍管理」「学生管理」中查看。\n\n确定继续吗？';
+        if (typeof window.confirmDlg !== 'function') {
+          if (!window.confirm(tip)) return;
+        } else if (!(await window.confirmDlg(tip, { title: '导入示例数据', okText: '开始导入' }))) {
+          return;
+        }
+        var done = busyBtn($el('btnDemoImport'), '导入中…');
+        if (!done) return;
+        runDemoImport().then(function (r) {
+          var parts = [];
+          if (r.grades) parts.push(r.grades + ' 个年级');
+          if (r.classes) parts.push(r.classes + ' 个班级');
+          if (r.dorms) parts.push(r.dorms + ' 间宿舍');
+          if (r.students) parts.push(r.students + ' 名学生');
+          var msg = parts.length
+            ? '示例数据导入完成：新增 ' + parts.join('、') + (r.skipped ? '，另有 ' + r.skipped + ' 项已存在已跳过' : '')
+            : '示例数据均已存在，无需重复导入' + (r.skipped ? '（跳过 ' + r.skipped + ' 项）' : '');
+          toast(msg, parts.length ? 'ok' : '');
+        }).catch(function (e) {
+          toast('导入失败：' + (e && e.message ? e.message : '请重试'), 'err');
+        }).finally(function () { done(); });
       });
 
       $el('btnDataManage').addEventListener('click', load);

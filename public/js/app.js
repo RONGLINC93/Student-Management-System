@@ -1386,47 +1386,6 @@ async function batchDeleteStudents() {
   }
 }
 
-async function batchImport() {
-  const subs = window.SUBJECTS || [];
-  const subDemo = (subs[0] && subs[1] && subs[2] && subs[3])
-    ? { [subs[0].key]: 88, [subs[1].key]: 92, [subs[2].key]: 85, [subs[3].key]: 90 }
-    : {};
-  const demo = [];
-  const mk = (no, name, gender, grade, scores, specialty) => ({
-    studentId: no, grade, name, gender, scores: Object.assign({}, scores || {}), specialty
-  });
-  [['2024001', '张伟', '男', '高一'], ['2024002', '李娜', '女', '高一'], ['2024003', '王强', '男', '高一'],
-   ['2024004', '赵敏', '女', '高一'], ['2024005', '刘洋', '男', '高一'], ['2024006', '陈静', '女', '高一'],
-   ['2024011', '徐鹏', '男', '高二'], ['2024012', '孙芳', '女', '高二'], ['2024013', '马超', '男', '高二'],
-   ['2024021', '唐明', '男', '高三'], ['2024022', '许婷', '女', '高三'], ['2024030', '姜媛', '女', '高三']
-  ].forEach(([no, nm, gd, grade], i) => {
-    demo.push(mk(no, nm, gd, grade, {
-      chinese: 70 + ((i * 17) % 30), math: 70 + ((i * 13) % 30),
-      english: 70 + ((i * 11) % 30), science: 70 + ((i * 19) % 30)
-    }, ['篮球', '舞蹈', '', '钢琴', '编程', '绘画'][i % 6]));
-  });
-  demo.forEach(d => {
-    if (window.SUBJECTS && window.SUBJECTS.length >= 4) d.scores = { ...subDemo };
-    else d.scores = { chinese: 85, math: 88, english: 82, science: 86 };
-  });
-  const done = busyBtn($('#btnImport'), '导入中…');
-  if (!done) return;
-  try {
-    const res = await fetch(`${API}/batch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(demo)
-    });
-    const json = await res.json();
-    toast(`已导入 ${json.count} 名学生`, 'success');
-    await loadStudents();
-  } catch (e) {
-    toast('导入失败：' + e.message, 'error');
-  } finally {
-    done();
-  }
-}
-
 // CSV 模板 / 导入（成绩按当前科目，额外支持学籍档案列）
 function csvBaseHeader() {
   const subNames = (window.SUBJECTS || []).map(sj => sj.name);
@@ -1620,7 +1579,6 @@ function renderColMenu() {
 // ===== 事件绑定 =====
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
-  $('#btnImport').onclick = batchImport;
   $('#btnDownloadTpl').onclick = downloadTemplate;
   $('#btnImportFile').onclick = () => $('#importFileInput').click();
   $('#importFileInput').onchange = (e) => {
