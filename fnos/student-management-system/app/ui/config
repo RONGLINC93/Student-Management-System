@@ -1,0 +1,13 @@
+{
+  ".url": {
+    "student-management-system.main": {
+      "title": "学生管理系统",
+      "icon": "images/icon_{0}.png",
+      "type": "iframe",
+      "protocol": "http",
+      "port": "3000",
+      "url": "/",
+      "allUsers": true
+    }
+  }
+}

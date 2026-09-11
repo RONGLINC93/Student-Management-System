@@ -1,0 +1,16 @@
+appname               = student-management-system
+version               = 1.0.0
+display_name          = 学生管理系统
+desc                  = 纯 Node.js 学生管理系统，覆盖学籍档案、班级年级、教师档案、多科目成绩、考勤操行、请假、通知公告、成绩分析、宿舍安排与智能分班，数据以 JSON 本地持久化，开箱即用。
+platform              = all
+source                = thirdparty
+maintainer            = RONGLINC93
+maintainer_url        = https://github.com/RONGLINC93/Student-Management-System
+distributor           = Your Name
+distributor_url       = https://github.com/RONGLINC93/Student-Management-System
+os_min_version        = 1.1.8
+desktop_uidir         = ui
+desktop_applaunchname = student-management-system.main
+service_port          = 3000
+install_dep_apps      = nodejs_v20
+ctl_stop              = true

@@ -1,0 +1,5 @@
+#!/bin/bash
+# 卸载后：程序文件（target）已被移除，var 中的学籍/成绩等数据按飞牛默认策略保留，
+# 重新安装后即可继续使用；如需彻底清除，请手动删除 ${TRIM_PKGVAR} 目录。
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] uninstall_callback，数据保留在 ${TRIM_PKGVAR:-unknown}" >> "${TRIM_PKGVAR:-/tmp}/install.log" 2>/dev/null
+exit 0

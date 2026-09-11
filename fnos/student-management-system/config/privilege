@@ -1,0 +1,7 @@
+{
+  "defaults": {
+    "run-as": "package"
+  },
+  "username": "student-management-system",
+  "groupname": "student-management-system"
+}
