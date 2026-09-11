@@ -23,6 +23,12 @@ let dormCurrentId = '';  // 该生当前所在房间 id（'' = 未入住）
 let dormSelectedId = ''; // 弹窗中选中的房间 id
 let stuIndex = {};       // 学生 id -> 学生对象（床位点阵着色用）
 
+// ===== 批量操作（多选）状态 =====
+let selectedIds = new Set();      // 已勾选学生 id（跨分页保留）
+let currentFilteredIds = [];      // 当前筛选结果的全部 id（供表头「全选」使用）
+let batchAssignClasses = [];      // 批量分班弹窗可选的班级列表
+let batchDormSelectedId = '';     // 批量分配宿舍弹窗选中的房间 id
+
 // 分页设置
 let pageSize = 10;
 let currentPage = 1;
@@ -200,6 +206,7 @@ const CORE_KEYS = ['photo', 'studentId', 'grade', 'className', 'name', 'gender',
 function columnDefs() {
   const subs = (window.SUBJECTS || []).map(sj => ({ key: 'score:' + sj.key, label: sj.name, sortable: true }));
   return [
+    { key: 'check', label: '', fixed: 44 },
     { key: 'photo', label: '照片', fixed: 58 },
     { key: 'studentId', label: '学号', sortable: true },
     { key: 'grade', label: '年级', sortable: true },
@@ -226,6 +233,7 @@ function saveColFlags(f) {
 }
 function colVisible(key, flags) {
   if (key === 'name') return true; // 姓名列锁定，保证列表始终可辨识
+  if (key === 'check') return true; // 勾选列锁定，批量操作入口不可隐藏
   return (flags || {})[key] !== false;
 }
 function visibleColumns() {
@@ -261,6 +269,10 @@ function renderHeader() {
   const cols = visibleColumns();
   let html = '<tr>';
   cols.forEach(c => {
+    if (c.key === 'check') {
+      html += '<th class="check-col" style="width:44px"><input type="checkbox" id="checkAll" title="全选当前筛选结果" aria-label="全选" /></th>';
+      return;
+    }
     const label = escapeHtml(c.label);
     if (c.sortable) {
       html += `<th class="sortable" data-sort="${escapeHtml(c.key)}">${label}</th>`;
@@ -417,10 +429,13 @@ function renderTable() {
   else if (dormFilter === 'out') list = list.filter(s => !s._roomId);
 
   if (sortKey) list.sort(compareSort);
+  // 记录当前筛选结果（全选按钮的作用范围）
+  currentFilteredIds = list.map(s => String(s.id));
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="${colSpanCount()}" class="empty-tip">暂无学生数据，点击右上角「添加学生」开始</td></tr>`;
     pagination.innerHTML = '';
     updateStats();
+    syncCheckAll();
     return;
   }
 
@@ -434,10 +449,12 @@ function renderTable() {
   const cols = visibleColumns();
   tbody.innerHTML = pageList.map(s => {
     const cells = cols.map(c => studentCellHtml(s, c)).join('');
-    return `<tr data-id="${escapeHtml(s.id)}">${cells}</tr>`;
+    const sel = selectedIds.has(String(s.id)) ? ' class="row-selected"' : '';
+    return `<tr data-id="${escapeHtml(s.id)}"${sel}>${cells}</tr>`;
   }).join('');
   pagination.innerHTML = renderPaginationHtml(total, totalPages);
   updateStats();
+  syncCheckAll();
 }
 
 // ===== 学生行单元格渲染（列顺序与可见性由 visibleColumns 统一驱动） =====
@@ -472,6 +489,10 @@ function renderRowMenuItems(s) {
 // 按列渲染单元格（与表头严格同序）
 function studentCellHtml(s, col) {
   const k = col.key;
+  if (k === 'check') {
+    const on = selectedIds.has(String(s.id));
+    return `<td class="check-col"><input type="checkbox" data-act="rowcheck" data-id="${escapeHtml(s.id)}" ${on ? 'checked' : ''} aria-label="选择该生" /></td>`;
+  }
   if (k === 'photo') return `<td><div class="avatar">${photoHtml(s)}</div></td>`;
   if (k === 'studentId') return `<td class="stu-id">${escapeHtml(s.studentId || '—')}</td>`;
   if (k === 'grade') return `<td><span class="grade-text">${escapeHtml(s.grade || '—')}</span></td>`;
@@ -546,6 +567,44 @@ function updateStats() {
   }
 }
 
+// ===== 多选：勾选状态 / 全选 / 底部批量操作条 =====
+function selectedStudents() {
+  return allStudents.filter(s => selectedIds.has(String(s.id)));
+}
+function pruneSelection() {
+  const valid = new Set(allStudents.map(s => String(s.id)));
+  Array.from(selectedIds).forEach(id => { if (!valid.has(id)) selectedIds.delete(id); });
+}
+function clearSelection() {
+  selectedIds.clear();
+  renderTable();
+  updateBulkBar();
+}
+function toggleRowSelection(id, on) {
+  const key = String(id);
+  if (on) selectedIds.add(key); else selectedIds.delete(key);
+  const tr = document.querySelector(`#studentTbody tr[data-id="${key.replace(/"/g, '\\"')}"]`);
+  if (tr) tr.classList.toggle('row-selected', on);
+  syncCheckAll();
+  updateBulkBar();
+}
+function syncCheckAll() {
+  const box = $('#checkAll');
+  if (!box) return;
+  const total = currentFilteredIds.length;
+  const picked = currentFilteredIds.filter(id => selectedIds.has(id)).length;
+  box.checked = total > 0 && picked === total;
+  box.indeterminate = picked > 0 && picked < total;
+}
+function updateBulkBar() {
+  const bar = $('#bulkBar');
+  if (!bar) return;
+  const n = selectedIds.size;
+  bar.classList.toggle('show', n > 0);
+  const cnt = $('#bulkCount');
+  if (cnt) cnt.textContent = `已选 ${n} 名学生`;
+}
+
 async function loadStudents() {
   try {
     const [sRes, dRes] = await Promise.all([
@@ -558,7 +617,9 @@ async function loadStudents() {
     students = allStudents.filter(s => !s.allocated);
     dorms = dj.data || [];
     annotateDorms();
+    pruneSelection();
     renderTable();
+    updateBulkBar();
   } catch (e) {
     toast('加载失败：' + e.message, 'error');
   }
@@ -1057,6 +1118,274 @@ function renderStuDormBox() {
     </div>`;
 }
 
+// ===== 批量分班 / 批量分配宿舍 / 批量删除 =====
+// 所选学生的年级分布（未设年级单独归类，用于提示与班级筛选）
+function selectedGradeGroups() {
+  const map = {};
+  selectedStudents().forEach(s => {
+    const g = String(s.grade || '').trim() || '未设年级';
+    map[g] = (map[g] || 0) + 1;
+  });
+  return Object.keys(map).map(g => ({ grade: g, count: map[g] }));
+}
+function selectedGenders() {
+  const set = new Set();
+  selectedStudents().forEach(s => set.add(s.gender === '女' ? '女' : '男'));
+  return set;
+}
+// 所选学生概览（头像式胶囊列表）
+function batchSelectHtml(students) {
+  const chips = students.slice(0, 12).map(s =>
+    `<span class="batch-chip"><b>${escapeHtml(s.name || '')}</b><em>${escapeHtml(s.grade || '未设年级')}${s.className ? ' · ' + escapeHtml(s.className) : ''}</em></span>`
+  ).join('');
+  const more = students.length > 12 ? `<span class="batch-chip batch-chip-more">…等 ${students.length} 人</span>` : '';
+  return `<div class="batch-sum-top">已选 <strong>${students.length}</strong> 名学生</div>
+    <div class="batch-chips">${chips}${more}</div>`;
+}
+// 某班级本次可接收的人数（排除已在目标班、年级不符的学生）
+function batchNeedCount(cls, students) {
+  const clsGrade = String(cls.grade || '').trim();
+  return students.filter(s => {
+    if (String(s.classId || '') === cls.id) return false;
+    const g = String(s.grade || '').trim();
+    if (g && clsGrade && g !== clsGrade) return false;
+    return true;
+  }).length;
+}
+
+async function openBatchAssignDlg() {
+  const students = selectedStudents();
+  if (!students.length) { toast('请先勾选学生', 'error'); return; }
+  batchAssignClasses = [];
+  $('#batchAssignSum').innerHTML = batchSelectHtml(students);
+  const sel = $('#batchAssignSelect');
+  sel.innerHTML = '<option value="">正在加载班级…</option>';
+  $('#batchAssignSave').disabled = true;
+  $('#batchAssignTip').textContent = '';
+  $('#batchAssignMask').classList.add('show');
+  try {
+    const res = await fetch(CLASSES_API);
+    const j = await res.json();
+    if (j.code !== 0) throw new Error(j.msg || '加载班级失败');
+    batchAssignClasses = j.data || [];
+    renderBatchAssignOptions();
+  } catch (e) {
+    $('#batchAssignTip').textContent = '班级加载失败：' + e.message;
+  }
+}
+function closeBatchAssignDlg() {
+  $('#batchAssignMask').classList.remove('show');
+  batchAssignClasses = [];
+}
+function renderBatchAssignOptions() {
+  const students = selectedStudents();
+  const sel = $('#batchAssignSelect');
+  if (!sel) return;
+  const groups = selectedGradeGroups();
+  const named = groups.filter(g => g.grade !== '未设年级');
+  const sameGrade = (named.length === 1 && named[0].count === students.length) ? named[0].grade : '';
+  // 年级一致 → 只列同年级班级；年级混杂 → 列出全部班级（年级不符者由服务端跳过并提示）
+  const list = batchAssignClasses.filter(c => !sameGrade || String(c.grade || '').trim() === sameGrade);
+  if (!list.length) {
+    sel.innerHTML = '';
+    $('#batchAssignTip').textContent = sameGrade
+      ? `当前还没有「${sameGrade}」的班级，请先到「班级管理」添加对应班级。`
+      : '系统中还没有班级，请先到「班级管理」添加班级。';
+    $('#batchAssignSave').disabled = true;
+    return;
+  }
+  const opts = ['<option value="">— 请选择班级 —</option>'].concat(list.map(c => {
+    const count = (c.students || []).length;
+    const cap = Number(c.capacity) || count;
+    const need = batchNeedCount(c, students);
+    const over = cap > 0 && count + need > cap;
+    const label = `${c.grade ? String(c.grade) + ' · ' : ''}${c.name}（${count}/${cap}${over ? ' · 容量不足' : ''}）`;
+    return `<option value="${escapeHtml(c.id)}" ${over ? 'disabled' : ''}>${escapeHtml(label)}</option>`;
+  })).join('');
+  sel.innerHTML = opts;
+  updateBatchAssignTip();
+}
+function updateBatchAssignTip() {
+  const sel = $('#batchAssignSelect');
+  const tip = $('#batchAssignTip');
+  const save = $('#batchAssignSave');
+  if (!sel || !save || !tip) return;
+  const students = selectedStudents();
+  save.disabled = !sel.value;
+  const cls = sel.value ? batchAssignClasses.find(c => c.id === sel.value) : null;
+  if (!cls) {
+    const groups = selectedGradeGroups();
+    tip.textContent = groups.length > 1
+      ? `所选学生年级不一致（${groups.map(g => g.grade + ' ' + g.count + ' 人').join('、')}），分班时年级不符的学生会被自动跳过。`
+      : '选择目标班级后即可批量分班。';
+    return;
+  }
+  const need = batchNeedCount(cls, students);
+  const skip = students.length - need;
+  tip.textContent = `将把 ${need} 名学生安排入「${cls.name}」`
+    + (skip > 0 ? `，另有 ${skip} 名已在目标班或年级不符将被跳过` : '') + '。';
+}
+async function doBatchAssignSave() {
+  const classId = $('#batchAssignSelect').value;
+  if (!classId) { toast('请先选择目标班级', 'error'); return; }
+  const ids = Array.from(selectedIds);
+  const done = busyBtn($('#batchAssignSave'), '处理中…');
+  if (!done) return;
+  try {
+    const res = await fetch(`${API}/batch-assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, classId })
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || j.code !== 0) { toast(j.msg || '批量分班失败', 'error'); return; }
+    toast(j.msg || '批量分班完成', 'success');
+    closeBatchAssignDlg();
+    selectedIds.clear();
+    await loadStudents();
+    updateBulkBar();
+  } catch (e) {
+    toast('批量分班失败：' + e.message, 'error');
+  } finally {
+    done();
+  }
+}
+
+// 房间能否一次性容纳当前所选学生（性别匹配 + 床位足够）
+function batchDormRoomUsable(r, students) {
+  const gs = new Set(students.map(s => (s.gender === '女' ? '女' : '男')));
+  if (gs.size !== 1) {
+    if (r.gender !== 'any') return false; // 性别混杂只能进混合宿舍
+  } else {
+    const g = gs.values().next().value;
+    if (r.gender === 'male' && g !== '男') return false;
+    if (r.gender === 'female' && g !== '女') return false;
+  }
+  const cap = Number(r.capacity) || 1;
+  const stay = students.filter(s => (r.students || []).some(x => String(x) === String(s.id))).length;
+  const need = students.length - stay;
+  return (r.students || []).length + need <= cap;
+}
+function openBatchDormDlg() {
+  const students = selectedStudents();
+  if (!students.length) { toast('请先勾选学生', 'error'); return; }
+  if (!dorms.length) { toast('还没有宿舍房间，请先到「宿舍管理」添加房间', 'error'); return; }
+  batchDormSelectedId = '';
+  $('#batchDormInfo').innerHTML = batchSelectHtml(students);
+  $('#batchDormSearch').value = '';
+  renderBatchDormList();
+  $('#batchDormMask').classList.add('show');
+}
+function closeBatchDormDlg() {
+  $('#batchDormMask').classList.remove('show');
+  batchDormSelectedId = '';
+}
+function updateBatchDormSave() {
+  const btn = $('#batchDormSave');
+  const tip = $('#batchDormTip');
+  if (!btn) return;
+  btn.disabled = !batchDormSelectedId;
+  if (!tip) return;
+  const r = dorms.find(x => x.id === batchDormSelectedId);
+  tip.textContent = r
+    ? `将把 ${selectedIds.size} 名学生安排到「${String(r.building)} ${String(r.roomNo)}」`
+    : '请选择一间房间';
+}
+function renderBatchDormList() {
+  const box = $('#batchDormList');
+  if (!box) return;
+  const students = selectedStudents();
+  const gs = selectedGenders();
+  const kw = ($('#batchDormSearch').value || '').trim().toLowerCase();
+  const matched = dorms.filter(r => !kw || (`${String(r.building)} ${String(r.roomNo)}`).toLowerCase().includes(kw));
+  const usable = matched.filter(r => batchDormRoomUsable(r, students));
+  if (!usable.length) {
+    const reason = gs.size > 1
+      ? '所选学生性别不一致，只能安排进「混合」宿舍，当前没有符合条件的房间'
+      : (matched.length ? '没有能一次性容纳这些学生的房间（床位不足或性别不符），可先减少人数或调整房间容量' : '没有匹配的房间（请检查搜索关键词）');
+    box.innerHTML = `<div class="dorm-empty-tip">${escapeHtml(reason)}</div>`;
+    updateBatchDormSave();
+    return;
+  }
+  box.innerHTML = usable.map(r => {
+    const occC = (r.students || []).length;
+    const cap = Number(r.capacity) || 1;
+    const sk = dormStateKey(r);
+    const free = Math.max(0, cap - occC);
+    const isSel = r.id === batchDormSelectedId;
+    const tag = sk === 'empty' ? '空房' : (sk === 'full' ? '已满' : '部分');
+    return `<div class="dorm-room lv-${sk} ${isSel ? 'selected' : ''}" data-id="${escapeHtml(r.id)}">
+      <div class="dr-top">
+        <div class="dr-name"><b>${escapeHtml(String(r.building))}</b><span class="dr-no">${escapeHtml(String(r.roomNo))}</span></div>
+        <span class="dgender g-${escapeHtml(r.gender)}">${DORM_GENDER_LBL[r.gender] || '混合'}</span>
+      </div>
+      <div class="dr-cap"><span>已住 <b>${occC}</b>/${cap} 人</span><span class="dr-tags"><span class="dr-tag dr-${sk === 'empty' ? 'empty' : (sk === 'full' ? 'full' : 'part')}">${tag}</span></span></div>
+      ${dormBedsHtml(r, undefined, '')}
+      <div><span class="dr-free">本次可容纳 ${students.length} 人${free > 0 ? ' · 现空余 ' + free + ' 床' : ''}</span></div>
+      <span class="dr-check">✓</span>
+    </div>`;
+  }).join('');
+  updateBatchDormSave();
+}
+async function doBatchDormSave() {
+  if (!batchDormSelectedId) { toast('请先选择要入住的房间', 'error'); return; }
+  const students = selectedStudents();
+  if (!students.length) return;
+  const room = dorms.find(r => r.id === batchDormSelectedId);
+  if (!room) { toast('所选房间不存在，请刷新后重试', 'error'); return; }
+  const label = `${String(room.building)} ${String(room.roomNo)}`.trim();
+  if (!(await confirmDlg(`确定将所选 ${students.length} 名学生安排入住「${label}」？若该生原在其他房间，原床位会自动空出。`,
+    { title: '批量分配宿舍', okText: '确认入住' }))) return;
+  const done = busyBtn($('#batchDormSave'), '处理中…');
+  if (!done) return;
+  try {
+    const res = await fetch(`${DORMS_API}/${encodeURIComponent(batchDormSelectedId)}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentIds: students.map(s => s.id) })
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.code !== 0) { toast(json.msg || '分配失败', 'error'); return; }
+    toast(json.msg || '已分配宿舍', 'success');
+    closeBatchDormDlg();
+    selectedIds.clear();
+    await loadStudents();
+    updateBulkBar();
+  } catch (e) {
+    toast('分配失败：' + e.message, 'error');
+  } finally {
+    done();
+  }
+}
+
+async function batchDeleteStudents() {
+  const students = selectedStudents();
+  if (!students.length) { toast('请先勾选学生', 'error'); return; }
+  if (!(await confirmDlg(
+    `确定删除所选 ${students.length} 名学生？删除后将移入「回收站」可恢复（已入住宿舍会自动退宿）。`,
+    { title: '批量删除学生', okText: '删除', danger: true }
+  ))) return;
+  const done = busyBtn($('#bulkDelete'), '删除中…');
+  if (!done) return;
+  try {
+    const res = await fetch(`${API}/batch-delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: students.map(s => s.id) })
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.code !== 0) { toast(json.msg || '批量删除失败', 'error'); return; }
+    toast(json.msg || '已批量删除', 'success');
+    selectedIds.clear();
+    await loadStudents();
+    updateBulkBar();
+  } catch (e) {
+    toast('批量删除失败：' + e.message, 'error');
+  } finally {
+    done();
+  }
+}
+
 async function batchImport() {
   const subs = window.SUBJECTS || [];
   const subDemo = (subs[0] && subs[1] && subs[2] && subs[3])
@@ -1270,7 +1599,7 @@ function renderColMenu() {
   const menu = $('#colMenu');
   if (!menu) return;
   const flags = loadColFlags();
-  const defs = columnDefs();
+  const defs = columnDefs().filter(c => c.key !== 'check'); // 勾选列不参与列显隐设置
   const items = defs.map(c => {
     const locked = c.key === 'name';
     const on = colVisible(c.key, flags);
@@ -1449,6 +1778,44 @@ function bindEvents() {
     if (btn.dataset.act === 'dorm') openDormDlg(stu);
     if (btn.dataset.act === 'dorm-view' && stu && stu._roomId) openRoomPage(stu._roomId, stu.id);
   };
+
+  // ===== 多选 + 批量操作 =====
+  $('#studentTbody').addEventListener('change', (e) => {
+    const box = e.target.closest('input[data-act="rowcheck"]');
+    if (!box) return;
+    toggleRowSelection(box.dataset.id, box.checked);
+  });
+  const stuThead = document.querySelector('.student-table thead');
+  if (stuThead) {
+    stuThead.addEventListener('change', (e) => {
+      if (e.target.id !== 'checkAll') return;
+      const on = e.target.checked;
+      currentFilteredIds.forEach(id => { if (on) selectedIds.add(id); else selectedIds.delete(id); });
+      renderTable();
+      updateBulkBar();
+    });
+  }
+  const bulkAssignBtn = $('#bulkAssign');
+  if (bulkAssignBtn) {
+    bulkAssignBtn.onclick = openBatchAssignDlg;
+    $('#bulkDorm').onclick = openBatchDormDlg;
+    $('#bulkDelete').onclick = batchDeleteStudents;
+    $('#bulkClear').onclick = clearSelection;
+    $('#batchAssignClose').onclick = closeBatchAssignDlg;
+    $('#batchAssignCancel').onclick = closeBatchAssignDlg;
+    $('#batchAssignSelect').onchange = updateBatchAssignTip;
+    $('#batchAssignSave').onclick = doBatchAssignSave;
+    $('#batchDormClose').onclick = closeBatchDormDlg;
+    $('#batchDormCancel').onclick = closeBatchDormDlg;
+    $('#batchDormSearch').oninput = renderBatchDormList;
+    $('#batchDormSave').onclick = doBatchDormSave;
+    $('#batchDormList').onclick = (e) => {
+      const item = e.target.closest('.dorm-room');
+      if (!item) return;
+      batchDormSelectedId = item.dataset.id;
+      renderBatchDormList();
+    };
+  }
 
   // 编辑档案里的「住宿信息」区块操作
   const stuDormBox = $('#stuDormBox');

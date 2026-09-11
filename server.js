@@ -1550,6 +1550,125 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 404, { code: 1, msg: '未找到该学生档案' });
   }
 
+  // 批量删除学生：与单删一致，逐个移入回收站（未分班池 / 班级名单 / 宿舍联动），可恢复
+  if (pathname === '/api/students/batch-delete' && req.method === 'POST') {
+    const body = await readBody(req);
+    const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean) : [];
+    if (!ids.length) return sendJson(res, 400, { code: 1, msg: '请选择要删除的学生' });
+    const idSet = new Set(ids);
+    const trash = readTrash();
+    const now = new Date().toISOString();
+    const removed = [];
+    // 未分班学生
+    const list = readStudents();
+    const poolKeep = list.filter(s => {
+      if (!idSet.has(String(s.id))) return true;
+      trash.push(Object.assign({}, s, { deletedAt: now, deletedFrom: 'pool', sourceClassId: '', sourceClassName: '' }));
+      removed.push(s);
+      return false;
+    });
+    if (removed.length) writeStudents(poolKeep);
+    // 各班花名册
+    const classes = readClasses();
+    let clsChanged = false;
+    classes.forEach(c => {
+      const before = (c.students || []).length;
+      c.students = (c.students || []).filter(s => {
+        if (!idSet.has(String(s.id))) return true;
+        trash.push(Object.assign({}, s, { deletedAt: now, deletedFrom: 'class', sourceClassId: c.id, sourceClassName: c.name }));
+        removed.push(s);
+        return false;
+      });
+      if ((c.students || []).length !== before) clsChanged = true;
+    });
+    if (clsChanged) writeClasses(classes);
+    if (!removed.length) return sendJson(res, 404, { code: 1, msg: '未找到所选学生档案' });
+    writeTrash(trash);
+    removed.forEach(s => removeFromDorms(s.id));
+    return sendJson(res, 200, {
+      code: 0,
+      msg: `已将 ${removed.length} 名学生移入回收站（含自动退宿），可在回收站中恢复`,
+      data: { removed: removed.length }
+    });
+  }
+
+  // 批量分班：逐个校验年级一致性与班级剩余容量后统一安排入班（已在目标班的自动跳过）
+  if (pathname === '/api/students/batch-assign' && req.method === 'POST') {
+    const body = await readBody(req);
+    const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean) : [];
+    const classId = String(body.classId || '').trim();
+    if (!ids.length) return sendJson(res, 400, { code: 1, msg: '请选择要分班的学生' });
+    if (!classId) return sendJson(res, 400, { code: 1, msg: '请选择目标班级' });
+    const classes = readClasses();
+    const cls = classes.find(c => c.id === classId);
+    if (!cls) return sendJson(res, 404, { code: 1, msg: '目标班级不存在，请刷新后重试' });
+    const clsGrade = String(cls.grade || '').trim();
+    const pool = readStudents();
+    // 定位每个所选学生的当前档案（未分班池优先，其次各班名单）
+    const picked = [];
+    ids.forEach(id => {
+      let stu = pool.find(s => String(s.id) === id) || null;
+      if (!stu) {
+        for (const c of classes) {
+          const hit = (c.students || []).find(s => String(s.id) === id);
+          if (hit) { stu = hit; break; }
+        }
+      }
+      if (stu) picked.push(stu);
+    });
+    if (!picked.length) return sendJson(res, 404, { code: 1, msg: '未找到所选学生档案' });
+    const inTarget = new Set((cls.students || []).map(s => String(s.id)));
+    // 年级一致性校验：学生已设年级时必须与目标班级年级一致
+    const ok = [];
+    const skipped = [];
+    picked.forEach(stu => {
+      const stuGrade = String(stu.grade || '').trim();
+      if (stuGrade && clsGrade && stuGrade !== clsGrade) {
+        skipped.push(`「${stu.name || stu.id}」（${stuGrade}）`);
+        return;
+      }
+      ok.push(stu);
+    });
+    if (!ok.length) {
+      return sendJson(res, 400, {
+        code: 1,
+        msg: `所选学生年级与「${cls.name}」（${clsGrade || '未设年级'}）不一致，无法批量分班`
+      });
+    }
+    const okSet = new Set(ok.map(s => String(s.id)));
+    const newIds = ok.filter(s => !inTarget.has(String(s.id)));
+    // 容量校验：目标班现有 + 本次新增（已在目标班的不计入）
+    const cap = Number(cls.capacity) || 0;
+    const cur = (cls.students || []).length;
+    if (cap > 0 && cur + newIds.length > cap) {
+      return sendJson(res, 400, {
+        code: 1,
+        msg: `「${cls.name}」容量不足（现有 ${cur}/${cap}，本次需再安排 ${newIds.length} 人），请先调整班级容量或减少人数`
+      });
+    }
+    if (!newIds.length) {
+      return sendJson(res, 200, { code: 0, msg: `所选学生均已在「${cls.name}」，无需调整`, data: { moved: 0, skipped: skipped.length } });
+    }
+    // 从未分班池与其它班级名单中移出
+    writeStudents(pool.filter(s => !okSet.has(String(s.id))));
+    classes.forEach(c => {
+      if (c.id === classId) return;
+      c.students = (c.students || []).filter(s => !okSet.has(String(s.id)));
+    });
+    // 写入目标班级名单
+    if (!cls.students) cls.students = [];
+    ok.forEach(stu => {
+      if (inTarget.has(String(stu.id))) return; // 已在目标班，无需重复
+      const rec = normalizeStudent(Object.assign({}, stu, { grade: clsGrade || stu.grade || '' }));
+      rec.id = stu.id;
+      cls.students.push(rec);
+    });
+    writeClasses(classes);
+    let msg = `已将 ${newIds.length} 名学生安排入「${cls.name}」`;
+    if (skipped.length) msg += `；另有 ${skipped.length} 名因年级不符被跳过：${skipped.slice(0, 5).join('、')}${skipped.length > 5 ? ' 等' : ''}`;
+    return sendJson(res, 200, { code: 0, msg, data: { moved: newIds.length, skipped: skipped.length } });
+  }
+
   // 批量导入
   if (pathname === '/api/students/batch' && req.method === 'POST') {
     const body = await readBody(req);

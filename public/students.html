@@ -58,6 +58,7 @@
     .di-cur { font-size: 12.5px; color: #64748b; }
     .di-cur b { color: var(--text); }
     #dormSearch { width: 100%; margin-bottom: 10px; }
+    #batchDormSearch { width: 100%; margin-bottom: 10px; }
     .dorm-pick-list {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
       gap: 10px; max-height: 360px; overflow: auto; padding: 2px;
@@ -314,6 +315,52 @@
     .col-item.col-subject { margin-left: 8px; color: #475569; }
     .col-item.is-locked { opacity: .6; cursor: not-allowed; }
     .col-item.is-locked:hover { background: transparent; }
+
+    /* ===== 多选列 + 批量操作条 ===== */
+    .student-table th.check-col,
+    .student-table td.check-col { width: 44px; text-align: center; padding-left: 4px; padding-right: 4px; }
+    .student-table input[type="checkbox"] {
+      width: 15px; height: 15px; margin: 0; cursor: pointer;
+      accent-color: var(--primary); vertical-align: middle;
+    }
+    .student-table tbody tr.row-selected td { background: #eef2ff; }
+    .student-table tbody tr.row-selected td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+    .bulk-bar {
+      position: fixed; left: 50%; bottom: 26px; z-index: 1200;
+      transform: translate(-50%, 20px);
+      display: none; align-items: center; gap: 8px;
+      padding: 10px 14px; border-radius: 999px;
+      background: rgba(255, 255, 255, .97);
+      border: 1px solid var(--border, #e5e7eb);
+      box-shadow: 0 14px 38px rgba(15, 23, 42, .18);
+      backdrop-filter: blur(6px);
+    }
+    .bulk-bar.show { display: flex; animation: bulkBarIn .18s ease forwards; }
+    @keyframes bulkBarIn {
+      from { opacity: 0; transform: translate(-50%, 20px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+    .bulk-count { font-size: 13px; font-weight: 700; color: var(--primary); white-space: nowrap; padding: 0 4px; }
+    .bulk-sep { width: 1px; height: 20px; background: var(--border, #e5e7eb); margin: 0 2px; }
+    @media (max-width: 640px) {
+      .bulk-bar { left: 10px; right: 10px; bottom: 12px; transform: none; flex-wrap: wrap;
+        justify-content: center; border-radius: 16px; padding: 10px; }
+      .bulk-bar.show { animation: none; }
+    }
+
+    /* ===== 批量分班 / 批量分宿舍弹窗内的已选学生概览 ===== */
+    .batch-sum-top { font-size: 13px; color: #64748b; margin-bottom: 8px; }
+    .batch-sum-top strong { color: var(--primary); font-size: 15px; }
+    .batch-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 96px; overflow: auto; }
+    .batch-chip {
+      display: inline-flex; align-items: baseline; gap: 5px;
+      background: #f8fafc; border: 1px solid var(--border, #e5e7eb);
+      border-radius: 999px; padding: 3px 11px; font-size: 12px; color: var(--text, #1f2937);
+      white-space: nowrap;
+    }
+    .batch-chip b { font-weight: 600; }
+    .batch-chip em { font-style: normal; color: #94a3b8; font-size: 11px; }
+    .batch-chip-more { background: #eef2ff; border-color: #e0e7ff; color: #4338ca; }
   </style>
 </head>
 <body>
@@ -635,7 +682,61 @@
     .trash-main{font-size:14px;color:#111827;}
     .trash-sub{font-size:12px;color:#9ca3af;margin-top:3px;}
     .trash-actions{display:flex;gap:6px;flex-shrink:0;}
+    #batchAssignMask .modal { max-width: 620px; }
+    #batchDormMask .modal { max-width: 820px; }
   </style>
+
+  <!-- 批量分班弹窗 -->
+  <div class="modal-mask" id="batchAssignMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>批量分班</h3>
+        <button class="modal-close" id="batchAssignClose" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="batch-sum" id="batchAssignSum"></div>
+        <div class="assign-pick">
+          <label for="batchAssignSelect">目标班级</label>
+          <select id="batchAssignSelect"></select>
+        </div>
+        <p class="assign-tip" id="batchAssignTip"></p>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="batchAssignCancel">取消</button>
+          <button type="button" class="btn btn-primary" id="batchAssignSave" disabled>确认分班</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批量分配宿舍弹窗 -->
+  <div class="modal-mask" id="batchDormMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>批量分配宿舍</h3>
+        <button class="modal-close" id="batchDormClose" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="dorm-stu" id="batchDormInfo"></div>
+        <input type="text" id="batchDormSearch" class="search-input" placeholder="搜索楼栋 / 房号，快速定位宿舍" />
+        <div class="dorm-pick-list" id="batchDormList"></div>
+        <div class="modal-footer">
+          <span id="batchDormTip" style="margin-right:auto;font-size:12px;color:#64748b"></span>
+          <button type="button" class="btn btn-default" id="batchDormCancel">取消</button>
+          <button type="button" class="btn btn-primary" id="batchDormSave" disabled>确认分配</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批量操作浮动条 -->
+  <div class="bulk-bar" id="bulkBar">
+    <span class="bulk-count" id="bulkCount">已选 0 名学生</span>
+    <span class="bulk-sep"></span>
+    <button type="button" class="btn btn-sm btn-primary" id="bulkAssign">批量分班</button>
+    <button type="button" class="btn btn-sm btn-outline" id="bulkDorm">批量分配宿舍</button>
+    <button type="button" class="btn btn-sm btn-danger" id="bulkDelete">批量删除</button>
+    <button type="button" class="btn btn-sm btn-default" id="bulkClear">取消选择</button>
+  </div>
 
   <!-- Toast 提示 -->
   <div class="toast" id="toast"></div>
