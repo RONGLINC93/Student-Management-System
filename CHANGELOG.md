@@ -10,6 +10,20 @@
 
 ---
 
+## 未发布
+
+### 补充作者信息
+
+- `package.json`：填充 `author` 字段为 `RONGLINC <chenronglin1993@hotmail.com> (https://github.com/RONGLINC93)`
+- `README.md`：新增「作者与反馈」小节（作者 / 邮箱 / 项目地址）
+- `public/` 下全部 18 个 HTML 页面：`<head>` 中新增 `<meta name="author">` 标签
+- 界面署名：工作台侧栏底部（中文版权行「版权所有 © 2026 RONGLINC」，点击新窗口跳转项目 GitHub 仓库）、系统设置 → 数据管理 → 卡片页脚、后台登录页与学生登录页页脚新增「作者：RONGLINC」（后台登录页附邮箱）
+- 移除工作台侧栏底部与数据管理卡片页脚原有的「本地演示」标注
+- 工作台「学生中心演示」菜单更名为「学生中心」；智能分班设置中「演示速度」更名为「动画速度」（仅文案调整，逻辑不变）
+- `server.js` / `pull.js` / `push.js`：文件头新增 `@author RONGLINC` 注释
+
+---
+
 ## v1.2.0 — 2026-09-11
 
 ### 学生列表批量操作

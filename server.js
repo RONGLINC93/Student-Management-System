@@ -1,3 +1,10 @@
+/**
+ * 学生管理系统 — HTTP 服务：REST API 路由 + 静态文件托管 + 登录认证
+ *
+ * @author RONGLINC <chenronglin1993@hotmail.com>
+ * @homepage https://github.com/RONGLINC93/Student-Management-System
+ */
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');

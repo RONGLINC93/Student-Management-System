@@ -64,7 +64,7 @@ function setFloatMode(mode) {
   fb.classList.toggle('deal', mode === 'deal');
 }
 
-// 演示速度换算：档位 1-5 → 时间倍率（越小越快）
+// 动画速度换算：档位 1-5 → 时间倍率（越小越快）
 function dealPause(base) {
   const spd = Number($('#dealSpeed')?.value || 3);
   const factor = [2.2, 1.6, 1, 0.6, 0.35][spd - 1] || 1;

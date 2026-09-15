@@ -114,6 +114,8 @@ input, select, textarea, button { font-family: inherit; }
   color: rgba(255, 255, 255, .4);
   border-top: 1px solid rgba(255, 255, 255, .07);
 }
+.aside-foot a { color: inherit; text-decoration: none; }
+.aside-foot a:hover { color: rgba(255, 255, 255, .78); text-decoration: underline; }
 
 /* ---------- 右侧主体 ---------- */
 .admin-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }

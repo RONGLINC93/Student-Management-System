@@ -1,6 +1,6 @@
 {
   "admin": {
-    "ts": 1789116874970,
+    "ts": 1789476323926,
     "tabs": [
       {
         "key": "dashboard",
@@ -16,6 +16,10 @@
       },
       {
         "key": "settings",
+        "side": false
+      },
+      {
+        "key": "leaves",
         "side": false
       }
     ],

@@ -624,7 +624,7 @@ input, select, textarea, button { font-family: inherit; }
 }
 .control-item input:focus, .control-item select:focus { border-color: #fff; }
 .control-item select option { color: #1f2937; }
-/* 滑块控件（演示速度 / 展示大小，用于设置模态框） */
+/* 滑块控件（动画速度 / 展示大小，用于设置模态框） */
 .range-input {
   -webkit-appearance: none;
   appearance: none;

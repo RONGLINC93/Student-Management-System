@@ -1,5 +1,9 @@
-// 从 GitHub 拉取：读取 .env 中的仓库地址与令牌，执行 git pull
-// 用法：node pull.js   （或双击 拉取.bat）
+/**
+ * 从 GitHub 拉取：读取 .env 中的仓库地址与令牌，执行 git pull
+ * 用法：node pull.js   （或双击 拉取.bat）
+ *
+ * @author RONGLINC <chenronglin1993@hotmail.com>
+ */
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');

@@ -1,5 +1,9 @@
-// 推送到 GitHub：读取 .env 中的仓库地址与令牌，自动 add/commit/push
-// 用法：node push.js [提交说明]   （或双击 推送.bat）
+/**
+ * 推送到 GitHub：读取 .env 中的仓库地址与令牌，自动 add/commit/push
+ * 用法：node push.js [提交说明]   （或双击 推送.bat）
+ *
+ * @author RONGLINC <chenronglin1993@hotmail.com>
+ */
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');

@@ -114,3 +114,9 @@ REST 接口均支持 GET / POST / PUT / DELETE，统一返回 `{ code, data, msg
 - 危险操作（删除、清空等）均需弹窗二次确认
 - 查看模式账号只能浏览，不能进入系统设置或执行写操作
 - CSV 导入模板表头为：`学号,年级,姓名,性别,语文,数学,英语,理综,特长`（科目列随系统配置动态变化，以「下载示例表格」为准），`姓名` 必填
+
+## 作者与反馈
+
+- 作者：**RONGLINC**
+- 邮箱：<chenronglin1993@hotmail.com>
+- 项目地址：<https://github.com/RONGLINC93/Student-Management-System>（欢迎 Issue 反馈问题与建议）
