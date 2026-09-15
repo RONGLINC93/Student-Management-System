@@ -1,6 +1,6 @@
 {
   "admin": {
-    "ts": 1789476323926,
+    "ts": 1789479983607,
     "tabs": [
       {
         "key": "dashboard",
@@ -20,6 +20,38 @@
       },
       {
         "key": "leaves",
+        "side": false
+      },
+      {
+        "key": "grades",
+        "side": false
+      },
+      {
+        "key": "teachers",
+        "side": false
+      },
+      {
+        "key": "analysis",
+        "side": false
+      },
+      {
+        "key": "exams",
+        "side": false
+      },
+      {
+        "key": "conduct",
+        "side": false
+      },
+      {
+        "key": "notice",
+        "side": false
+      },
+      {
+        "key": "dorm",
+        "side": false
+      },
+      {
+        "key": "allocate",
         "side": false
       }
     ],

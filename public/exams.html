@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="author" content="RONGLINC (chenronglin1993@hotmail.com)" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <title>学生管理系统 - 成绩管理</title>
   <link rel="stylesheet" href="/css/style.css" />
   <style>
@@ -61,6 +62,26 @@
     @media (max-width: 640px) {
       .exam-list .exam-side-title { flex-wrap: wrap; gap: 6px; }
       .exam-item { min-width: 150px; }
+    }
+    /* ===== 打印：个人成绩单 ===== */
+    .print-only { display: none; }
+    .report-head { text-align: center; margin-bottom: 16px; }
+    .report-head .rp-school { font-size: 20px; font-weight: 800; letter-spacing: 2px; }
+    .report-head .rp-title { font-size: 16px; font-weight: 700; margin-top: 6px; }
+    .report-head .rp-meta { display: flex; justify-content: space-between; font-size: 12.5px; margin-top: 12px; color: #333; }
+    @media print {
+      .app-header, .exam-side, .main-tabs, .entry-bar, #emptyHint, .e-head, #tab-entry, #tab-stats { display: none !important; }
+      body { background: #fff !important; }
+      .container { padding: 0 !important; max-width: none !important; }
+      .exam-wrap { display: block !important; }
+      .exam-main { border: none !important; padding: 0 !important; }
+      #examDetail { display: block !important; }
+      #tab-personal { display: block !important; }
+      .entry-table-wrap { overflow: visible !important; max-height: none !important; }
+      .entry-table { font-size: 13px; }
+      .entry-table th, .entry-table td { border: 1px solid #999 !important; }
+      .print-only { display: block !important; }
+      .no-print { display: none !important; }
     }
   </style>
 </head>
@@ -152,10 +173,16 @@
           </div>
 
           <div id="tab-personal" hidden>
-            <div class="entry-bar">
+            <div class="report-head print-only" id="reportHead">
+              <div class="rp-school" data-site-name>学生管理系统</div>
+              <div class="rp-title">学生个人成绩单</div>
+              <div class="rp-meta"><span id="rpStu"></span><span id="rpDate"></span></div>
+            </div>
+            <div class="entry-bar no-print">
               <select id="personalStudent" style="min-width:220px"></select>
               <span class="dim">查看该生历次考试成绩</span>
               <button class="btn btn-default btn-sm" id="btnViewConduct" hidden style="margin-left:8px">查看操行记录</button>
+              <button class="btn btn-primary btn-sm" id="btnPrintReport" style="margin-left:auto">打印成绩单</button>
             </div>
             <div class="entry-table-wrap"><table class="entry-table" id="personalTable"></table></div>
           </div>

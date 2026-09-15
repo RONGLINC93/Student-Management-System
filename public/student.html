@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="author" content="RONGLINC (chenronglin1993@hotmail.com)" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <title>学生中心 · 学生管理系统</title>
   <style>
     :root {
@@ -362,6 +363,26 @@
       main { padding: 14px; }
       .hero { padding: 18px; }
     }
+    /* ===== 打印：分班通知单 ===== */
+    .print-only { display: none; }
+    .notice-sheet { max-width: 720px; margin: 0 auto; color: #111; font-size: 14px; line-height: 1.9; }
+    .np-school { text-align: center; font-size: 22px; font-weight: 800; letter-spacing: 3px; }
+    .np-title { text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 6px; margin: 8px 0 22px; }
+    .np-hello { margin-bottom: 12px; }
+    .np-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+    .np-table th, .np-table td { border: 1px solid #555; padding: 9px 12px; text-align: left; font-weight: normal; }
+    .np-table th { background: #f2f2f2; width: 90px; white-space: nowrap; }
+    .np-note { color: #333; }
+    .np-sign { margin-top: 40px; text-align: right; line-height: 2.1; }
+    @media print {
+      body.printing .top,
+      body.printing main,
+      body.printing #foot,
+      body.printing .mask,
+      body.printing .force-cover { display: none !important; }
+      body { background: #fff !important; }
+      body.printing #printNotice { display: block !important; }
+    }
   </style>
 </head>
 <body>
@@ -486,6 +507,26 @@
   </main>
 
   <footer id="foot">如信息有误或需要调换宿舍，请联系班主任 / 学校教务处。</footer>
+
+  <!-- 分班通知单（仅打印时显示） -->
+  <div id="printNotice" class="print-only">
+    <div class="notice-sheet">
+      <div class="np-school" data-site-name>学生管理系统</div>
+      <div class="np-title">分班通知单</div>
+      <div class="np-hello" id="npHello"></div>
+      <table class="np-table">
+        <tr><th>姓名</th><td id="npName"></td><th>学号</th><td id="npNo"></td></tr>
+        <tr><th>性别</th><td id="npGender"></td><th>年级</th><td id="npGrade"></td></tr>
+        <tr><th>分配班级</th><td colspan="3" id="npClass"></td></tr>
+        <tr><th>班主任</th><td colspan="3" id="npHead"></td></tr>
+      </table>
+      <p class="np-note">请凭本通知单于学校规定时间到相应班级报到。如有疑问，请与班主任或学校教务处联系。</p>
+      <div class="np-sign">
+        <div data-site-name>学生管理系统</div>
+        <div id="npDate"></div>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== 首次登录强制修改密码 ===== -->
   <div class="force-cover" id="forceCover" hidden>
@@ -769,6 +810,7 @@
             html += '</div>';
           }
           html += '<div class="actions">' +
+            '<button type="button" class="btn soft" data-act="print-notice">打印分班通知单</button>' +
             '<button type="button" class="btn outline" data-act="goto-class-help">如何查看我的班级？</button></div>';
         }
         body.innerHTML = html;
@@ -1183,7 +1225,31 @@
           toast('如需确认分班 / 宿舍安排，可联系班主任：' + ((G.me.profile && G.me.profile.headTeacher && G.me.profile.headTeacher.name) || '学校教务处'));
           return;
         }
+        if (act === 'print-notice') { printNotice(); return; }
       });
+
+      // 打印分班通知单：填充打印专用单据后调起浏览器打印
+      function printNotice() {
+        var p = G.me && G.me.profile;
+        if (!p || !p.allocated || !p.className) { toast('您尚未完成分班，暂无可打印的通知单'); return; }
+        var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v || '—'; };
+        set('npHello', (p.name || '同学') + ' 同学：');
+        set('npName', p.name);
+        set('npNo', p.studentNo);
+        set('npGender', p.gender);
+        set('npGrade', p.grade);
+        set('npClass', p.className + '（共 ' + (p.rosterCount || 0) + ' 名同学）');
+        set('npHead', (p.headTeacher && p.headTeacher.name) ? p.headTeacher.name : '未设置');
+        var d = new Date();
+        var p2 = function (n) { return n < 10 ? '0' + n : '' + n; };
+        set('npDate', d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日');
+        document.body.classList.add('printing');
+        var done = false;
+        var finish = function () { if (done) return; done = true; document.body.classList.remove('printing'); };
+        window.addEventListener('afterprint', finish, { once: true });
+        window.print();
+        setTimeout(finish, 3000); // 兼容不触发 afterprint 的环境
+      }
 
       // 房间单选项
       document.getElementById('roomList').addEventListener('change', function (e) {

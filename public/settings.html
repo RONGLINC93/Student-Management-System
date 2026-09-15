@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="author" content="RONGLINC (chenronglin1993@hotmail.com)" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <title>学生管理系统 - 系统设置</title>
   <link rel="stylesheet" href="/css/style.css" />
   <style>
@@ -188,6 +189,38 @@
     .srv-zone { border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
     .srv-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     .srv-zone .set-tip { margin-top: 0; }
+    /* 自动备份列表 */
+    .bk-ctl { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+    .bk-ctl .bk-item { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text); }
+    .bk-ctl input[type="time"] { padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; font-size: 13px; }
+    .bk-ctl input[type="number"] { width: 76px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; font-size: 13px; }
+    .bk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .bk-table th, .bk-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+    .bk-table th { background: #f8fafc; color: var(--text-light); font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .bk-table td { vertical-align: middle; }
+    .bk-table .bk-name { font-family: Consolas, Menlo, monospace; font-size: 12px; word-break: break-all; }
+    .bk-table .bk-ops { white-space: nowrap; text-align: right; }
+    .bk-table .bk-ops .btn { margin-left: 6px; }
+    .bk-tag { display: inline-block; font-size: 11px; border-radius: 999px; padding: 1px 9px; }
+    .bk-tag.auto { background: rgba(18,184,134,.12); color: #0ca678; }
+    .bk-tag.manual { background: rgba(79,109,245,.12); color: #4f6df5; }
+    .bk-empty { padding: 24px; text-align: center; color: var(--text-light); font-size: 13px; }
+    .bk-head-row { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 8px; }
+    /* 操作审计日志 */
+    .au-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .au-bar input { flex: 1; min-width: 200px; }
+    .au-table-wrap { border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
+    .au-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+    .au-table th, .au-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+    .au-table th { background: #f8fafc; color: var(--text-light); font-size: 12px; font-weight: 600; }
+    .au-table tr:last-child td { border-bottom: none; }
+    .au-table td.path { font-family: Consolas, Menlo, monospace; font-size: 12px; color: var(--text-light); }
+    .au-method { display: inline-block; min-width: 44px; text-align: center; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 2px 6px; }
+    .au-method.POST { background: rgba(18,184,134,.12); color: #0ca678; }
+    .au-method.PUT, .au-method.PATCH { background: rgba(245,158,11,.14); color: #d97706; }
+    .au-method.DELETE { background: rgba(230,73,73,.12); color: #e64949; }
+    .au-role { font-size: 11px; color: var(--text-light); }
+    .au-pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 12px; font-size: 13px; color: var(--text-light); }
   </style>
 </head>
 <body>
@@ -242,6 +275,10 @@
           <a class="set-nav-item" data-key="data" href="#data">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
             数据管理
+          </a>
+          <a class="set-nav-item" data-key="audit" href="#audit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            操作审计
           </a>
           <a class="set-nav-item" data-key="account" href="#account">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -400,6 +437,36 @@
           </p>
         </div>
         <div class="set-field">
+          <label class="set-label">自动备份</label>
+          <div class="bk-ctl">
+            <span class="bk-item"><label><input type="checkbox" id="bkAuto" /> 每日自动备份到服务器</label></span>
+            <span class="bk-item">备份时间
+              <input type="time" id="bkTime" value="03:00" step="60" />
+            </span>
+            <span class="bk-item">保留
+              <input type="number" id="bkKeep" min="1" max="100" step="1" value="7" /> 份自动备份
+            </span>
+            <button class="btn btn-primary btn-sm" id="btnSaveBk">保存备份设置</button>
+            <button class="btn btn-default btn-sm" id="btnBkNow">立即备份一次</button>
+          </div>
+          <p class="set-tip">
+            开启后，服务每天到达设定时间时自动把全量数据备份到服务器 <b>data/backups</b> 目录；
+            服务停机跨过备份时刻时，启动后会自动补备份一份。仅<b>自动备份</b>按保留份数清理，手动备份永久保留。
+          </p>
+          <div class="bk-head-row">
+            <b style="font-size:13px">服务器上的备份</b>
+            <button class="btn btn-default btn-sm" id="btnBkRefresh">刷新列表</button>
+          </div>
+          <div class="au-table-wrap">
+            <table class="bk-table">
+              <thead>
+                <tr><th style="width:230px">备份文件</th><th style="width:80px">类型</th><th style="width:160px">生成时间</th><th style="width:90px">大小</th><th>操作</th></tr>
+              </thead>
+              <tbody id="bkTbody"><tr><td colspan="5" class="bk-empty">点击「刷新列表」加载服务器备份</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="set-field">
           <label class="set-label">示例数据</label>
           <div class="set-row">
             <button class="btn btn-default btn-sm" id="btnDemoImport" title="依次追加写入示例年级 / 班级 / 宿舍 / 学生，已存在的自动跳过，可安全重复点击">导入示例数据</button>
@@ -425,6 +492,42 @@
         <div class="set-card-foot">
           <span class="muted-note" style="margin-right:auto">版本 <span data-app-version>v1.1.0</span> · 作者 RONGLINC</span>
           <button class="btn btn-default btn-sm" id="btnDataManage">刷新状态</button>
+        </div>
+      </section>
+
+      <!-- 操作审计 -->
+      <section class="set-card" data-sec="audit" hidden>
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">操作审计日志</div>
+            <div class="set-card-desc">记录后台与学生端的新增 / 修改 / 删除操作（不含密码等敏感内容），最多保留最近 3000 条</div>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <div class="au-bar">
+            <input type="text" class="set-input" id="auKw" placeholder="按操作人 / 模块 / 路径 / IP 搜索" autocomplete="off" />
+            <button class="btn btn-primary btn-sm" id="btnAuSearch">查询</button>
+            <button class="btn btn-default btn-sm" id="btnAuRefresh">刷新</button>
+            <button class="btn btn-danger btn-sm" id="btnAuClear">清空日志</button>
+          </div>
+          <div class="au-table-wrap">
+            <table class="au-table">
+              <thead>
+                <tr><th style="width:158px">时间</th><th style="width:150px">操作人</th><th style="width:64px">动作</th><th style="width:170px">模块</th><th>路径</th><th style="width:120px">IP</th></tr>
+              </thead>
+              <tbody id="auTbody"><tr><td colspan="6" class="bk-empty">日志加载中…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="au-pager">
+            <span id="auInfo">共 0 条</span>
+            <button class="btn btn-default btn-sm" id="btnAuPrev">上一页</button>
+            <span id="auPage">1 / 1</span>
+            <button class="btn btn-default btn-sm" id="btnAuNext">下一页</button>
+          </div>
         </div>
       </section>
 
@@ -617,6 +720,11 @@
           return { key: String(s.key || ''), name: String(s.name || ''), max: Number(s.max) || 100 };
         });
         renderSubjectRows();
+        // 自动备份设置
+        var bk = S.backup || {};
+        $el('bkAuto').checked = !!bk.auto;
+        $el('bkTime').value = bk.time || '03:00';
+        $el('bkKeep').value = Number(bk.keep) || 7;
       }
 
       function load() {
@@ -901,7 +1009,7 @@
       $el('btnDataManage').addEventListener('click', load);
 
       // ================= 二级侧边栏菜单：分组切换 =================
-      var NAV_KEYS = ['info', 'rules', 'subjects', 'data', 'account', 'server'];
+      var NAV_KEYS = ['info', 'rules', 'subjects', 'data', 'audit', 'account', 'server'];
       function switchSec(key) {
         if (NAV_KEYS.indexOf(key) === -1) key = NAV_KEYS[0];
         var items = document.querySelectorAll('.set-nav-item');
@@ -916,6 +1024,8 @@
           }
         }
         if (key === 'server' && typeof refreshServerStatus === 'function') refreshServerStatus();
+        if (key === 'audit' && !auditLoaded) loadAudit(1);
+        if (key === 'data' && !backupListLoaded) loadBackupList();
         return key;
       }
       (function () {
@@ -928,10 +1038,202 @@
             try { location.hash = k; } catch (e2) {}
           });
         }
-        // 支持 #rules / #data / #account / #server 直达指定分组
-        var m = /#(info|rules|subjects|data|account|server)/.exec(location.hash || '');
+        // 支持 #rules / #data / #audit / #account / #server 直达指定分组
+        var m = /#(info|rules|subjects|data|audit|account|server)/.exec(location.hash || '');
         switchSec(m ? m[1] : 'info');
       })();
+
+      // ================= 自动备份（服务器本地） =================
+      var backupListLoaded = false;
+      function fmtSize(n) {
+        n = Number(n) || 0;
+        if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + ' MB';
+        if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+        return n + ' B';
+      }
+      function fmtTime(iso) {
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return '-';
+        function p(x) { return x < 10 ? '0' + x : '' + x; }
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+          + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+      }
+      function loadBackupList() {
+        backupListLoaded = true;
+        var tb = $el('bkTbody');
+        tb.innerHTML = '<tr><td colspan="5" class="bk-empty">加载中…</td></tr>';
+        fetch('/api/backups').then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '加载失败');
+          var list = j.data || [];
+          if (!list.length) {
+            tb.innerHTML = '<tr><td colspan="5" class="bk-empty">暂无服务器备份，点击「立即备份一次」生成</td></tr>';
+            return;
+          }
+          tb.innerHTML = list.map(function (f) {
+            var tag = f.kind === 'auto'
+              ? '<span class="bk-tag auto">自动</span>'
+              : '<span class="bk-tag manual">手动</span>';
+            return '<tr data-name="' + escU(f.name) + '">'
+              + '<td class="bk-name">' + escU(f.name) + '</td>'
+              + '<td>' + tag + '</td>'
+              + '<td>' + escU(fmtTime(f.mtime)) + '</td>'
+              + '<td>' + escU(fmtSize(f.size)) + '</td>'
+              + '<td class="bk-ops">'
+              + '<button type="button" class="btn btn-default btn-sm bk-dl">下载</button>'
+              + '<button type="button" class="btn btn-default btn-sm bk-restore">恢复</button>'
+              + '<button type="button" class="btn btn-danger btn-sm bk-del">删除</button>'
+              + '</td></tr>';
+          }).join('');
+        }).catch(function (e) {
+          tb.innerHTML = '<tr><td colspan="5" class="bk-empty">加载失败：' + escU(e.message || '请重试') + '</td></tr>';
+        });
+      }
+      // 保存自动备份设置
+      $el('btnSaveBk').addEventListener('click', function () {
+        var time = ($el('bkTime').value || '03:00').trim();
+        if (!/^\d{2}:\d{2}$/.test(time)) { toast('备份时间格式不正确', 'err'); return; }
+        var keep = parseInt($el('bkKeep').value, 10);
+        if (!(keep >= 1 && keep <= 100)) { toast('保留份数需为 1～100', 'err'); return; }
+        save({ backup: { auto: $el('bkAuto').checked, time: time, keep: keep } }, '自动备份设置已保存');
+      });
+      // 立即手动备份
+      $el('btnBkNow').addEventListener('click', async function () {
+        var ok;
+        if (typeof window.confirmDlg === 'function') {
+          ok = await window.confirmDlg('将在服务器上立即生成一份全量数据备份，是否继续？', { title: '立即备份', okText: '立即备份' });
+        } else { ok = window.confirm('将在服务器上立即生成一份全量数据备份，是否继续？'); }
+        if (!ok) return;
+        var done = busyBtn($el('btnBkNow'), '备份中…');
+        if (!done) return;
+        fetch('/api/backups', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '备份失败');
+          toast(j.msg || '备份已生成', 'ok');
+          loadBackupList();
+        }).catch(function (e) {
+          toast('备份失败：' + (e.message || '请重试'), 'err');
+        }).finally(function () { done(); });
+      });
+      $el('btnBkRefresh').addEventListener('click', loadBackupList);
+      // 列表内操作（事件委托）：下载 / 恢复 / 删除
+      $el('bkTbody').addEventListener('click', async function (e) {
+        var btn = e.target.closest && e.target.closest('button');
+        if (!btn) return;
+        var tr = btn.closest('tr');
+        var name = tr && tr.getAttribute('data-name');
+        if (!name) return;
+        if (btn.className.indexOf('bk-dl') !== -1) {
+          window.open('/api/backups/' + encodeURIComponent(name), '_blank');
+          return;
+        }
+        if (btn.className.indexOf('bk-del') !== -1) {
+          var okDel;
+          var msgDel = '确定删除服务器备份「' + name + '」？删除后不可恢复。';
+          if (typeof window.confirmDlg === 'function') {
+            okDel = await window.confirmDlg(msgDel, { title: '删除备份', okText: '删除', danger: true });
+          } else { okDel = window.confirm(msgDel); }
+          if (!okDel) return;
+          fetch('/api/backups/' + encodeURIComponent(name), { method: 'DELETE' })
+            .then(function (r) { return r.json(); }).then(function (j) {
+              if (j.code !== 0) throw new Error(j.msg || '删除失败');
+              toast('备份已删除', 'ok');
+              loadBackupList();
+            }).catch(function (err) { toast('删除失败：' + (err.message || '请重试'), 'err'); });
+          return;
+        }
+        if (btn.className.indexOf('bk-restore') !== -1) {
+          var msg = '将用服务器备份「' + name + '」<b>覆盖当前全部数据</b>，此操作不可撤销，建议先另存一份当前备份。确定继续？';
+          var okR;
+          if (typeof window.confirmDlg === 'function') {
+            okR = await window.confirmDlg(msg, { title: '恢复备份', okText: '确认覆盖恢复', danger: true });
+          } else { okR = window.confirm('将用备份「' + name + '」覆盖当前全部数据，此操作不可撤销，确定继续？'); }
+          if (!okR) return;
+          btn.disabled = true;
+          var oldText = btn.textContent;
+          btn.textContent = '恢复中…';
+          fetch('/api/backups/' + encodeURIComponent(name))
+            .then(function (r) { return r.json(); })
+            .then(function (payload) {
+              return fetch('/api/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              }).then(function (r) { return r.json(); });
+            })
+            .then(function (j) {
+              if (j.code !== 0) throw new Error(j.msg || '恢复失败');
+              toast('备份已恢复，页面即将刷新…', 'ok');
+              setTimeout(function () { location.reload(); }, 1200);
+            })
+            .catch(function (err) { toast('恢复失败：' + (err.message || '请重试'), 'err'); })
+            .finally(function () { btn.disabled = false; btn.textContent = oldText; });
+        }
+      });
+
+      // ================= 操作审计日志 =================
+      var auditLoaded = false;
+      var auditPage = 1;
+      var auditKw = '';
+      var auditTotal = 0;
+      var AUDIT_PAGE_SIZE = 20;
+      var ROLE_LABEL = { admin: '管理员', viewer: '查看者', student: '学生' };
+      function loadAudit(page) {
+        auditPage = Math.max(1, page || 1);
+        var tb = $el('auTbody');
+        tb.innerHTML = '<tr><td colspan="6" class="bk-empty">加载中…</td></tr>';
+        var qs = 'page=' + auditPage + '&pageSize=' + AUDIT_PAGE_SIZE + (auditKw ? '&kw=' + encodeURIComponent(auditKw) : '');
+        fetch('/api/audit?' + qs).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '加载失败');
+          auditLoaded = true;
+          var d = j.data || {};
+          var rows = d.rows || [];
+          auditTotal = d.total || 0;
+          if (!rows.length) {
+            tb.innerHTML = '<tr><td colspan="6" class="bk-empty">没有符合条件的审计记录</td></tr>';
+          } else {
+            tb.innerHTML = rows.map(function (x) {
+              var method = String(x.method || '');
+              var role = x.actorRole ? '<div class="au-role">' + escU(ROLE_LABEL[x.actorRole] || x.actorRole) + '</div>' : '';
+              return '<tr>'
+                + '<td>' + escU(fmtTime(x.at)) + '</td>'
+                + '<td>' + escU(x.actor || '-') + role + '</td>'
+                + '<td><span class="au-method ' + escU(method) + '">' + escU(method) + '</span></td>'
+                + '<td>' + escU(x.module || '-') + '</td>'
+                + '<td class="path">' + escU(x.path || '-') + '</td>'
+                + '<td>' + escU(x.ip || '-') + '</td>'
+                + '</tr>';
+            }).join('');
+          }
+          var pages = Math.max(1, Math.ceil(auditTotal / AUDIT_PAGE_SIZE));
+          $el('auInfo').textContent = '共 ' + auditTotal + ' 条';
+          $el('auPage').textContent = auditPage + ' / ' + pages;
+          $el('btnAuPrev').disabled = auditPage <= 1;
+          $el('btnAuNext').disabled = auditPage >= pages;
+        }).catch(function (e) {
+          tb.innerHTML = '<tr><td colspan="6" class="bk-empty">加载失败：' + escU(e.message || '请重试') + '</td></tr>';
+        });
+      }
+      $el('btnAuSearch').addEventListener('click', function () {
+        auditKw = $el('auKw').value.trim();
+        loadAudit(1);
+      });
+      $el('auKw').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { auditKw = this.value.trim(); loadAudit(1); }
+      });
+      $el('btnAuRefresh').addEventListener('click', function () { loadAudit(auditPage); });
+      $el('btnAuPrev').addEventListener('click', function () { loadAudit(auditPage - 1); });
+      $el('btnAuNext').addEventListener('click', function () { loadAudit(auditPage + 1); });
+      $el('btnAuClear').addEventListener('click', async function () {
+        var ok;
+        if (typeof window.confirmDlg === 'function') {
+          ok = await window.confirmDlg('确定清空全部审计日志？清空后不可恢复。', { title: '清空审计日志', okText: '清空', danger: true });
+        } else { ok = window.confirm('确定清空全部审计日志？清空后不可恢复。'); }
+        if (!ok) return;
+        fetch('/api/audit', { method: 'DELETE' }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '清空失败');
+          toast('审计日志已清空', 'ok');
+          loadAudit(1);
+        }).catch(function (e) { toast('清空失败：' + (e.message || '请重试'), 'err'); });
+      });
 
       // ================= 账号与安全 =================
       function escU(t) {

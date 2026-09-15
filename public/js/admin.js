@@ -1244,12 +1244,18 @@
       if (it) it.style.display = 'none';
     }
     refreshBadges();
-    setInterval(refreshBadges, 20000);
+    badgeTimer = setInterval(refreshBadges, 20000);
   });
+  var badgeTimer = null;
 
-  // 从别处切回工作台窗口时立即刷新（学生在学生中心提交/撤销申请后回到后台即可看到）
+  // 切回工作台窗口时立即刷新；页面隐藏时暂停角标轮询，回到窗口再恢复
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && window.AUTH) refreshBadges();
+    if (document.hidden) {
+      if (badgeTimer) { clearInterval(badgeTimer); badgeTimer = null; }
+    } else if (window.AUTH) {
+      refreshBadges();
+      if (!badgeTimer) badgeTimer = setInterval(refreshBadges, 20000);
+    }
   });
 
   // ---------- 选项卡拖拽：栏内排序 / 跨两栏移动 ----------

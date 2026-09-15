@@ -18,6 +18,41 @@
 (function () {
   'use strict';
 
+  // ===== 全局 401 统一处理：会话失效时自动回到对应登录页 =====
+  // 包装 window.fetch（全站请求均走 fetch）；工作台功能页运行在 iframe 中，
+  // 失效时必须让顶层窗口跳转，避免只在 iframe 里显示登录页。
+  // 登录接口本身的 401 表示「账号 / 密码错误」，由各登录页自行提示，不拦截。
+  var __origFetch = window.fetch.bind(window);
+  var __authRedirecting = false;
+  function authRedirect() {
+    if (__authRedirecting) return;
+    var path = window.location.pathname || '';
+    if (path === '/login.html' || path === '/slogin.html') return; // 已在登录页
+    __authRedirecting = true;
+    var studentSide = path.indexOf('/student.html') !== -1;
+    var loginUrl = studentSide ? '/slogin.html' : '/login.html';
+    var topWin = window.top || window;
+    var cur = '/';
+    try { cur = topWin.location.pathname + topWin.location.search; } catch (e) {}
+    try {
+      topWin.location.href = loginUrl + '?next=' + encodeURIComponent(cur);
+    } catch (e) {
+      window.location.href = loginUrl; // 跨域等异常时退回当前窗口跳转
+    }
+  }
+  window.fetch = function (input, init) {
+    return __origFetch(input, init).then(function (resp) {
+      if (resp && resp.status === 401) {
+        var u = '';
+        try { u = typeof input === 'string' ? input : ((input && input.url) || ''); } catch (e) {}
+        if (u.indexOf('/api/login') === -1 && u.indexOf('/api/student/login') === -1) {
+          authRedirect();
+        }
+      }
+      return resp;
+    });
+  };
+
   var DEFAULT_BRAND = '学生管理系统';
 
   window.SITE = null;

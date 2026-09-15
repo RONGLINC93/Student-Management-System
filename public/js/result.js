@@ -983,6 +983,18 @@ fetch('/api/auth/me')
   .catch(() => applyAuthUI(null));
 setFollowUI();
 tickClock();
-setInterval(tickClock, 1000);
+var clockTimer = setInterval(tickClock, 1000);
 loadBoard();
-setInterval(loadBoard, POLL_MS);
+var boardTimer = setInterval(loadBoard, POLL_MS);
+// 大屏切走 / 最小化时暂停轮询与计时，回到页面立即拉取最新画面并恢复
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (boardTimer) { clearInterval(boardTimer); boardTimer = null; }
+    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+  } else {
+    tickClock();
+    loadBoard();
+    if (!clockTimer) clockTimer = setInterval(tickClock, 1000);
+    if (!boardTimer) boardTimer = setInterval(loadBoard, POLL_MS);
+  }
+});

@@ -42,6 +42,8 @@ const LEAVES_FILE = path.join(__dirname, 'data', 'leaves.json');               /
 const ANNOUNCEMENTS_FILE = path.join(__dirname, 'data', 'announcements.json'); // 通知公告（面向全校 / 年级 / 班级）
 const TRASH_FILE = path.join(__dirname, 'data', 'students_trash.json');        // 学生回收站（删除后软归档，可恢复）
 const NOTIFICATIONS_FILE = path.join(__dirname, 'data', 'notifications.json'); // 学生中心站内消息（各类事务变化通知）
+const AUDIT_FILE = path.join(__dirname, 'data', 'audit.json');                  // 操作审计日志
+const BACKUP_DIR = path.join(__dirname, 'data', 'backups');                     // 服务器本地自动 / 手动备份目录
 
 // 会话：Cookie 内 HMAC 签名（无服务端 session），Path=/ 以便所有页面共享
 const AUTH_COOKIE = 'icbs_auth';        // 后台工作台（管理员 / 查看）
@@ -69,6 +71,12 @@ const DEFAULT_SETTINGS = {
   // 服务器管理（系统设置 → 服务器管理）：仅用于重启本服务自身
   serverControl: {
     restartDelay: 1          // 重启服务前的延迟（秒），留给前端接收响应
+  },
+  // 自动备份（系统设置 → 数据管理 → 备份与恢复）
+  backup: {
+    auto: false,             // 是否开启每日自动备份
+    time: '03:00',           // 自动备份时刻（本地时间 HH:MM）
+    keep: 7                  // 自动备份保留份数（超出自动删除最旧）
   }
 };
 
@@ -120,6 +128,8 @@ if (!fs.existsSync(SETTINGS_FILE)) {
   const f = { teachers: TEACHERS_FILE, exams: EXAMS_FILE, attendance: ATTENDANCE_FILE, conduct: CONDUCT_FILE, dormitories: DORMS_FILE, dormApps: DORM_APPS_FILE, leaves: LEAVES_FILE, announcements: ANNOUNCEMENTS_FILE, trash: TRASH_FILE }[name];
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf-8');
 });
+if (!fs.existsSync(AUDIT_FILE)) fs.writeFileSync(AUDIT_FILE, '[]', 'utf-8');
+if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -134,6 +144,14 @@ const MIME = {
   '.ico': 'image/x-icon'
 };
 
+// 原子写入 JSON：先写同目录临时文件，再 rename 覆盖目标文件。
+// 避免写入过程中进程退出 / 断电造成数据文件被截断损坏（rename 在同卷上是原子操作）。
+function atomicWriteJson(file, data) {
+  const tmp = file + '.tmp-' + process.pid;
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
+  fs.renameSync(tmp, file);
+}
+
 function readStudents() {
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
@@ -144,7 +162,7 @@ function readStudents() {
 }
 
 function writeStudents(list) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  atomicWriteJson(DATA_FILE, list);
 }
 
 function readClasses() {
@@ -157,7 +175,7 @@ function readClasses() {
 }
 
 function writeClasses(list) {
-  fs.writeFileSync(CLASSES_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  atomicWriteJson(CLASSES_FILE, list);
 }
 
 function readGrades() {
@@ -170,7 +188,7 @@ function readGrades() {
 }
 
 function writeGrades(list) {
-  fs.writeFileSync(GRADES_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  atomicWriteJson(GRADES_FILE, list);
 }
 
 function readFilters() {
@@ -183,7 +201,7 @@ function readFilters() {
 }
 
 function writeFilters(filters) {
-  fs.writeFileSync(FILTERS_FILE, JSON.stringify(filters, null, 2), 'utf-8');
+  atomicWriteJson(FILTERS_FILE, filters);
 }
 
 // ===== 工作台选项卡状态（按账号分别记忆）=====
@@ -198,7 +216,7 @@ function readWorkbench() {
 }
 
 function writeWorkbench(map) {
-  fs.writeFileSync(WORKBENCH_FILE, JSON.stringify(map, null, 2), 'utf-8');
+  atomicWriteJson(WORKBENCH_FILE, map);
 }
 
 // 校验并收敛前端提交的工作台状态（页签数量/字段长度/账号名均作限制）
@@ -357,7 +375,7 @@ function readJsonFile(file, def) {
   } catch (e) { return def; }
 }
 function writeJsonFile(file, list) {
-  fs.writeFileSync(file, JSON.stringify(list, null, 2), 'utf-8');
+  atomicWriteJson(file, list);
 }
 const readTeachers = () => readJsonFile(TEACHERS_FILE, []);
 const writeTeachers = l => writeJsonFile(TEACHERS_FILE, l);
@@ -379,6 +397,110 @@ const readTrash = () => readJsonFile(TRASH_FILE, []);
 const writeTrash = l => writeJsonFile(TRASH_FILE, l);
 const readNotifications = () => readJsonFile(NOTIFICATIONS_FILE, []);
 const writeNotifications = l => writeJsonFile(NOTIFICATIONS_FILE, l);
+
+// ===== 数据备份（手动下载导出 + 服务器本地自动备份）=====
+// 全量备份载荷：集中在此处维护，保证「下载导出 / 手动备份 / 自动备份」内容一致
+function buildBackupPayload() {
+  return {
+    app: 'intelligent-class-allocation-system',
+    version: APP_VERSION,
+    exportedAt: new Date().toISOString(),
+    settings: readSettings(),
+    grades: readGrades(),
+    filters: readFilters(),
+    classes: readClasses(),
+    students: readStudents(),
+    teachers: readTeachers(),
+    exams: readExams(),
+    attendance: readAttendance(),
+    conduct: readConduct(),
+    dorms: readDorms(),
+    dormApps: readDormApps(),
+    leaves: readLeaves(),
+    announcements: readAnnouncements(),
+    trash: readTrash(),
+    notifications: readNotifications()
+  };
+}
+const BACKUP_NAME_RE = /^backup-\d{8}-\d{6}\.json$/;
+const bp2 = n => (n < 10 ? '0' + n : '' + n);
+function backupStamp(d) {
+  d = d || new Date();
+  return '' + d.getFullYear() + bp2(d.getMonth() + 1) + bp2(d.getDate())
+    + '-' + bp2(d.getHours()) + bp2(d.getMinutes()) + bp2(d.getSeconds());
+}
+function backupDayOf(d) {
+  d = d || new Date();
+  return '' + d.getFullYear() + bp2(d.getMonth() + 1) + bp2(d.getDate());
+}
+// 列出本地备份（按文件名时间倒序），并读取每条记录的 kind（auto/manual）
+function listBackupFiles() {
+  let names = [];
+  try { names = fs.readdirSync(BACKUP_DIR).filter(n => BACKUP_NAME_RE.test(n)); } catch (e) { names = []; }
+  return names.map(n => {
+    let size = 0, mtime = '', kind = 'manual';
+    try {
+      const fp = path.join(BACKUP_DIR, n);
+      const st = fs.statSync(fp);
+      size = st.size; mtime = st.mtime.toISOString();
+      try { kind = JSON.parse(fs.readFileSync(fp, 'utf-8')).kind || 'manual'; } catch (e) {}
+    } catch (e) {}
+    return { name: n, size, mtime, kind };
+  }).sort((a, b) => b.name.localeCompare(a.name));
+}
+// 在服务器本地生成一份备份，返回文件名
+function createBackupFile(kind) {
+  const payload = buildBackupPayload();
+  payload.kind = kind === 'auto' ? 'auto' : 'manual';
+  const name = 'backup-' + backupStamp() + '.json';
+  atomicWriteJson(path.join(BACKUP_DIR, name), payload);
+  return name;
+}
+// 按保留份数清理「自动备份」（手动备份永久保留）
+function pruneAutoBackups(keep) {
+  const autoOnes = listBackupFiles().filter(f => f.kind === 'auto');
+  autoOnes.slice(Math.max(1, keep | 0)).forEach(f => {
+    try { fs.unlinkSync(path.join(BACKUP_DIR, f.name)); } catch (e) {}
+  });
+}
+// 备份名校验 + 防路径穿越，返回安全的绝对路径（非法返回 null）
+function resolveBackupFile(name) {
+  if (typeof name !== 'string' || !BACKUP_NAME_RE.test(name)) return null;
+  const fp = path.join(BACKUP_DIR, name);
+  return fp.startsWith(BACKUP_DIR + path.sep) ? fp : null;
+}
+// 自动备份调度器：每分钟检查，到达设置时刻且当天尚未备份时生成一份
+let backupSchedulerStarted = false;
+let backupLastDay = '';
+function startBackupScheduler() {
+  if (backupSchedulerStarted) return;
+  backupSchedulerStarted = true;
+  const run = () => {
+    try {
+      const cfg = Object.assign({}, DEFAULT_SETTINGS.backup, readSettings().backup || {});
+      if (!cfg.auto) return;
+      const now = new Date();
+      const dayCompact = backupDayOf(now);
+      const dayIso = dayCompact.slice(0, 4) + '-' + dayCompact.slice(4, 6) + '-' + dayCompact.slice(6, 8);
+      if (backupLastDay === dayIso) return;
+      const hm = bp2(now.getHours()) + ':' + bp2(now.getMinutes());
+      if (hm < String(cfg.time)) return;
+      const prefix = 'backup-' + dayCompact + '-';
+      if (listBackupFiles().some(f => f.name.indexOf(prefix) === 0)) {
+        backupLastDay = dayIso; // 今天已有（含手动）备份，跳过并标记
+        return;
+      }
+      const name = createBackupFile('auto');
+      backupLastDay = dayIso;
+      pruneAutoBackups(cfg.keep);
+      console.log('[自动备份] 已生成今日备份：' + name);
+    } catch (e) {
+      console.error('[自动备份失败]', e && e.message);
+    }
+  };
+  run(); // 启动时补检（例如服务停机跨过备份时刻，启动后立即补一份）
+  setInterval(run, 60 * 1000).unref();
+}
 
 // ===== 学生中心站内消息（事务变化通知）=====
 // 通知对象以学生内部 id（= students.json 的 id，与请假 sid / 宿舍 sid / 操行 studentId 同源）为主键
@@ -560,7 +682,7 @@ function removeFromDorms(studentId) {
 }
 
 function writeSettings(settings) {
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+  atomicWriteJson(SETTINGS_FILE, settings);
 }
 
 // ===== 登录认证：账号 / 口令 / 会话 =====
@@ -571,7 +693,7 @@ function readUsers() {
   } catch (e) { return []; }
 }
 function writeUsers(list) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  atomicWriteJson(USERS_FILE, list);
 }
 function findUser(name) {
   const list = readUsers();
@@ -590,6 +712,59 @@ function verifyPassword(password, salt, hash) {
     const b = Buffer.from(String(hash), 'hex');
     return a.length === b.length && crypto.timingSafeEqual(a, b);
   } catch (e) { return false; }
+}
+
+// ===== 登录防爆破（内存级，重启清空）=====
+// 同一「账号 + 客户端 IP」连续失败 5 次后临时锁定；锁定时长 1 分钟起，
+// 每多失败一轮翻倍，上限 30 分钟；登录成功立即清零。
+const loginFails = new Map();                 // key -> { count, lockUntil, lastTry }
+const LOGIN_MAX_FAILS = 5;
+const LOGIN_LOCK_BASE_MS = 60 * 1000;
+const LOGIN_LOCK_MAX_MS = 30 * 60 * 1000;
+function clientIp(req) {
+  const xff = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return xff || (req.socket && req.socket.remoteAddress) || '';
+}
+function loginGuardKey(req, username) {
+  return String(username || '').toLowerCase().slice(0, 40) + '|' + clientIp(req);
+}
+// 返回剩余锁定秒数；0 表示未锁定
+function loginLockLeft(req, username) {
+  const it = loginFails.get(loginGuardKey(req, username));
+  if (!it || !it.lockUntil || it.lockUntil <= Date.now()) return 0;
+  return Math.ceil((it.lockUntil - Date.now()) / 1000);
+}
+// 记录一次失败；返回当前剩余锁定秒数
+function loginMarkFail(req, username) {
+  const k = loginGuardKey(req, username);
+  const now = Date.now();
+  const it = loginFails.get(k) || { count: 0, lockUntil: 0, lastTry: 0 };
+  if (it.lockUntil && it.lockUntil <= now) { it.count = 0; it.lockUntil = 0; } // 上轮锁定已过期，重新计数
+  it.count++;
+  if (it.count >= LOGIN_MAX_FAILS) {
+    const round = it.count - LOGIN_MAX_FAILS;
+    it.lockUntil = now + Math.min(LOGIN_LOCK_MAX_MS, LOGIN_LOCK_BASE_MS * Math.pow(2, round));
+  }
+  it.lastTry = now;
+  loginFails.set(k, it);
+  return loginLockLeft(req, username);
+}
+function loginMarkSuccess(req, username) {
+  loginFails.delete(loginGuardKey(req, username));
+}
+// 定时清理超过 1 小时未活动的计数项，避免 Map 无限增长
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of loginFails) {
+    if (v.lastTry && now - v.lastTry > 60 * 60 * 1000 && (!v.lockUntil || v.lockUntil < now)) {
+      loginFails.delete(k);
+    }
+  }
+}, 10 * 60 * 1000).unref();
+// 锁定提示文案
+function lockMsg(leftSeconds) {
+  const min = Math.ceil(leftSeconds / 60);
+  return '登录失败次数过多，为保障账号安全已临时锁定，请 ' + min + ' 分钟后再试';
 }
 
 // base64url 工具（兼容较老 Node，不依赖 Buffer#toString('base64url')）
@@ -785,6 +960,18 @@ function sanitizeSettings(body) {
       restartDelay: Math.min(30, Math.max(0, Number(raw !== undefined ? raw : def.restartDelay) || 0))
     };
   }
+  // 自动备份：开关 / 时刻 / 保留份数
+  if (body.backup && typeof body.backup === 'object') {
+    const def = DEFAULT_SETTINGS.backup;
+    const prev = (s.backup && typeof s.backup === 'object') ? s.backup : {};
+    const timeRaw = String(body.backup.time !== undefined ? body.backup.time : prev.time || def.time).trim();
+    const m = /^(\d{1,2}):(\d{2})$/.exec(timeRaw);
+    s.backup = {
+      auto: !!body.backup.auto,
+      time: m ? (String(m[1]).padStart(2, '0') + ':' + m[2]) : def.time,
+      keep: Math.min(100, Math.max(1, Number(body.backup.keep !== undefined ? body.backup.keep : prev.keep) || def.keep))
+    };
+  }
   return s;
 }
 
@@ -956,14 +1143,104 @@ function restartService(delayMs) {
   }
 }
 
-const server = http.createServer(async (req, res) => {
+// ===== 操作审计日志 =====
+const AUDIT_LIMIT = 3000; // 最多保留 3000 条，超出丢弃最旧
+// 路径前缀 → 业务模块名（按前缀长度降序匹配，长的优先）
+const AUDIT_MODULES = [
+  ['/api/students/batch-assign', '学生档案 · 批量分班'],
+  ['/api/students/batch-delete', '学生档案 · 批量删除'],
+  ['/api/trash', '回收站'],
+  ['/api/students', '学生档案'],
+  ['/api/classes', '班级管理'],
+  ['/api/grades', '年级管理'],
+  ['/api/teachers', '教师管理'],
+  ['/api/exams', '成绩管理'],
+  ['/api/attendance', '考勤管理'],
+  ['/api/conduct', '操行管理'],
+  ['/api/leaves', '请假管理'],
+  ['/api/announcements', '通知公告'],
+  ['/api/dorms', '宿舍管理'],
+  ['/api/allocate', '智能分班'],
+  ['/api/live', '大屏直播'],
+  ['/api/board', '分班大屏'],
+  ['/api/settings', '系统设置'],
+  ['/api/filters', '前端偏好'],
+  ['/api/workbench', '工作台状态'],
+  ['/api/users', '账号管理'],
+  ['/api/backup', '数据备份'],
+  ['/api/backups', '备份管理'],
+  ['/api/restore', '数据恢复'],
+  ['/api/server', '服务器管理'],
+  ['/api/student/dorm', '学生端 · 住宿申请'],
+  ['/api/student/leaves', '学生端 · 请假'],
+  ['/api/student', '学生中心']
+].sort((a, b) => b[0].length - a[0].length);
+const AUDIT_METHOD_LABEL = { POST: '新增', PUT: '更新', PATCH: '更新', DELETE: '删除' };
+function auditModuleOf(pathname) {
+  const hit = AUDIT_MODULES.find(m => pathname === m[0] || pathname.startsWith(m[0] + '/') || pathname.startsWith(m[0] + '?'));
+  return hit ? hit[1] : pathname;
+}
+function readAudit() {
+  try {
+    const v = JSON.parse(fs.readFileSync(AUDIT_FILE, 'utf-8'));
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+function addAudit(rec) {
+  try {
+    const list = readAudit();
+    list.unshift(Object.assign({ id: genId(), at: new Date().toISOString() }, rec));
+    if (list.length > AUDIT_LIMIT) list.length = AUDIT_LIMIT;
+    atomicWriteJson(AUDIT_FILE, list);
+  } catch (e) {
+    console.error('[审计日志写入失败]', e && e.message);
+  }
+}
+// 在响应成功结束（2xx/3xx）后异步落盘一条审计记录；不含请求体，避免记录密码等敏感数据
+function registerAudit(res, rec) {
+  res.on('finish', () => {
+    if (res.statusCode >= 200 && res.statusCode < 400) addAudit(rec);
+  });
+}
+
+const server = http.createServer((req, res) => {
+  Promise.resolve(handle(req, res)).catch(err => {
+    console.error('[请求处理异常]', req.method, req.url, err);
+    if (!res.headersSent) {
+      try { sendJson(res, 500, { code: 1, msg: '服务器内部错误，请稍后重试' }); } catch (e) {}
+    } else {
+      try { res.end(); } catch (e) {}
+    }
+  });
+});
+
+// 进程级兜底：意外异常只记录日志，避免直接终止整个服务
+process.on('unhandledRejection', (reason) => {
+  console.error('[未处理的 Promise 异常]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[未捕获异常]', err);
+});
+
+async function handle(req, res) {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
 
-  // CORS 支持
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // ===== 安全响应头（本系统为同源应用，不开放跨域）=====
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN'); // 工作台以同源 iframe 嵌入各功能页
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "base-uri 'none'",
+    "object-src 'none'",
+    "frame-ancestors 'self'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline'",
+    "connect-src 'self'"
+  ].join('; '));
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     return res.end();
@@ -981,11 +1258,40 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/') && !isAuthEndpoint && !isStudentApi && !publicRead) {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
-    if (pathname === '/api/backup' && u.role !== ROLES.ADMIN) {
-      return sendJson(res, 403, { code: 1, msg: '数据备份导出仅限管理员账号' });
+    if ((pathname === '/api/backup'
+      || pathname === '/api/backups' || pathname.startsWith('/api/backups/')
+      || pathname === '/api/audit') && u.role !== ROLES.ADMIN) {
+      return sendJson(res, 403, { code: 1, msg: '备份与审计功能仅限管理员账号' });
     }
     if (req.method !== 'GET' && u.role !== ROLES.ADMIN) {
       return sendJson(res, 403, { code: 1, msg: '当前账号为「查看模式」，仅可查看，不能修改数据' });
+    }
+    // 审计：记录后台写操作（登录 / 改密等含敏感信息的接口不在此列，账号管理 /api/users 保留）
+    if (req.method !== 'GET') {
+      registerAudit(res, {
+        actor: u.username,
+        actorRole: u.role,
+        method: req.method,
+        module: auditModuleOf(pathname),
+        path: pathname,
+        ip: clientIp(req)
+      });
+    }
+  }
+  // 审计：学生端写操作（排除登录 / 退出 / 改密）
+  if (isStudentApi && req.method !== 'GET'
+    && pathname !== '/api/student/login' && pathname !== '/api/student/logout'
+    && pathname !== '/api/student/password') {
+    const su = authStudent(req);
+    if (su) {
+      registerAudit(res, {
+        actor: su.name + '（学生 ' + su.username + '）',
+        actorRole: ROLES.STUDENT,
+        method: req.method,
+        module: auditModuleOf(pathname),
+        path: pathname,
+        ip: clientIp(req)
+      });
     }
   }
 
@@ -994,13 +1300,19 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/login' && req.method === 'POST') {
     const body = await readBody(req);
     const username = String(body.username || '').trim();
+    if (username) {
+      const locked = loginLockLeft(req, username);
+      if (locked) return sendJson(res, 429, { code: 1, msg: lockMsg(locked) });
+    }
     const user = findUser(username);
     if (!user || !verifyPassword(body.password, user.salt, user.hash)) {
-      return sendJson(res, 401, { code: 1, msg: '账号或密码不正确' });
+      const left = username ? loginMarkFail(req, username) : 0;
+      return sendJson(res, 401, { code: 1, msg: left ? lockMsg(left) : '账号或密码不正确' });
     }
     if (user.role === ROLES.STUDENT) {
       return sendJson(res, 403, { code: 1, msg: '该账号为学生账号，请前往「学生登录入口」登录' });
     }
+    loginMarkSuccess(req, username);
     const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
     const token = makeToken(user.u, user.role, ttl);
     res.setHeader('Set-Cookie', cookieHeader(token, ttl));
@@ -1151,6 +1463,8 @@ const server = http.createServer(async (req, res) => {
     if (!no) return sendJson(res, 400, { code: 1, msg: '请输入学号' });
     const stu = findStudentByNo(no);
     if (!stu) return sendJson(res, 401, { code: 1, msg: '未查询到该学号的学生档案，请与学校核对' });
+    const locked = loginLockLeft(req, no);
+    if (locked) return sendJson(res, 429, { code: 1, msg: lockMsg(locked) });
     const exist = findUser(no);
     if (exist && exist.role !== ROLES.STUDENT) {
       return sendJson(res, 403, { code: 1, msg: '该学号与后台账号冲突，请联系管理员处理' });
@@ -1158,11 +1472,13 @@ const server = http.createServer(async (req, res) => {
     const first = !exist;
     const ok = first ? (pw === no) : verifyPassword(pw, exist.salt, exist.hash);
     if (!ok) {
+      const left = loginMarkFail(req, no);
       return sendJson(res, 401, {
         code: 1,
-        msg: first ? '首次登录请使用本人学号作为初始密码' : '学号或密码不正确，忘记密码请联系班主任重置'
+        msg: left ? lockMsg(left) : (first ? '首次登录请使用本人学号作为初始密码' : '学号或密码不正确，忘记密码请联系班主任重置')
       });
     }
+    loginMarkSuccess(req, no);
     let user = exist;
     if (first) {
       const salt = crypto.randomBytes(16).toString('hex');
@@ -2857,27 +3173,60 @@ const server = http.createServer(async (req, res) => {
 
   // 导出全量数据备份（下载 JSON 文件）
   if (pathname === '/api/backup' && req.method === 'GET') {
-    const payload = {
-      app: 'intelligent-class-allocation-system',
-      exportedAt: new Date().toISOString(),
-      settings: readSettings(),
-      grades: readGrades(),
-      filters: readFilters(),
-      classes: readClasses(),
-      students: readStudents(),
-      teachers: readTeachers(),
-      exams: readExams(),
-      attendance: readAttendance(),
-      conduct: readConduct(),
-      dorms: readDorms(),
-      dormApps: readDormApps()
-    };
+    const payload = buildBackupPayload();
+    payload.kind = 'export';
     const body = JSON.stringify(payload, null, 2);
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
       'Content-Disposition': 'attachment; filename="sms-backup-' + new Date().toISOString().slice(0, 10) + '.json"'
     });
     return res.end(body);
+  }
+
+  // ===== 服务器本地备份管理（仅管理员，闸门已校验角色）=====
+  // 备份列表
+  if (pathname === '/api/backups' && req.method === 'GET') {
+    return sendJson(res, 200, { code: 0, data: listBackupFiles() });
+  }
+  // 立即在服务器本地生成一份备份
+  if (pathname === '/api/backups' && req.method === 'POST') {
+    const name = createBackupFile('manual');
+    return sendJson(res, 200, { code: 0, data: { name }, msg: '备份已生成：' + name });
+  }
+  const backupItem = pathname.match(/^\/api\/backups\/(backup-\d{8}-\d{6}\.json)$/);
+  if (backupItem && req.method === 'GET') {
+    const fp = resolveBackupFile(decodeURIComponent(backupItem[1]));
+    if (!fp || !fs.existsSync(fp)) return sendJson(res, 404, { code: 1, msg: '备份文件不存在' });
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="' + path.basename(fp) + '"',
+      'Cache-Control': 'no-cache'
+    });
+    return fs.createReadStream(fp).pipe(res);
+  }
+  if (backupItem && req.method === 'DELETE') {
+    const fp = resolveBackupFile(decodeURIComponent(backupItem[1]));
+    if (!fp || !fs.existsSync(fp)) return sendJson(res, 404, { code: 1, msg: '备份文件不存在' });
+    fs.unlinkSync(fp);
+    return sendJson(res, 200, { code: 0, msg: '备份已删除' });
+  }
+
+  // ===== 操作审计日志（仅管理员）=====
+  if (pathname === '/api/audit' && req.method === 'GET') {
+    const kw = String(url.searchParams.get('kw') || '').trim().toLowerCase();
+    const page = Math.max(1, parseInt(url.searchParams.get('page'), 10) || 1);
+    const pageSize = Math.min(100, Math.max(10, parseInt(url.searchParams.get('pageSize'), 10) || 20));
+    let list = readAudit();
+    if (kw) {
+      list = list.filter(x => [x.actor, x.module, x.path, x.ip, x.method].some(v => String(v || '').toLowerCase().indexOf(kw) !== -1));
+    }
+    const total = list.length;
+    const rows = list.slice((page - 1) * pageSize, page * pageSize);
+    return sendJson(res, 200, { code: 0, data: { rows, total, page, pageSize } });
+  }
+  if (pathname === '/api/audit' && req.method === 'DELETE') {
+    atomicWriteJson(AUDIT_FILE, []);
+    return sendJson(res, 200, { code: 0, msg: '审计日志已清空' });
   }
 
   // 导入备份（覆盖全部业务数据，settings/grades/filters 缺省时保留现有）
@@ -2897,6 +3246,10 @@ const server = http.createServer(async (req, res) => {
     if (Array.isArray(body.conduct)) writeConduct(body.conduct);
     if (Array.isArray(body.dorms)) writeDorms(body.dorms);
     if (Array.isArray(body.dormApps)) writeDormApps(body.dormApps);
+    if (Array.isArray(body.leaves)) writeLeaves(body.leaves);
+    if (Array.isArray(body.announcements)) writeAnnouncements(body.announcements);
+    if (Array.isArray(body.trash)) writeTrash(body.trash);
+    if (Array.isArray(body.notifications)) writeNotifications(body.notifications);
     liveBoard = null;
     return sendJson(res, 200, { code: 0, msg: '恢复完成', classes: body.classes.length, students: body.students.length });
   }
@@ -3349,6 +3702,22 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // 未匹配的接口统一返回 JSON 404，避免落入静态文件返回 HTML
+  if (pathname.startsWith('/api/')) {
+    return sendJson(res, 404, { code: 1, msg: '接口不存在：' + pathname });
+  }
+
+  // favicon.ico 兼容（浏览器默认请求；统一指向 favicon.png）
+  if (pathname === '/favicon.ico') {
+    const ico = path.join(__dirname, 'public', 'favicon.png');
+    if (fs.existsSync(ico)) {
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-cache' });
+      return fs.createReadStream(ico).pipe(res);
+    }
+    res.writeHead(204);
+    return res.end();
+  }
+
   // 根路径即后台工作台（选项卡式工作台，默认停靠“数据总览”页）
   let filePath = pathname === '/' ? '/index.html' : pathname;
   filePath = path.join(__dirname, 'public', filePath);
@@ -3360,14 +3729,47 @@ const server = http.createServer(async (req, res) => {
   fs.readFile(filePath, (err, data) => {
     if (err) {
       res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end('<h1>404 Not Found</h1>');
+      return res.end(notFoundPage(pathname));
     }
     const ext = path.extname(filePath);
     // 禁止缓存静态文件，保证 JS/CSS 更新后普通刷新即可生效
     res.writeHead(200, { 'Content-Type': getMime(ext), 'Cache-Control': 'no-cache' });
     res.end(data);
   });
-});
+}
+
+// 美化 404 页面（风格与登录页 / forbiddenPage 保持一致的渐变卡片）
+function notFoundPage(urlPath) {
+  const safePath = String(urlPath || '').replace(/[<>&"]/g, '');
+  return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" />'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1" />'
+    + '<meta name="author" content="RONGLINC (chenronglin1993@hotmail.com)" />'
+    + '<link rel="icon" type="image/png" href="/favicon.png" />'
+    + '<title>页面不存在 · 学生管理系统</title>'
+    + '<style>*{box-sizing:border-box;margin:0;padding:0}'
+    + 'body{min-height:100vh;display:flex;align-items:center;justify-content:center;'
+    + 'font-family:"Microsoft YaHei","PingFang SC",sans-serif;'
+    + 'background:linear-gradient(135deg,#4f6ef7 0%,#7b5ef7 55%,#9b59d0 100%);padding:24px;color:#333}'
+    + '.card{background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(40,40,90,.35);'
+    + 'padding:56px 48px;text-align:center;max-width:520px;width:100%}'
+    + '.code{font-size:84px;line-height:1;font-weight:800;'
+    + 'background:linear-gradient(135deg,#4f6ef7,#9b59d0);-webkit-background-clip:text;background-clip:text;color:transparent}'
+    + 'h1{font-size:22px;margin:14px 0 8px;color:#222}'
+    + 'p{font-size:14px;color:#777;line-height:1.8;word-break:break-all}'
+    + '.btns{margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}'
+    + 'a{display:inline-block;padding:11px 28px;border-radius:10px;font-size:14px;text-decoration:none;transition:.2s}'
+    + '.a1{background:linear-gradient(135deg,#4f6ef7,#7b5ef7);color:#fff}'
+    + '.a1:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(79,110,247,.4)}'
+    + '.a2{border:1px solid #d9def0;color:#4f6ef7}.a2:hover{background:#f2f5ff}'
+    + '</style></head><body><div class="card">'
+    + '<div class="code">404</div><h1>抱歉，页面走丢了</h1>'
+    + '<p>您访问的地址不存在或已被移除：<br />' + safePath + '</p>'
+    + '<div class="btns"><a class="a1" href="/">返回工作台</a>'
+    + '<a class="a2" href="javascript:history.back()">返回上一页</a></div>'
+    + '</div></body></html>';
+}
+
+startBackupScheduler();
 
 server.listen(PORT, () => {
   console.log(`学生管理系统已启动: http://localhost:${PORT}`);

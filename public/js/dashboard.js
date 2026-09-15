@@ -339,10 +339,16 @@
     window.loadData = load;
     window.cbEmbedRefresh = load;
     load();
-    setInterval(function () {
-      if (document.hidden) return;
-      load();
-    }, REFRESH_MS);
+    var dashTimer = setInterval(load, REFRESH_MS);
+    // 页面隐藏（切走 / 最小化）时暂停轮询，回到页面立即刷新一次再恢复
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        if (dashTimer) { clearInterval(dashTimer); dashTimer = null; }
+      } else if (!dashTimer) {
+        load();
+        dashTimer = setInterval(load, REFRESH_MS);
+      }
+    });
   }
 
   if (document.readyState === 'loading') {

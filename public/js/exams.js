@@ -422,6 +422,22 @@ function bindEvents() {
     window.open('/conduct.html?studentId=' + encodeURIComponent(sid), '_blank');
   };
   $('#personalStudent').onchange = renderPersonal;
+  $('#btnPrintReport').onclick = () => {
+    const sid = $('#personalStudent').value;
+    const stu = stuById(sid);
+    if (!stu) { toast('请先选择学生', 'error'); return; }
+    if ($('#personalTable').querySelector('.empty-tip2')) { toast('该生暂无成绩记录可打印', 'error'); return; }
+    const parts = [];
+    parts.push('姓名：' + (stu.name || ''));
+    if (stu.studentId) parts.push('学号：' + stu.studentId);
+    if (stu.grade) parts.push('年级：' + stu.grade);
+    if (stu.className) parts.push('班级：' + stu.className);
+    $('#rpStu').textContent = parts.join('　');
+    const d = new Date();
+    const p2 = n => (n < 10 ? '0' + n : '' + n);
+    $('#rpDate').textContent = '打印日期：' + d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+    window.print();
+  };
 
   // 总分实时刷新
   $('#entryTable').addEventListener('input', (e) => {
