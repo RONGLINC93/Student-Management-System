@@ -86,7 +86,21 @@ rem     skipped when called from 打包全部.bat (outer script handles this)
 if "%PACKAGE_ALL%"=="" explorer /select,"%OUT%"
 
 echo.
-if "%PACKAGE_ALL%"==""
+if "%PACKAGE_ALL%"=="" call :countdown 5
+exit /b 0
+
+rem ---------------------------------------------------------------------------
+rem  :countdown <秒数>  -- ASCII-only, keep this file free of non-ASCII literals
+rem  从 <秒数> 倒数到 0, 每秒打印剩余秒数 (Ctrl+C 可中断).
+rem  本子例程只倒计时不退出, 调用方负责 exit /b.
+rem ---------------------------------------------------------------------------
+:countdown
+echo.
+echo Closing in %~1 seconds... (Ctrl+C to cancel)
+for /l %%i in (%~1,-1,1) do (
+    echo   %%i...
+    ping -n 2 127.0.0.1 >nul
+)
 exit /b 0
 
 :nofnpack
@@ -97,12 +111,12 @@ echo   https://developer.fnnas.com/docs/cli/fnpack/
 echo The downloaded file has no extension - rename it to fnpack.exe and put it in:
 echo   %FNOS%
 echo.
-pause
+call :countdown 5
 exit /b 1
 
 :fail
 echo.
 echo [ERROR] Build failed. See messages above.
 echo.
-pause
+call :countdown 5
 exit /b 1

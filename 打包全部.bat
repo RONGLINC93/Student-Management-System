@@ -16,7 +16,7 @@ cd /d "%~dp0"
 
 echo === [1/2] RAR packages (Windows / Linux) ===
 echo.
-rem  设置 PACKAGE_ALL 让 打包rar.bat 不再 pause / 不再打开资源管理器
+rem  设置 PACKAGE_ALL 让 打包rar.bat 不再倒计时 / 不再打开资源管理器
 set "PACKAGE_ALL=1"
 call "%~dp0打包rar.bat"
 set "PACKAGE_ALL="
@@ -32,13 +32,25 @@ echo.
 echo === All packages built. 输出目录: dist/ ===
 rem explorer 返回值不可靠, 用 start 兜底
 start "" "%~dp0dist"
-echo.
-pause
+call :countdown 5
 exit /b 0
 
 :fail
 echo.
 echo [ERROR] Build failed. See messages above.
-echo.
-pause
+call :countdown 5
 exit /b 1
+
+rem ---------------------------------------------------------------------------
+rem  :countdown <秒数>
+rem  从 <秒数> 倒数到 0, 每秒打印剩余秒数 (Ctrl+C 可中断).
+rem  本子例程只倒计时不退出, 调用方负责 exit /b.
+rem ---------------------------------------------------------------------------
+:countdown
+echo.
+echo Closing in %~1 seconds... (Ctrl+C to cancel)
+for /l %%i in (%~1,-1,1) do (
+    echo   %%i...
+    ping -n 2 127.0.0.1 >nul
+)
+exit /b 0

@@ -16,8 +16,20 @@
 
 set -e
 
-# 任意命令失败时, 统一输出 [ERROR] 提示
-trap 'echo; echo "[ERROR] Build failed. See messages above."; exit 1' ERR
+# 倒计时关闭: 倒数 N 秒后返回 (Ctrl+C 可中断).
+# 仅在脚本独立运行 (非 PACKAGE_ALL 嵌套) 时调用.
+countdown() {
+    local n=${1:-5}
+    echo
+    echo "Closing in $n seconds... (Ctrl+C to cancel)"
+    for ((i = n; i >= 1; i--)); do
+        echo "  $i..."
+        sleep 1
+    done
+}
+
+# 任意命令失败时, 统一输出 [ERROR] 提示并倒计时关闭
+trap 'echo; echo "[ERROR] Build failed. See messages above."; countdown 5; exit 1' ERR
 
 # 切换到脚本所在目录
 cd "$(dirname "$0")"
@@ -26,7 +38,7 @@ cd "$(dirname "$0")"
 node ./build.js "$@"
 
 # 成功提示
-# PACKAGE_ALL 由 打包全部.sh 在嵌套调用前设置, 此时不再尝试打开文件管理器
+# PACKAGE_ALL 由 打包全部.sh 在嵌套调用前设置, 此时不再倒计时 / 不再打开文件管理器
 if [ -z "${PACKAGE_ALL:-}" ]; then
     echo
     echo "=== Done. 输出目录: $(pwd)/dist ==="
@@ -36,4 +48,5 @@ if [ -z "${PACKAGE_ALL:-}" ]; then
     elif command -v open >/dev/null 2>&1; then
         open "$(pwd)/dist" 2>/dev/null &
     fi
+    countdown 5
 fi

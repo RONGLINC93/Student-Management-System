@@ -15,15 +15,26 @@
 
 set -e
 
-# 任意命令失败时, 统一输出 [ERROR] 提示
-trap 'echo; echo "[ERROR] Build failed. See messages above."; exit 1' ERR
+# 倒计时关闭: 倒数 N 秒后返回 (Ctrl+C 可中断)
+countdown() {
+    local n=${1:-5}
+    echo
+    echo "Closing in $n seconds... (Ctrl+C to cancel)"
+    for ((i = n; i >= 1; i--)); do
+        echo "  $i..."
+        sleep 1
+    done
+}
+
+# 任意命令失败时, 统一输出 [ERROR] 提示并倒计时关闭
+trap 'echo; echo "[ERROR] Build failed. See messages above."; countdown 5; exit 1' ERR
 
 # 切换到脚本所在目录
 cd "$(dirname "$0")"
 
 echo "=== [1/2] RAR packages (Linux / Windows) ==="
 echo
-# 设置 PACKAGE_ALL 让 打包rar.sh 不再尝试打开文件管理器
+# 设置 PACKAGE_ALL 让 打包rar.sh 不再倒计时 / 不再尝试打开文件管理器
 PACKAGE_ALL=1 ./打包rar.sh
 echo
 
@@ -42,3 +53,4 @@ esac
 
 echo
 echo "=== All packages built. 输出目录: dist/ ==="
+countdown 5
