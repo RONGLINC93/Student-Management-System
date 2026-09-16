@@ -97,7 +97,7 @@ node build.js dev          # 生成 dist/Student-Management-System-<ver>-dev.zip
 - 完整源码（`public/`、`fnos/` SDK、`docs/` 截图、所有平台启动脚本、build/release/pull/push 脚本、Dockerfile / docker-compose.yml、`.gitignore`、README.md、CHANGELOG.md）
 - 包内附 `开发包说明.md`（开发者快速上手 / 二次开发指南）
 - **排除策略**：完全按项目内所有 `.gitignore`（项目根 + `fnos/.gitignore`）规则过滤；保留 7 个**硬编码**顶层黑名单（`.git/`、`node_modules/`、`data/`、`dist/`、`fpk/`、`.trae/`、`.playwright-cli/`）作为项目层兜底（这些是项目层语义而非文件类型，且不一定进 `.gitignore`，因此 build.js 额外硬编码兜底）。修改 `.gitignore` 后下一次打包自动按新规则生效，无需改 `build.js`
-- dev 包**不**随发布流程上传到 GitHub Release —— 它只给二次开发者分发，发布时只上传 win/linux/macos rar + fpk
+- dev 包**也**随发布流程上传到 GitHub Release（与 win/linux/macos rar + fpk 一起作为 Release 附件），便于二次开发者直接下载完整源码包，不依赖 `git clone`
 
 **前置**：
 

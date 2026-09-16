@@ -58,7 +58,7 @@ echo "--- 打包 macOS 版 ---"
 PACKAGE_ALL=1 ./打包rar-mac.sh
 echo
 
-echo "=== [2/2] fnOS fpk package ==="
+echo "=== [2/3] fnOS fpk package ==="
 echo
 case "$(uname -s)" in
     Linux*|Darwin*)
@@ -70,6 +70,11 @@ case "$(uname -s)" in
         echo "    [跳过] 当前平台不支持 fpk 构建"
         ;;
 esac
+
+echo
+echo "=== [3/3] dev source package ==="
+echo
+PACKAGE_ALL=1 ./打包dev.sh
 
 echo
 echo "=== 全部打包完成. 输出目录: dist/ ==="

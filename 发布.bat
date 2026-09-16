@@ -6,10 +6,10 @@ rem ===========================================================================
 rem  Student Management System - 一键发布新版本 (Windows)
 rem
 rem  依次执行:
-rem    1) 打包全部.bat  构建全部平台产物 (Windows/Linux rar + fnOS fpk)
+rem    1) 打包全部.bat  构建全部产物 (Windows/Linux/macOS rar + fnOS fpk + dev 源码 zip)
 rem    2) release.js    从 package.json 读 version, 创建 git tag 并推送,
 rem                     再用 GitHub API 创建 Release 并上传 dist/ 下的产物
-rem                     (Win/Linux rar + fpk)
+rem                     (Win/Linux/macOS rar + fpk + dev zip)
 rem    3) 从 dist\.last-release.json 读取并打印发布结果, 然后倒计时关闭
 rem
 rem  用法: 双击本文件, 或在 cmd 中执行  发布.bat

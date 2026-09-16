@@ -40,7 +40,7 @@
   - `main()` 增加 `target === 'dev'` 分支：跳过 `locateRar()`（无需 rar），直接走 `buildDev()`
 - **`打包dev.bat`** / **`打包dev.sh`**：独立 dev 打包脚本，Windows 双击 / Linux/macOS `./打包dev.sh` 直接调用 `node build.js dev`，完成后 5 秒倒计时关闭并尝试打开 `dist/`
 - **dev 包内置 `开发包说明.md`**：开发者向，包含目录树、已排除清单、快速开始、打包命令、发布流程
-- **`release.js`**：candidates **不**包含 dev 包 —— dev 包只给二次开发者分发，不参与 GitHub Release 发版（避免给终端用户下载到 3 MB 的源码包）
+- **`release.js`**：candidates **不**包含 dev 包 —— dev 包只给二次开发者分发，不参与 GitHub Release 发版（避免给终端用户下载到 3 MB 的源码包） → **本批次后续调整**：dev 包改为**也**随 Release 上传，二次开发者可直接在 Release 页面下载 1.4 MB 的源码 zip，不依赖 `git clone`
 - **`README.md`**：「## 打包与发布」表格新增「打开发包」行；新增「### 开发者打包（dev target）」小节说明 dev target 用法、前置依赖、与发版流程的关系；「## 项目结构」加入 `打包dev.bat / .sh` 行
 
 ### 改进
@@ -80,6 +80,15 @@
   - `git rm --cached .playwright-cli/page-2026-09-11T08-37-26-835Z.yml` + 磁盘 `Remove-Item -Recurse`
   - `README.md` 第 99 行：硬编码顶层黑名单从「6 个」改为「7 个」，并加上 `.playwright-cli/`
 - **重新验证**：dev 包重生为 99 文件 / 1424.8 KB；PowerShell 解压 + Node 完整正则扫描（不仅看路径首段，且按 `.env / .git/ / node_modules/ / data/ / dist/ / fpk/ / .trae/ / .playwright-cli/ / *.rar / *.zip / *.fpk / *.log / *.tmp / *.bak / test_*.txt` 16 项规则逐条匹配）确认 `forbidden hits = 0`
+
+### 改进（dev 包随 Release 上传）
+
+- **背景**：之前设计"dev 包不上 Release"（理由：避免给终端用户下载到 1.4 MB 源码包）。用户问询"发布怎么没有发布开发包"后**主动要求改为随 Release 上传**：让二次开发者可在 Release 页面直接下载源码 zip，不依赖 `git clone`
+- **`release.js`**：candidates 列表新增 `Student-Management-System-${version}-dev.zip`（行号 186 后），跟 win/linux/macos rar + fpk 一起上传；产物不存在时静默跳过（与现有候选逻辑一致）
+- **`打包全部.bat`**：注释里"打包全部平台 (Windows)" → "打包全部产物 (Windows)"；新增 `[5/5] dev source package` 步调调 `打包dev.bat`，确保 `发布.bat` → `打包全部.bat` 全流程跑完后 `dist/` 里 dev zip 已就位
+- **`打包全部.sh`**：同样新增 `[3/3] dev source package` 步调调 `打包dev.sh`
+- **`发布.bat`**：顶部注释更新"Win/Linux rar + fpk" → "Win/Linux/macOS rar + fpk + dev zip"
+- **`README.md`** 第 100 行：从"dev 包**不**随发布流程上传"改为"dev 包**也**随发布流程上传"
 
 ---
 
