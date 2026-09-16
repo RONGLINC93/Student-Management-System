@@ -59,7 +59,7 @@ rem  本子例程只倒计时不退出, 调用方负责 exit /b.
 rem ---------------------------------------------------------------------------
 :countdown
 echo.
-echo Closing in %~1 seconds... (Ctrl+C to cancel)
+echo %~1 秒后自动关闭窗口... (按 Ctrl+C 取消)
 for /l %%i in (%~1,-1,1) do (
     echo   %%i...
     ping -n 2 127.0.0.1 >nul

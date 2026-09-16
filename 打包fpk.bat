@@ -1,14 +1,15 @@
+chcp 65001 >nul 2>&1
 @echo off
 rem ===========================================================================
-rem  fnOS (FeiNiu) fpk builder for the Student Management System
-rem  Usage: double-click this file, or run it from a terminal.
-rem         Use %~dp0-relative paths below, so it always builds the project it
-rem         sits in, no matter which folder the shell is in.
-rem  Prereq: fnos\fnpack.exe (Windows x86) - download from
+rem  fnOS (飞牛) fpk 打包 - 学生管理系统
+rem  用法: 双击本文件, 或在终端中执行。
+rem        所有路径相对 %~dp0, 无论在哪个目录调用都构建当前脚本所在项目。
+rem        无需先 cd 到此目录。
+rem  前置: fnos\fnpack.exe (Windows x86) - 下载地址
 rem          https://developer.fnnas.com/docs/cli/fnpack/
-rem          (the downloaded file has no extension: rename it to fnpack.exe)
-rem  Output: <project root>\fpk\<appname>-<version>.fpk  (folder created on demand)
-rem  NOTE: keep this file ASCII-only, batch parsing of non-ASCII is fragile.
+rem         (下载的文件无扩展名, 重命名为 fnpack.exe)
+rem  输出: <项目根>\dist\<appname>-<version>.fpk (目录按需创建)
+rem  说明: 文件用 UTF-8 (无 BOM) + 头部 chcp 65001 才能正确显示中文。
 rem ===========================================================================
 setlocal
 set "PROJ=%~dp0"
@@ -16,10 +17,10 @@ set "FNOS=%PROJ%fnos"
 set "PKG=%FNOS%\student-management-system"
 set "SERVER=%PKG%\app\server"
 
-echo === Build fnOS fpk: Student Management System ===
+echo === 构建 fnOS fpk: 学生管理系统 ===
 echo.
 
-echo [1/5] Copy application files...
+echo [1/5] 复制应用文件...
 if exist "%SERVER%" rmdir /s /q "%SERVER%"
 mkdir "%SERVER%"
 copy /y "%PROJ%server.js" "%SERVER%\server.js" >nul
@@ -29,15 +30,15 @@ if errorlevel 1 goto fail
 xcopy "%PROJ%public" "%SERVER%\public" /e /i /y /q >nul
 if errorlevel 1 goto fail
 
-echo [2/5] Sync manifest version from package.json...
+echo [2/5] 同步 package.json 版本号到 manifest...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%FNOS%\sync-version.ps1" -From "%PROJ%package.json" -Manifest "%PKG%\manifest"
 if errorlevel 1 goto fail
 
-echo [3/5] Normalize newlines to LF...
+echo [3/5] 规范化换行符为 LF...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%FNOS%\normalize-lf.ps1" -Path "%PKG%"
 if errorlevel 1 goto fail
 
-echo [4/5] Locate fnpack...
+echo [4/5] 定位 fnpack...
 set "FNPACK="
 if exist "%FNOS%\fnpack.exe" set "FNPACK=%FNOS%\fnpack.exe"
 if not defined FNPACK if exist "%PROJ%fnpack.exe" set "FNPACK=%PROJ%fnpack.exe"
@@ -45,19 +46,19 @@ if not defined FNPACK for %%I in (fnpack.exe) do if not "%%~$PATH:I"=="" set "FN
 if not defined FNPACK goto nofnpack
 echo     %FNPACK%
 
-echo [5/5] Packing and renaming (with version)...
+echo [5/5] 打包并按版本号重命名...
 pushd "%PKG%"
 "%FNPACK%" build
 set "RC=%ERRORLEVEL%"
 popd
 if not "%RC%"=="0" goto fail
 
-rem --- output folder: <project root>\dist (created on demand) ---
+rem --- 输出目录: <项目根>\dist (按需创建) ---
 set "OUTDIR=%PROJ%dist"
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 if errorlevel 1 goto fail
 
-rem --- rename to <appname>-<version>.fpk and move it into the output folder ---
+rem --- 重命名为 <appname>-<version>.fpk 并移到输出目录 ---
 set "APPNAME="
 set "VERSION="
 for /f "tokens=2 delims==" %%V in ('findstr /b /c:"appname" "%PKG%\manifest"') do set "APPNAME=%%V"
@@ -74,15 +75,15 @@ if errorlevel 1 goto fail
 set "OUT=%OUTDIR%\%OUTNAME%"
 
 echo.
-echo === Done. Output: %OUT% ===
+echo === 完成. 输出: %OUT% ===
 echo.
-echo Install: upload it in the fnOS App Center, or over SSH run:
+echo 安装: 上传到 fnOS 应用中心, 或通过 SSH 执行:
 echo   appcenter-cli install-fpk "%OUT%"
 echo.
 
-rem --- open the output folder and highlight the package just built ---
-rem     (explorer returns a non-zero exit code even on success, so ignore it)
-rem     skipped when called from 打包全部.bat (outer script handles this)
+rem --- 打开输出目录并定位刚打包的文件 ---
+rem     (explorer 即便成功也返回非零退出码, 忽略即可)
+rem     从 打包全部.bat 调用时跳过 (由外层脚本处理)
 if "%PACKAGE_ALL%"=="" start "" "%PROJ%dist" 2>nul
 
 echo.
@@ -90,13 +91,13 @@ if "%PACKAGE_ALL%"=="" call :countdown 5
 exit /b 0
 
 rem ---------------------------------------------------------------------------
-rem  :countdown <秒数>  -- ASCII-only, keep this file free of non-ASCII literals
-rem  从 <秒数> 倒数到 0, 每秒打印剩余秒数 (Ctrl+C 可中断).
-rem  本子例程只倒计时不退出, 调用方负责 exit /b.
+rem  :countdown <秒数>
+rem  从 <秒数> 倒数到 0, 每秒打印剩余秒数 (Ctrl+C 可中断)。
+rem  本子例程只倒计时不退出, 调用方负责 exit /b。
 rem ---------------------------------------------------------------------------
 :countdown
 echo.
-echo Closing in %~1 seconds... (Ctrl+C to cancel)
+echo %~1 秒后自动关闭窗口... (按 Ctrl+C 取消)
 for /l %%i in (%~1,-1,1) do (
     echo   %%i...
     ping -n 2 127.0.0.1 >nul
@@ -108,10 +109,10 @@ exit /b 0
 
 :nofnpack
 echo.
-echo [ERROR] fnpack.exe not found.
-echo Download the Windows x86 build from
+echo [错误] 找不到 fnpack.exe。
+echo 请从以下地址下载 Windows x86 版本：
 echo   https://developer.fnnas.com/docs/cli/fnpack/
-echo The downloaded file has no extension - rename it to fnpack.exe and put it in:
+echo 下载的文件无扩展名 - 请重命名为 fnpack.exe 并放到：
 echo   %FNOS%
 echo.
 call :countdown 5
@@ -119,7 +120,7 @@ exit /b 1
 
 :fail
 echo.
-echo [ERROR] Build failed. See messages above.
+echo [错误] 打包失败，详见上方信息。
 echo.
 call :countdown 5
 exit /b 1
