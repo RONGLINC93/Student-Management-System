@@ -53,7 +53,7 @@
   - 之前 `build.js` 有一组 `DEV_EXCLUDE_TOP / DEV_EXCLUDE_SUFFIX / DEV_EXCLUDE_EXACT / DEV_EXCLUDE_GLOB` 与项目 `.gitignore` 内容重复、且**永远落后于 `.gitignore`**（典型例子：`fnos/.gitignore` 里 `student-management-system/app/server/` 这条目录级排除，硬编码黑名单无法表达，导致 dev 包错误地包含 `fnos/student-management-system/app/server/*` 几十个重复文件）
   - 现在 `dev target` 完全按项目内**所有 `.gitignore`**（项目根 + `fnos/.gitignore`）规则评估，**不再**维护独立黑名单；内置零依赖的简易 `.gitignore` glob → regex 编译器，支持 `* / ** / ? / [...] / ! / / 锚定 / 末尾 / 仅目录` 这些常用语法
   - 子目录 `.gitignore` 优先于父目录（深处优先）；同一 `.gitignore` 内规则从下到上处理（最后一条匹配生效，与 git 行为一致）
-  - 保留 6 个**硬编码**顶层黑名单作为"项目层语义"兜底（与 `.gitignore` 内容无关）：`.git / node_modules / data / dist / fpk / .trae` —— 这些不写进 `.gitignore` 不合适（`.git` 不该出现在 `.gitignore` 中），且是 dev 包**永远**不该包含的项
+  - 保留 7 个**硬编码**顶层黑名单作为"项目层语义"兜底（与 `.gitignore` 内容无关）：`.git / node_modules / data / dist / fpk / .trae / .playwright-cli` —— 这些不写进 `.gitignore` 不合适（`.git` 不该出现在 `.gitignore` 中），且是 dev 包**永远**不该包含的项
 - **`.gitignore` 补全**：将之前散落在 `build.js` 硬编码里的通用后缀黑名单（`*.rar *.zip *.fpk *.tar *.gz *.tgz *.7z *.log *.tmp *.bak *.swp *.swo *~`）与平台杂项（`.DS_STORE Thumbs.db desktop.ini ehthumbs.db`）和机密（`.env / .env.local / .env.*.local`）整合进主 `.gitignore`；现在 dev 包按 `.gitignore` 评估就能自动覆盖这些模式
 
 ### 已验证
@@ -61,7 +61,7 @@
 - `node --check` 通过 `build.js` / `release.js`
 - Windows 上 `node build.js {win,linux,macos}` 三种 rar target 都成功打包；rar 解包验证 `启动.sh` / `启动.command` 是纯 LF（CRLF=0），`运行.bat` 保留 CRLF
 - Windows 上 `node build.js dev` 成功生成 `dist/Student-Management-System-1.3.0-dev.zip`（99 个文件 / 1.42 MB）；PowerShell `Expand-Archive` 解压并扫盘后**确认 zip 内无**：
-  - 硬编码顶层黑名单（`.git / node_modules / data / dist / fpk / .trae`）
+  - 硬编码顶层黑名单（`.git / node_modules / data / dist / fpk / .trae / .playwright-cli`）
   - 通用后缀黑名单（`*.rar / *.zip / *.fpk / *.tar / *.gz / *.tgz / *.7z / *.log / *.tmp / *.bak / *.swp / *.swo / *~`）
   - 机密文件（`.env / .env.local / .env.*.local`）
   - 平台杂项（`.DS_Store / Thumbs.db / desktop.ini / ehthumbs.db`）
@@ -71,13 +71,15 @@
 - Windows 上 `打包dev.bat` 双击调用 `build.js dev` 全流程跑通，5 秒倒计时 + 自动弹出 `dist/` 资源管理器
 - bat 文件保持 UTF-8 无 BOM、全 CRLF
 
-### 已验证
+### 改进（.playwright-cli 漏放修复）
 
-- `node --check` 通过 `build.js` / `release.js`
-- Windows 上 `node build.js {win,linux,macos}` 三种 rar target 都成功打包；rar 解包验证 `启动.sh` / `启动.command` 是纯 LF（CRLF=0），`运行.bat` 保留 CRLF
-- Windows 上 `node build.js dev` 成功生成 `dist/Student-Management-System-1.3.0-dev.zip`（约 3.3 MB，139 个文件）；PowerShell `Expand-Archive` 解压并扫盘后**确认 zip 内无 `.env` / `.git` / `data` / `dist` / `node_modules` / `.playwright-cli` / `*.rar` / `*.zip` / `*.log` 等任何黑名单项**
-- Windows 上 `打包dev.bat` 双击调用 `build.js dev` 全流程跑通，5 秒倒计时 + 自动弹出 `dist/` 资源管理器
-- bat 文件保持 UTF-8 无 BOM、全 CRLF
+- **背景**：上一段"已验证"声称"zip 内无 `.playwright-cli`"，**经用户实测问询后复查发现是错的** —— `.playwright-cli/page-2026-09-11T08-37-26-835Z.yml`（9/11 commit `8c5123d`「手动推送」误 `git add` 的 playwright-cli DOM dump）确实被打进了 dev 包。原因：① 两个 `.gitignore` 都缺 `.playwright-cli/` 规则；② build.js 的 `DEV_HARDCODED_EXCLUDE` 没列入该项；③ 之前那次验证脚本只检查"路径首段含 `.playwright-cli`"，但文件实际名是 `page-...yml`、位于 `.playwright-cli/` 子目录下，扫描逻辑漏匹配
+- **修复**：
+  - 根 `.gitignore`：新增 `.playwright-cli/` 行
+  - `build.js` `DEV_HARDCODED_EXCLUDE`：新增 `.playwright-cli`（与 `.gitignore` 互补的硬编码兜底）
+  - `git rm --cached .playwright-cli/page-2026-09-11T08-37-26-835Z.yml` + 磁盘 `Remove-Item -Recurse`
+  - `README.md` 第 99 行：硬编码顶层黑名单从「6 个」改为「7 个」，并加上 `.playwright-cli/`
+- **重新验证**：dev 包重生为 99 文件 / 1424.8 KB；PowerShell 解压 + Node 完整正则扫描（不仅看路径首段，且按 `.env / .git/ / node_modules/ / data/ / dist/ / fpk/ / .trae/ / .playwright-cli/ / *.rar / *.zip / *.fpk / *.log / *.tmp / *.bak / test_*.txt` 16 项规则逐条匹配）确认 `forbidden hits = 0`
 
 ---
 

@@ -376,6 +376,7 @@ const DEV_HARDCODED_EXCLUDE = new Set([
   'dist',
   'fpk',
   '.trae',
+  '.playwright-cli',   // playwright-cli 工具产物（DOM dump 缓存），不属于项目资产
 ]);
 
 /**

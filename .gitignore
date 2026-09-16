@@ -1,5 +1,6 @@
 node_modules/
 .trae/
+.playwright-cli/        # playwright-cli 工具的页面 DOM dump 缓存
 data/
 
 # 通用构建产物 / 临时文件（任何深度都生效，dev 包按 .gitignore 排除时会命中）
