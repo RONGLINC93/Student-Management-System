@@ -10,6 +10,34 @@
 
 ---
 
+## Unreleased
+
+本次为「跨平台打包补齐」批次，独立于下条 v1.3.0 的功能/安全/性能变更；下次发版时合并到正式版本号。
+
+### 新增：macOS 平台支持
+
+- **`启动.command`**：macOS Finder 双击即可启动。Finder 自动 `chmod +x` 并打开 Terminal，无需手动 chmod 或 cd。脚本内 `osascript` 弹原生错误对话框（区别于 `启动.sh` 的纯文本提示），并用 `lsof`（macOS 自带）查端口占用、用 `open` 自动打开浏览器
+- **`启动.sh`**（Linux/macOS 通用）：保留并完善，macOS 上亦可手动 `chmod +x && ./启动.sh` 运行
+- **`运行.bat`**（Windows）：不动
+- **`打包rar-mac.bat`** / **`打包rar-mac.sh`**：分别从 Windows / Linux/macOS 上打 macOS 版 rar 产物 `Student-Management-System-<ver>-macos.rar`
+- **`打包全部.bat`**：步骤由 `[1/3] [2/3] [3/3]` 改为 `[1/4] Windows` / `[2/4] Linux` / `[3/4] macOS` / `[4/4] fnOS fpk`
+- **`打包全部.sh`**：步骤由 `[1/2] [2/2]` 改为 `[1/3] RAR (Linux / Windows / macOS)` / `[2/2] fpk（跳过）`，macOS rar 同 Linux 步骤一起跑
+- **`build.js`**：新增 `macos` target；新函数 `readmeMacos`（macOS 专用 `使用说明.txt`，含 Finder 双击、`osascript` 错误提示、`brew install node` 等 macOS 特有说明）；`install` 提示新增 `macOS : 解压后在 Finder 里双击 启动.command` 行；启动脚本在打包阶段做 **CRLF→LF 归一化**（`.sh` / `.command` 强制 LF，`.bat` 保留 CRLF），避免 Windows 上构建的产物在 macOS/Linux 上因 CRLF shebang 引发报错
+- **`release.js`**：candidates 列表加入 `Student-Management-System-<version>-macos.rar`，发版时 macOS 包自动随其他平台一并上传到 GitHub Release
+- **`README.md`**：新增「## 运行平台」小节，6 种平台（Windows / macOS / Linux 桌面 / Linux 服务器 / Docker / fnOS）的启动方式与差异一表尽览；macOS 行把"Finder 双击 `启动.command`"作为推荐启动方式，并说明"来自身份不明的开发者"提示的绕过办法；「## 快速开始」由 5 种方式扩展为 6 种（新增 `启动.command`）；「## 打包与发布」表格加入 macOS 产物行；「## 项目结构」加入 `启动.command` 与 `打包rar-mac.bat/.sh`
+
+### 改进
+
+- `发布.bat` 发布成功 / 部分失败时分两段（`:warn` / 成功段）从 `dist/.last-release.json` 读取并格式化打印结果，再倒计时关闭 —— 上次会话的修复点，本批次与 macOS 工作一并 commit
+
+### 已验证
+
+- `node --check` 通过 `build.js` / `release.js`
+- Windows 上 `node build.js {win,linux,macos}` 三种 target 都成功打包；rar 解包验证 `启动.sh` / `启动.command` 是纯 LF（CRLF=0），`运行.bat` 保留 CRLF
+- bat 文件保持 UTF-8 无 BOM、全 CRLF
+
+---
+
 ## v1.3.0 — 2026-09-15
 
 ### 补充作者信息

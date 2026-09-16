@@ -29,7 +29,7 @@
 | 平台 | 启动方式 | 备注 |
 |---|---|---|
 | **Windows 10 / 11 / Server** | 双击 `运行.bat` 或 `node server.js` | 启动后自动用默认浏览器打开 <http://localhost:3000> |
-| **macOS** | `chmod +x 启动.sh && ./启动.sh`，或 `node server.js` | 脚本通过 `open` 自动打开浏览器 |
+| **macOS** | **Finder 双击 `启动.command`**（首选，Finder 自动 chmod +x 并打开 Terminal）；或 `chmod +x 启动.sh && ./启动.sh`；或 `node server.js` | macOS 版脚本会通过 `osascript` 弹原生错误框、通过 `open` 自动打开浏览器；首次双击若提示\"来自身份不明的开发者\"，请到「系统设置 → 隐私与安全性」点\"仍要打开\" |
 | **Linux（桌面）** | `chmod +x 启动.sh && ./启动.sh`，或 `node server.js` | 脚本通过 `xdg-open` 自动打开浏览器 |
 | **Linux（服务器 / NAS）** | `node server.js`（建议配合 systemd / Docker） | 无图形界面，需自行访问 <http://<host>:3000> |
 | **Docker / Docker Compose** | `docker compose up -d` | 由 `Dockerfile` + `docker-compose.yml` 构建，数据卷挂载 `data/` 持久化 |
@@ -51,10 +51,13 @@ npm start
 # 方式三（Windows：自动打开浏览器）
 双击 运行.bat
 
-# 方式四（macOS / Linux：自动打开浏览器）
+# 方式四（macOS：Finder 双击 启动.command，推荐）
+#       （Finder 会自动 chmod +x 并打开 Terminal）
+
+# 方式五（macOS / Linux：手动启动）
 chmod +x 启动.sh && ./启动.sh
 
-# 方式五（Docker）
+# 方式六（Docker）
 docker compose up -d
 ```
 
