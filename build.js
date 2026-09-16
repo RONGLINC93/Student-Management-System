@@ -280,7 +280,17 @@ function buildOne({ suffix, launch, readme }, rarBin) {
   console.log('   [1/4] Copying application files ...');
   fs.copyFileSync(path.join(PROJ, 'server.js'), path.join(stg, 'server.js'));
   fs.copyFileSync(path.join(PROJ, 'package.json'), path.join(stg, 'package.json'));
-  fs.copyFileSync(path.join(PROJ, launch), path.join(stg, launch));
+  // 启动脚本：.sh / .command 是 Unix 格式, 强制 LF 换行 (避免 Windows CRLF
+  // 在 macOS / Linux 上引起 shebang / 行尾问题); .bat 保留 CRLF 不动
+  const launchSrc = path.join(PROJ, launch);
+  const launchDst = path.join(stg, launch);
+  const isUnixLaunch = launch.endsWith('.sh') || launch.endsWith('.command');
+  if (isUnixLaunch) {
+    const text = fs.readFileSync(launchSrc, 'utf8').replace(/\r\n/g, '\n');
+    fs.writeFileSync(launchDst, text, 'utf8');
+  } else {
+    fs.copyFileSync(launchSrc, launchDst);
+  }
   for (const f of RAR_FILES) {
     const src = path.join(PROJ, f);
     if (fs.existsSync(src)) {
