@@ -14,6 +14,19 @@
 #  前置：Node.js 14+ 已安装；rar 命令可用（apt install rar / brew install --cask rar）
 # ===========================================================================
 
+# 切到 UTF-8 locale, 避免中文输出乱码 (若系统已是 UTF-8 则不动)
+case "${LC_ALL:-${LANG:-}}" in
+    *UTF-8|*utf8) ;;
+    *)
+        for loc in C.UTF-8 en_US.UTF-8 zh_CN.UTF-8; do
+            if locale -a 2>/dev/null | grep -qx "$loc"; then
+                export LC_ALL="$loc" LANG="$loc"
+                break
+            fi
+        done
+        ;;
+esac
+
 set -e
 
 # 倒计时关闭: 倒数 N 秒后返回 (Ctrl+C 可中断).
@@ -28,8 +41,18 @@ countdown() {
     done
 }
 
-# 任意命令失败时, 统一输出 [ERROR] 提示并倒计时关闭
-trap 'echo; echo "[ERROR] Build failed. See messages above."; countdown 5; exit 1' ERR
+# 错误统一处理: 输出 [ERROR] 提示, 嵌套调用时不倒计时 (外层统一负责)
+err_handler() {
+    echo
+    echo "[ERROR] Build failed. See messages above."
+    if [ -z "${PACKAGE_ALL:-}" ]; then
+        countdown 5
+    fi
+    exit 1
+}
+
+# 任意命令失败时, 触发 err_handler
+trap 'err_handler' ERR
 
 # 切换到脚本所在目录
 cd "$(dirname "$0")"

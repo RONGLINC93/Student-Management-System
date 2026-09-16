@@ -1,4 +1,7 @@
 @echo off
+rem 切换到 UTF-8 代码页, 避免中文输出乱码
+chcp 65001 >nul 2>&1
+
 rem ===========================================================================
 rem  Student Management System - Windows 调用器
 rem

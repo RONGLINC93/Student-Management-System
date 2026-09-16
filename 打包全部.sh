@@ -13,6 +13,19 @@
 #  前置: Node.js 14+, rar 命令可用
 # ===========================================================================
 
+# 切到 UTF-8 locale, 避免中文输出乱码 (若系统已是 UTF-8 则不动)
+case "${LC_ALL:-${LANG:-}}" in
+    *UTF-8|*utf8) ;;
+    *)
+        for loc in C.UTF-8 en_US.UTF-8 zh_CN.UTF-8; do
+            if locale -a 2>/dev/null | grep -qx "$loc"; then
+                export LC_ALL="$loc" LANG="$loc"
+                break
+            fi
+        done
+        ;;
+esac
+
 set -e
 
 # 倒计时关闭: 倒数 N 秒后返回 (Ctrl+C 可中断)
