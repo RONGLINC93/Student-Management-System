@@ -26,14 +26,57 @@
 - **`release.js`**：candidates 列表加入 `Student-Management-System-<version>-macos.rar`，发版时 macOS 包自动随其他平台一并上传到 GitHub Release
 - **`README.md`**：新增「## 运行平台」小节，6 种平台（Windows / macOS / Linux 桌面 / Linux 服务器 / Docker / fnOS）的启动方式与差异一表尽览；macOS 行把"Finder 双击 `启动.command`"作为推荐启动方式，并说明"来自身份不明的开发者"提示的绕过办法；「## 快速开始」由 5 种方式扩展为 6 种（新增 `启动.command`）；「## 打包与发布」表格加入 macOS 产物行；「## 项目结构」加入 `启动.command` 与 `打包rar-mac.bat/.sh`
 
+### 新增：开发包 (`dev` target)
+
+面向二次开发者的**完整源代码 zip 包**，与面向终端用户的 rar / fpk 发布包解耦：
+
+- **`build.js`** 新增 `dev` target：
+  - 输出 `dist/Student-Management-System-<ver>-dev.zip`
+  - 用 zip 格式：Windows 走 PowerShell `Compress-Archive`（系统自带，无需安装任何 zip 工具），Linux/macOS 走系统 `zip` 命令
+  - **不**依赖 WinRAR / rar，dev target 在没有 rar 的机器上也能跑
+  - 内容是项目根目录完整源码（除 `.git/`、`node_modules/`、`data/`、`dist/`、`fpk/`、`.playwright-cli`、`.vscode/`、`.idea/`、`__pycache__/`、`.cache/`、`.tmp/` 等运行时/构建/缓存目录，以及 `*.rar` / `*.zip` / `*.fpk` / `*.tar` / `*.gz` / `*.log` / `*.tmp` / `*.bak` / `*.swp` / `~` 等后缀与 `.env` / `.env.local` / `.env.*.local` / `.DS_Store` / `Thumbs.db` / `desktop.ini` 等精确文件名 —— **重点：`.env` 含 `GITHUB_TOKEN`，已被黑名单强制排除，不会泄露**）
+  - 新增 `DEV_EXCLUDE_TOP` / `DEV_EXCLUDE_SUFFIX` / `DEV_EXCLUDE_EXACT` 三组黑名单
+  - 新增 `prepareDevStaging`（递归拷贝并按黑名单过滤）+ `zipStaging`（跨平台调用 zip 工具）+ `buildDev`（编排整流程）
+  - `main()` 增加 `target === 'dev'` 分支：跳过 `locateRar()`（无需 rar），直接走 `buildDev()`
+- **`打包dev.bat`** / **`打包dev.sh`**：独立 dev 打包脚本，Windows 双击 / Linux/macOS `./打包dev.sh` 直接调用 `node build.js dev`，完成后 5 秒倒计时关闭并尝试打开 `dist/`
+- **dev 包内置 `开发包说明.md`**：开发者向，包含目录树、已排除清单、快速开始、打包命令、发布流程
+- **`release.js`**：candidates **不**包含 dev 包 —— dev 包只给二次开发者分发，不参与 GitHub Release 发版（避免给终端用户下载到 3 MB 的源码包）
+- **`README.md`**：「## 打包与发布」表格新增「打开发包」行；新增「### 开发者打包（dev target）」小节说明 dev target 用法、前置依赖、与发版流程的关系；「## 项目结构」加入 `打包dev.bat / .sh` 行
+
 ### 改进
 
-- `发布.bat` 发布成功 / 部分失败时分两段（`:warn` / 成功段）从 `dist/.last-release.json` 读取并格式化打印结果，再倒计时关闭 —— 上次会话的修复点，本批次与 macOS 工作一并 commit
+- `发布.bat` 发布成功 / 部分失败时分两段（`:warn` / 成功段）从 `dist/.last-release.json` 读取并格式化打印结果，再倒计时关闭 —— 上次会话的修复点，本批次与 macOS / dev 工作一并 commit
+- `build.js main()` 重构：rar 与 dev 两条路径显式分离；rar 路径仍走原有 `locateRar()` + `buildOne()` 流程，dev 路径单独走 `buildDev()`，二者互不耦合
+- `build.js` 黑名单增强：新增 `DEV_EXCLUDE_GLOB` 数组（glob 模式编译成正则）+ `shouldExcludeDev()` 同步加 glob 匹配，修复之前 `.env.*.local` 写在精确名 Set 里实际永不匹配的 bug；新增 `test_*.txt` 模式拦截调试时 `cmd / node > test_xxx.txt` 重定向留下的临时日志
+- `.gitignore`：新增 `test_*.txt` 规则；清理掉上次调试遗留的 `test_output.txt`（`git rm --cached` + 磁盘删除）
+- **`build.js dev target 排除策略重构为 `.gitignore`-driven**（替代之前独立维护的硬编码黑名单）：
+  - 之前 `build.js` 有一组 `DEV_EXCLUDE_TOP / DEV_EXCLUDE_SUFFIX / DEV_EXCLUDE_EXACT / DEV_EXCLUDE_GLOB` 与项目 `.gitignore` 内容重复、且**永远落后于 `.gitignore`**（典型例子：`fnos/.gitignore` 里 `student-management-system/app/server/` 这条目录级排除，硬编码黑名单无法表达，导致 dev 包错误地包含 `fnos/student-management-system/app/server/*` 几十个重复文件）
+  - 现在 `dev target` 完全按项目内**所有 `.gitignore`**（项目根 + `fnos/.gitignore`）规则评估，**不再**维护独立黑名单；内置零依赖的简易 `.gitignore` glob → regex 编译器，支持 `* / ** / ? / [...] / ! / / 锚定 / 末尾 / 仅目录` 这些常用语法
+  - 子目录 `.gitignore` 优先于父目录（深处优先）；同一 `.gitignore` 内规则从下到上处理（最后一条匹配生效，与 git 行为一致）
+  - 保留 6 个**硬编码**顶层黑名单作为"项目层语义"兜底（与 `.gitignore` 内容无关）：`.git / node_modules / data / dist / fpk / .trae` —— 这些不写进 `.gitignore` 不合适（`.git` 不该出现在 `.gitignore` 中），且是 dev 包**永远**不该包含的项
+- **`.gitignore` 补全**：将之前散落在 `build.js` 硬编码里的通用后缀黑名单（`*.rar *.zip *.fpk *.tar *.gz *.tgz *.7z *.log *.tmp *.bak *.swp *.swo *~`）与平台杂项（`.DS_STORE Thumbs.db desktop.ini ehthumbs.db`）和机密（`.env / .env.local / .env.*.local`）整合进主 `.gitignore`；现在 dev 包按 `.gitignore` 评估就能自动覆盖这些模式
 
 ### 已验证
 
 - `node --check` 通过 `build.js` / `release.js`
-- Windows 上 `node build.js {win,linux,macos}` 三种 target 都成功打包；rar 解包验证 `启动.sh` / `启动.command` 是纯 LF（CRLF=0），`运行.bat` 保留 CRLF
+- Windows 上 `node build.js {win,linux,macos}` 三种 rar target 都成功打包；rar 解包验证 `启动.sh` / `启动.command` 是纯 LF（CRLF=0），`运行.bat` 保留 CRLF
+- Windows 上 `node build.js dev` 成功生成 `dist/Student-Management-System-1.3.0-dev.zip`（99 个文件 / 1.42 MB）；PowerShell `Expand-Archive` 解压并扫盘后**确认 zip 内无**：
+  - 硬编码顶层黑名单（`.git / node_modules / data / dist / fpk / .trae`）
+  - 通用后缀黑名单（`*.rar / *.zip / *.fpk / *.tar / *.gz / *.tgz / *.7z / *.log / *.tmp / *.bak / *.swp / *.swo / *~`）
+  - 机密文件（`.env / .env.local / .env.*.local`）
+  - 平台杂项（`.DS_Store / Thumbs.db / desktop.ini / ehthumbs.db`）
+  - 调试日志（`test_*.txt`）
+  - `fnos/.gitignore` 特有规则生效：`fnos/student-management-system/app/server/*`（几十个重复文件，未打包）、`fnos/fnpack.exe`（3.96 MB，未打包）、`fnos/student-management-system/*.fpk`（如存在会未打包）
+  - 之前硬编码黑名单版本错误打包的 `fnos/fnpack.exe解压出来就行.rar`（1.36 MB），现已被主 `.gitignore` 的 `*.rar` 正确排除
+- Windows 上 `打包dev.bat` 双击调用 `build.js dev` 全流程跑通，5 秒倒计时 + 自动弹出 `dist/` 资源管理器
+- bat 文件保持 UTF-8 无 BOM、全 CRLF
+
+### 已验证
+
+- `node --check` 通过 `build.js` / `release.js`
+- Windows 上 `node build.js {win,linux,macos}` 三种 rar target 都成功打包；rar 解包验证 `启动.sh` / `启动.command` 是纯 LF（CRLF=0），`运行.bat` 保留 CRLF
+- Windows 上 `node build.js dev` 成功生成 `dist/Student-Management-System-1.3.0-dev.zip`（约 3.3 MB，139 个文件）；PowerShell `Expand-Archive` 解压并扫盘后**确认 zip 内无 `.env` / `.git` / `data` / `dist` / `node_modules` / `.playwright-cli` / `*.rar` / `*.zip` / `*.log` 等任何黑名单项**
+- Windows 上 `打包dev.bat` 双击调用 `build.js dev` 全流程跑通，5 秒倒计时 + 自动弹出 `dist/` 资源管理器
 - bat 文件保持 UTF-8 无 BOM、全 CRLF
 
 ---

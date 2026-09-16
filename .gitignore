@@ -1,11 +1,38 @@
 node_modules/
 .trae/
+data/
+
+# 通用构建产物 / 临时文件（任何深度都生效，dev 包按 .gitignore 排除时会命中）
+*.rar
+*.zip
+*.fpk
+*.tar
+*.gz
+*.tgz
+*.7z
 *.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# 调试时 cmd/node 输出重定向留下的临时日志
+test_*.txt
+
+# 平台杂项
 .DS_Store
 Thumbs.db
 .env
-data/
+.env.local
+.env.*.local
 
 # fpk 打包产物（由 打包fpk.bat 生成）
 fpk/
 dist/
+
+# fnos 下额外排除（fnos/.gitignore 里已有更细的规则）
+#   fnpack / fnpack.exe（本地下载的打包工具，文件很大）
+#   student-management-system/app/server/（build-fpk 脚本生成）
+#   student-management-system/*.fpk
+# 详见 fnos/.gitignore

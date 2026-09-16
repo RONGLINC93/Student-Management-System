@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Student Management System - RAR package builder (cross-platform)
+ * Student Management System - 打包构建工具（跨平台）
  *
  * 用法：
- *   node build.js                同时构建 Windows / Linux / macOS 三个 RAR 包
+ *   node build.js                同时构建 Windows / Linux / macOS 三个 RAR 发布包
  *   node build.js win            只生成 Student-Management-System-<ver>-win.rar
  *                                （含 运行.bat）
  *   node build.js linux          只生成 Student-Management-System-<ver>-linux.rar
@@ -11,6 +11,11 @@
  *   node build.js macos          只生成 Student-Management-System-<ver>-macos.rar
  *                                （含 启动.command，Finder 双击即可）
  *   node build.js all            同不传参数
+ *   node build.js dev            生成 Student-Management-System-<ver>-dev.zip
+ *                                （开发包 / 源码包，含完整项目源码，所有平台启动
+ *                                 脚本、build/release/pull/push 脚本、Dockerfile、
+ *                                 fnos SDK、docs/。不含 .git/、data/、dist/、
+ *                                 node_modules/，不需要 rar 工具）
  *
  * 设计取舍：
  *   - 主流程用 Node.js 实现（项目本身已依赖 Node，无需引入新工具）
@@ -20,12 +25,17 @@
  *
  * 依赖：
  *   - WinRAR（Windows，%ProgramFiles%\WinRAR\WinRAR.exe 或 PATH 中的 rar.exe）
- *   - rar（Linux/macOS，包管理器安装的 rar/unrar 命令行工具）
+ *               —— 仅 rar target 需要
+ *   - rar      （Linux/macOS，包管理器安装的 rar/unrar 命令行工具）
+ *               —— 仅 rar target 需要
+ *   - zip      （Linux/macOS 自带 / 包管理器安装）—— 仅 dev target 需要
+ *               —— Windows 不需要，PowerShell 自带 Compress-Archive
  *
  * 输出（位于 <项目根>/dist/）：
- *   Student-Management-System-<version>-win.rar
- *   Student-Management-System-<version>-linux.rar
- *   Student-Management-System-<version>-macos.rar
+ *   Student-Management-System-<version>-win.rar       (发布包：Windows 终端用户)
+ *   Student-Management-System-<version>-linux.rar     (发布包：Linux 终端用户)
+ *   Student-Management-System-<version>-macos.rar     (发布包：macOS 终端用户)
+ *   Student-Management-System-<version>-dev.zip       (开发包：二次开发者)
  *
  * 说明：
  *   - data/ 不会被打包（运行期数据，应单独备份；server.js 首次写入时自动创建）
@@ -53,8 +63,8 @@ const RAR_FILES = [
 const argv = process.argv.slice(2);
 const target = (argv[0] || 'all').toLowerCase();
 
-if (!['win', 'linux', 'macos', 'all'].includes(target)) {
-  console.error(`Usage: node build.js [win|linux|macos|all]`);
+if (!['win', 'linux', 'macos', 'all', 'dev'].includes(target)) {
+  console.error(`Usage: node build.js [win|linux|macos|all|dev]`);
   process.exit(1);
 }
 
@@ -332,14 +342,447 @@ function buildOne({ suffix, launch, readme }, rarBin) {
 }
 
 // ===========================================================================
-//  6. 主流程
+//  6. 构造开发包 (dev target)
+//     - 输出 Student-Management-System-<version>-dev.zip
+//     - 内容是完整项目源码（按项目内所有 .gitignore 规则排除）
+//     - 用 zip 格式：
+//         Windows: PowerShell Compress-Archive（系统自带，无需安装）
+//         Linux/macOS: zip（系统或包管理器自带）
+//     - 无需 rar 工具
+//
+//  排除策略 = "Git-native"：完全按 .gitignore 规则决定
+//     - 收集项目根 + 全部子目录里的 .gitignore（递归扫描）
+//     - 子目录的 .gitignore 优先于父目录的 .gitignore（深处优先）
+//     - 同一个 .gitignore 内从下到上处理，最后一条匹配生效
+//     - 不需要 npm 依赖：内置一个 .gitignore glob → regex 编译器，
+//       覆盖 * / ** / ? / [...] / ! / / 锚定 / 末尾 / 仅目录 这些常用语法
+//
+//  唯一**硬编码**始终排除的顶层目录（与 .gitignore 内容无关，由 dev 包语义决定）：
+//     .git  (git 历史)
+//     node_modules  (项目零依赖，dev 包不该携带)
+//     data   (运行期用户数据，含密码 hash 等敏感信息)
+//     dist   (本工具自身产生的构建产物目录)
+//     fpk    (打包fpk.bat 的产物目录)
+//     .trae  (IDE 工具缓存)
 // ===========================================================================
+
+// 硬编码顶层黑名单：dev 包永远不该包含的目录（不论 .gitignore 怎么写）
+//   这些是"项目层"语义决定，与文件类型无关；把它们写进 .gitignore 不合适
+//   （例如 .git 目录本就不应该出现在 .gitignore 中——那是 git 的事实）
+const DEV_HARDCODED_EXCLUDE = new Set([
+  '.git',
+  'node_modules',
+  'data',
+  'dist',
+  'fpk',
+  '.trae',
+]);
+
+/**
+ * 把 .gitignore 的 glob 模式编译成正则
+ *   支持语法：
+ *     *        任意不含 / 的字符
+ *     **       任意字符（含 /）
+ *     ?        单个不含 / 的字符
+ *     [abc]    字符集
+ *     /pattern 仅匹配根（外部处理，不参与编译）
+ *     pattern/ 仅匹配目录（外部处理，不参与编译）
+ */
+function compileGitignoreGlob(pattern) {
+  // 占位符避开后续正则字符替换
+  let p = pattern;
+
+  // 1) 字符集占位（避免被 . 替换等破坏）
+  p = p.replace(/\[([^\]]*)\]/g, (_, body) => `\x01[${body}]\x01`);
+
+  // 2) 转义正则元字符（保留 * ? 还有占位符）
+  p = p.replace(/[.+^$|(){}]/g, '\\$&');
+
+  // 3) ** → .* （先于 * 处理）
+  p = p.replace(/\*\*/g, '\x02');
+
+  // 4) * → [^/]*
+  p = p.replace(/\*/g, '[^/]*');
+
+  // 5) ? → [^/]
+  p = p.replace(/\?/g, '[^/]');
+
+  // 6) 还原 ** 占位
+  p = p.replace(/\x02/g, '.*');
+
+  // 7) 还原字符集占位（去掉之前的转义）
+  p = p.replace(/\x01\[([^\]]*)\]\x01/g, (_, body) =>
+    body.replace(/\\\+/g, '+').replace(/\\\./g, '.'));
+
+  return new RegExp('^' + p + '$');
+}
+
+/**
+ * 解析单个 .gitignore 文件，返回规则数组
+ *   规则：{ pattern, regex, negation, anchored, dirOnly }
+ */
+function parseGitignore(filePath) {
+  if (!fs.existsSync(filePath)) return [];
+  const text = fs.readFileSync(filePath, 'utf8');
+  const rules = [];
+  const lines = text.split(/\r?\n/);
+  for (const raw of lines) {
+    const trimmed = raw.replace(/^\s+|\s+$/g, '');
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    let line = trimmed;
+    let negation = false;
+    if (line.startsWith('!')) { negation = true; line = line.slice(1); }
+
+    let anchored = false;
+    if (line.startsWith('/')) { anchored = true; line = line.slice(1); }
+
+    let dirOnly = false;
+    if (line.endsWith('/')) { dirOnly = true; line = line.slice(0, -1); }
+
+    if (!line) continue;
+
+    rules.push({
+      pattern: line,
+      regex: compileGitignoreGlob(line),
+      negation,
+      anchored,
+      dirOnly,
+    });
+  }
+  return rules;
+}
+
+/**
+ * 递归收集项目里所有 .gitignore
+ *   跳过 DEV_HARDCODED_EXCLUDE 下的目录（避免无谓扫描 .git/ / node_modules/）
+ *   返回 [{ dir, rules }]
+ */
+function collectGitignores(rootDir) {
+  const result = [];
+  function walk(dir) {
+    const giPath = path.join(dir, '.gitignore');
+    if (fs.existsSync(giPath)) {
+      result.push({ dir, rules: parseGitignore(giPath) });
+    }
+    let ents;
+    try { ents = fs.readdirSync(dir, { withFileTypes: true }); }
+    catch { return; }
+    for (const ent of ents) {
+      if (!ent.isDirectory()) continue;
+      if (DEV_HARDCODED_EXCLUDE.has(ent.name)) continue;
+      walk(path.join(dir, ent.name));
+    }
+  }
+  walk(rootDir);
+  return result;
+}
+
+/**
+ * 判断 absPath 是否被任意 .gitignore 规则忽略
+ *   评估顺序：
+ *     1) 子目录 .gitignore 先评估（深处优先）—— 子目录规则覆盖父目录
+ *     2) 同一个 .gitignore 内规则从下到上处理（最后一条匹配生效）
+ *   .gitignore 只作用于其所在目录及其子目录
+ *   stat: fs.Stats（需要判断 isDirectory()，dirOnly 规则用得上）
+ */
+function isIgnoredByGitignores(absPath, stat, gitignores, rootDir) {
+  const isDir = stat ? stat.isDirectory() : false;
+
+  // 按"相对 rootDir 的路径深度"深的优先
+  const sorted = [...gitignores].sort((a, b) => {
+    const da = path.relative(rootDir, a.dir).split(/[\\/]/).filter(Boolean).length;
+    const db = path.relative(rootDir, b.dir).split(/[\\/]/).filter(Boolean).length;
+    return db - da;
+  });
+
+  let ignored = false;
+  for (const { dir, rules } of sorted) {
+    // .gitignore 只对其目录及子目录生效
+    if (absPath !== dir && !absPath.startsWith(dir + path.sep)) continue;
+
+    const rel = path.relative(dir, absPath).split(/[\\/]/).join('/');
+    const base = path.basename(absPath);
+
+    for (let i = rules.length - 1; i >= 0; i--) {
+      const r = rules[i];
+      if (r.dirOnly && !isDir) continue;
+
+      let matched;
+      if (r.anchored) {
+        matched = r.regex.test(rel);
+      } else {
+        // 非锚定：既匹配 rel 也匹配 base
+        // 例如 `*.log` 应匹配任意深度的 xxx.log
+        matched = r.regex.test(rel) || r.regex.test(base);
+      }
+      if (matched) ignored = !r.negation;
+    }
+  }
+  return ignored;
+}
+
+/**
+ * 把项目根目录按 .gitignore 规则拷到 staging 目录
+ *   1. 硬编码顶层黑名单（DEV_HARDCODED_EXCLUDE）始终跳过
+ *   2. 其余按项目内全部 .gitignore 评估
+ */
+function prepareDevStaging(stg) {
+  const PROJ_ABS = path.resolve(PROJ);
+  const gitignores = collectGitignores(PROJ_ABS);
+
+  function walk(dir) {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const s = path.join(dir, ent.name);
+      const rel = path.relative(PROJ_ABS, s);
+
+      // 1) 硬编码顶层黑名单（路径首段命中即跳过）
+      const firstSeg = rel.split(/[\\/]/)[0];
+      if (DEV_HARDCODED_EXCLUDE.has(firstSeg)) continue;
+
+      // 2) .gitignore 评估
+      if (isIgnoredByGitignores(s, ent, gitignores, PROJ_ABS)) continue;
+
+      const d = path.join(stg, rel);
+      if (ent.isDirectory()) {
+        fs.mkdirSync(d, { recursive: true });
+        walk(s);
+      } else if (ent.isFile()) {
+        fs.mkdirSync(path.dirname(d), { recursive: true });
+        fs.copyFileSync(s, d);
+      }
+    }
+  }
+  walk(PROJ_ABS);
+}
+
+/**
+ * 调用系统 zip 工具打包
+ *   Windows: PowerShell Compress-Archive
+ *   Linux/macOS: zip -r
+ */
+function zipStaging(stg, zipFile) {
+  if (process.platform === 'win32') {
+    // Windows: PowerShell Compress-Archive
+    //   -Force 覆盖已存在的目标
+    //   -Path 接受通配符 'staging\*' 等
+    //   注意：路径里有空格时整个参数要加单引号
+    const stgQ = `'${stg}\\*'`;
+    const outQ = `'${zipFile}'`;
+    const ps = [
+      'Compress-Archive',
+      `-Path ${stgQ}`,
+      `-DestinationPath ${outQ}`,
+      '-Force',
+    ].join(' ');
+    const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { stdio: 'inherit' });
+    if (r.status !== 0) {
+      throw new Error(`PowerShell Compress-Archive exited with code ${r.status}`);
+    }
+  } else {
+    // Linux/macOS: 切换到 staging 父目录，用 zip -r 把 staging/<pkgName>/ 内的
+    // 内容压到 <pkgName>.zip（带顶层目录名）
+    const pkgName = path.basename(stg);
+    const parent = path.dirname(stg);
+    // 检查 zip 是否可用
+    const probe = spawnSync('zip', ['--version'], { stdio: 'ignore' });
+    if (probe.error) {
+      throw new Error(
+        'zip command not found. Install via your package manager, e.g.\n' +
+        '  Debian/Ubuntu:  sudo apt install zip\n' +
+        '  macOS:          zip 通常自带；或 brew install zip'
+      );
+    }
+    const r = spawnSync('zip', ['-r', '-q', '-X', `${pkgName}.zip`, `${pkgName}/`], {
+      cwd: parent,
+      stdio: 'inherit',
+    });
+    if (r.status !== 0) {
+      throw new Error(`zip exited with code ${r.status}`);
+    }
+    // zip 把产物写到了 parent/<pkgName>.zip，移动到期望位置
+    const generated = path.join(parent, `${pkgName}.zip`);
+    if (path.resolve(generated) !== path.resolve(zipFile)) {
+      fs.renameSync(generated, zipFile);
+    }
+  }
+}
+
+function buildDev() {
+  const pkgName = `${APPNAME}-${VERSION}-dev`;
+  const stg = path.join(PROJ, 'dist', 'staging', pkgName);
+  const out = path.join(PROJ, 'dist', `${pkgName}.zip`);
+
+  console.log(`\n[BUILD] dev  ==>  ${out}`);
+
+  rmrf(stg);
+  fs.mkdirSync(stg, { recursive: true });
+
+  // [1/3] 把项目源码（按黑名单过滤）拷到 staging
+  console.log('   [1/3] Copying source files (excluding .git / node_modules / data / dist / *.rar / *.zip / ...) ...');
+  prepareDevStaging(stg);
+
+  // 统计文件数（仅供日志）
+  let fileCount = 0;
+  (function count(dir) {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, ent.name);
+      if (ent.isDirectory()) count(p);
+      else if (ent.isFile()) fileCount++;
+    }
+  })(stg);
+  console.log(`         -> 包含 ${fileCount} 个文件`);
+
+  // [2/3] 写一个开发包专属的 README（dev pack 自述）
+  console.log('   [2/3] Generating 开发包说明.md ...');
+  const devReadme = `# ${APPNAME} v${VERSION} (Development Package / 源代码包)
+
+本压缩包是「学生管理系统」的**开发包**，面向二次开发者，包含完整项目源码。
+
+> 给终端用户的发布包请到项目 GitHub Releases 下载对应平台的 rar / fpk。
+
+## 内容
+
+- server.js                  HTTP 服务：REST API 路由 + 静态文件托管 + 登录认证
+- package.json               版本号与项目元信息（单一来源 version 字段）
+- build.js                   打包构建工具（node build.js [win|linux|macos|all|dev]）
+- release.js                 GitHub Release 创建 + 资产上传
+- pull.js / push.js          Git 拉取 / 推送逻辑（被 .bat 调用）
+- 运行.bat                   Windows 启动（自动打开浏览器）
+- 启动.sh                    Linux 启动（自动打开浏览器）
+- 启动.command               macOS 启动（Finder 双击即可）
+- 拉取.bat / 推送.bat        Git 拉取 / 推送（带 token 注入与脱敏）
+- 打包rar-{win,linux,mac}.bat/.sh   打 rar 发布包
+- 打包fpk.bat                打 fnOS .fpk 包（仅 Windows）
+- 打包全部.bat / .sh         一键打全部平台产物
+- 打包dev.bat / .sh          打开发包（zip）
+- 发布.bat                   一键发布新版本到 GitHub
+- Dockerfile                 生产镜像（Alpine + Node 20）
+- docker-compose.yml         一键部署，数据卷持久化
+- fnos/                      飞牛 NAS 应用 SDK（含 manifest / build-fpk 脚本 / fnpack.exe）
+- public/                    前端（HTML / JS / CSS）
+- docs/                      README 引用的截图
+- README.md                  项目说明（运行环境 / 启动方式 / 打包 / API 等）
+- CHANGELOG.md               版本变更日志
+
+## 已排除（开发者按需自取）
+
+dev 包按项目内**所有 .gitignore**（项目根 + **fnos/.gitignore**）的规则排除文件，并附加几个硬编码顶层黑名单（**.git/**、**node_modules/**、**data/**、**dist/**、**fpk/**、**.trae/**）作为"项目层语义"兜底。
+
+**主 .gitignore 排除的常见项：**
+
+| 排除项 | 原因 |
+|---|---|
+| **node_modules/** | 项目零依赖，无需 node_modules |
+| **data/** | 运行期数据，应单独备份；server.js 首次写入时自动创建 |
+| **dist/** / **fpk/** | 构建产物目录，不打包自身 |
+| **\*.rar** **\*.zip** **\*.fpk** **\*.tar** **\*.gz** **\*.tgz** **\*.7z** | 其他构建产物 |
+| **\*.log** **\*.tmp** **\*.bak** **\*.swp** **\*.swo** | 临时 / 备份文件 |
+| **test_\*.txt** | 调试时 cmd/node 输出重定向的临时日志 |
+| **.env** **.env.local** **.env.\*.local** | 含 GITHUB_TOKEN 等机密，绝不能入库 |
+| **.DS_Store** **Thumbs.db** **desktop.ini** | 平台杂项 |
+
+**fnos/.gitignore 额外排除**（在 dev 包里实际未包含）：
+
+| 排除项 | 原因 |
+|---|---|
+| **student-management-system/app/server/** | 由 build-fpk 脚本从项目根复制进来，不入库 |
+| **student-management-system/\*.fpk** | fpk 打包产物 |
+| **fnpack** / **fnpack.exe** | 本地下载的打包工具，文件很大 |
+
+**硬编码顶层黑名单**（与 .gitignore 无关，dev 包语义必需）：**.git**、**node_modules**、**data**、**dist**、**fpk**、**.trae**
+
+> 修改项目根 **.gitignore** 或 **fnos/.gitignore** 后，下一次 **node build.js dev** 自动按新规则过滤，**无需改 build.js**。
+
+## 快速开始（作为开发者）
+
+1. 解压后进入项目目录
+
+       cd Student-Management-System-${VERSION}-dev
+
+2. 直接运行（项目零依赖，无需 npm install）
+
+       node server.js
+
+3. 浏览器访问 <http://localhost:3000>
+   默认账号 admin / admin123
+
+## 打包构建
+
+- 单独打某个平台：
+
+      node build.js win
+      node build.js linux
+      node build.js macos
+
+- 一次打全部平台：
+
+      node build.js all
+
+- 打开发包（生成 -dev.zip）：
+
+      node build.js dev
+
+## 发布新版本
+
+1. 修改 package.json 的 version 字段
+2. 编辑 CHANGELOG.md 加新版本条目
+3. git commit
+4. 双击 发布.bat（Windows），或在 Linux/macOS 上：
+
+       ./打包全部.sh && node release.js
+
+发布前需在项目根 \`.env\` 配好：
+
+    GITHUB_REPO_URL=https://github.com/<owner>/<repo>.git
+    GITHUB_TOKEN=ghp_xxx
+
+## 许可与作者
+
+详见 [README.md](./README.md) 与 [CHANGELOG.md](./CHANGELOG.md)。
+`;
+  fs.writeFileSync(path.join(stg, '开发包说明.md'), devReadme, 'utf8');
+
+  // [3/3] 打成 zip
+  console.log('   [3/3] Creating ZIP archive ...');
+  zipStaging(stg, out);
+
+  const sz = fs.statSync(out).size;
+  const szKB = (sz / 1024).toFixed(1);
+  console.log(`   [OK]   ${out}  (${szKB} KB, ${fileCount} 个文件)`);
+}
 function main() {
   console.log(
-    `=== Build RAR package(s): ${APPNAME} v${VERSION}  [target=${target}] ===`
+    `=== Build package(s): ${APPNAME} v${VERSION}  [target=${target}] ===`
   );
 
-  // 定位 rar 工具
+  // 准备输出目录
+  const distDir = path.join(PROJ, 'dist');
+  fs.mkdirSync(distDir, { recursive: true });
+
+  // ---- dev target: 走 buildDev，不需要 rar 工具 ----
+  if (target === 'dev') {
+    // 清理旧 dev 包
+    const old = path.join(distDir, `${APPNAME}-${VERSION}-dev.zip`);
+    if (fs.existsSync(old)) fs.unlinkSync(old);
+
+    try {
+      buildDev();
+    } catch (e) {
+      console.error(`\n[ERROR] Build FAILED: ${e.message}`);
+      rmrf(path.join(distDir, 'staging'));
+      process.exit(1);
+    }
+    rmrf(path.join(distDir, 'staging'));
+    console.log(`\n=== Done ===`);
+    console.log(`Output: ${path.join(distDir, `${APPNAME}-${VERSION}-dev.zip`)}`);
+    console.log(``);
+    console.log(`Usage:`);
+    console.log(`  给二次开发者：解压后 cd 进入目录，node server.js 直接运行`);
+    return;
+  }
+
+  // ---- rar target: 需要定位 rar 工具 ----
   let rarBin;
   try {
     rarBin = locateRar();
@@ -348,10 +791,6 @@ function main() {
     process.exit(1);
   }
   console.log(`[INFO] Using rar: ${rarBin}`);
-
-  // 准备输出目录
-  const distDir = path.join(PROJ, 'dist');
-  fs.mkdirSync(distDir, { recursive: true });
 
   // 清理旧产物 —— 只清当前 target 对应的旧包，避免打一个平台时把另一个平台
   // 之前打好的包误删掉 (target=all 时才三个都清)。

@@ -74,12 +74,36 @@ docker compose up -d
 | 打 rar 包（macOS 产物） | `打包rar-mac.bat` | `./打包rar-mac.sh`（macOS 推荐 `brew install --cask rar`） |
 | 打 fnOS `.fpk` 包 | `打包fpk.bat` | ❌ **不支持** — 依赖 `fnos/fnpack.exe`（Windows x86 二进制） |
 | **一键打全部平台产物** | `打包全部.bat` | `./打包全部.sh`（自动跳过 fpk 步骤并提示） |
+| 打开发包（zip，面向二次开发者） | `打包dev.bat` | `./打包dev.sh`（不需 rar；Windows 用 PowerShell Compress-Archive，Linux/macOS 用 `zip`） |
 | 拉取 / 推送 | `拉取.bat` / `推送.bat` | 直接 `git pull` / `git push` |
 | **发布新版本到 GitHub** | `发布.bat` | 手工跑 `./打包全部.sh && node release.js` |
 
 **`发布.bat`** 会自动完成：构建全部平台产物 → `git tag v<version>` 并推送 → 用 GitHub API 创建 Release → 上传 `dist/` 下的 rar / fpk 资产 → 显示结果摘要倒计时关闭。详见 `release.js`（顶部 JSDoc 注释说明完整流程与退出码）。
 
 发布前置：Node.js 14+、`.env` 配好 `GITHUB_REPO_URL` 与 `GITHUB_TOKEN`（同 `拉取.bat` / `推送.bat`）、`package.json` 的 `version` 已手工调整并 commit。
+
+### 开发者打包（dev target）
+
+`dev target` 产出一个 zip 格式的**完整源码包**，面向二次开发者（不含 `.git/`、`node_modules/`、`data/`、`dist/`、`.env` 等敏感文件，不需要 WinRAR / rar 工具）：
+
+```bash
+node build.js dev          # 生成 dist/Student-Management-System-<ver>-dev.zip
+# Windows: 双击 打包dev.bat
+# Linux/macOS: ./打包dev.sh
+```
+
+产物内容：
+
+- 完整源码（`public/`、`fnos/` SDK、`docs/` 截图、所有平台启动脚本、build/release/pull/push 脚本、Dockerfile / docker-compose.yml、`.gitignore`、README.md、CHANGELOG.md）
+- 包内附 `开发包说明.md`（开发者快速上手 / 二次开发指南）
+- 自动排除：`.git/`、`node_modules/`、`data/`、`dist/`、`*.rar` / `*.zip` / `*.fpk`、`.env`、`*.log`、`*.tmp`、`.vscode/`、`.idea/` 等
+- dev 包**不**随发布流程上传到 GitHub Release —— 它只给二次开发者分发，发布时只上传 win/linux/macos rar + fpk
+
+**前置**：
+
+- Windows：Node.js 14+（PowerShell `Compress-Archive` 系统自带，无需任何 zip 工具）
+- Linux：Node.js 14+ + `zip`（`sudo apt install zip` 或自带）
+- macOS：Node.js 14+（`zip` 系统自带）
 
 ## 项目结构
 
@@ -96,9 +120,10 @@ docker compose up -d
 ├── 打包rar-linux.bat/.sh  # 打 Linux rar 包
 ├── 打包rar-mac.bat/.sh    # 打 macOS rar 包（含 启动.command）
 ├── 打包fpk.bat            # 打 fnOS .fpk 包（仅 Windows）
-├── 打包全部.bat/.sh       # 一键打全部平台产物
+├── 打包全部.bat/.sh       # 一键打全部平台产物（rar + fpk）
+├── 打包dev.bat/.sh        # 打开发包（zip，面向二次开发者）
 ├── 发布.bat               # 一键发布新版本到 GitHub（打包 + tag + Release）
-├── build.js               # 打包构建逻辑（被 *.bat / *.sh 调用）
+├── build.js               # 打包构建逻辑（被 *.bat / *.sh 调用，支持 win/linux/macos/all/dev）
 ├── release.js             # GitHub Release 创建 + 资产上传
 ├── pull.js / push.js      # Git 拉取 / 推送逻辑
 ├── data/                  # JSON 数据存储（缺省文件在首次写入时自动创建）
