@@ -48,10 +48,11 @@ const BACKUP_DIR = path.join(__dirname, 'data', 'backups');                     
 // 会话：Cookie 内 HMAC 签名（无服务端 session），Path=/ 以便所有页面共享
 const AUTH_COOKIE = 'icbs_auth';        // 后台工作台（管理员 / 查看）
 const STUDENT_COOKIE = 'icbs_stu_auth'; // 学生自助端（与学生登录完全隔离，可同浏览器共存）
+const TEACHER_COOKIE = 'icbs_tea_auth'; // 教师自助端（与后台 / 学生登录完全隔离，可同浏览器共存）
 const SESSION_SECONDS = 24 * 3600;      // 默认会话 24 小时
 const REMEMBER_SECONDS = 7 * 24 * 3600; // 「记住我」7 天
-const ROLES = { ADMIN: 'admin', VIEWER: 'viewer', STUDENT: 'student' };
-const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学生' };
+const ROLES = { ADMIN: 'admin', VIEWER: 'viewer', STUDENT: 'student', TEACHER: 'teacher' };
+const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学生', teacher: '教师' };
 
 // 已注销的会话 token（内存级；保证“退出登录”后旧 Cookie 立即失效）
 const revokedTokens = new Set();
@@ -550,9 +551,23 @@ function normalizeTeacher(raw) {
     title: String(o.title || '').trim(),       // 职称/职务
     phone: String(o.phone || '').trim(),
     joinYear: String(o.joinYear || '').trim(),
+    idCard: String(o.idCard || '').trim().toUpperCase().replace(/[^0-9X]/g, '').slice(0, 18), // 身份证号（教师端初始密码 = 后 6 位）
     classId: o.classId || '',                  // 班主任所在班级 id
     remark: String(o.remark || '').trim()
   };
+}
+// 身份证号脱敏展示（保留前 4 位 + 后 4 位）
+function maskIdCard(no) {
+  const s = String(no || '').trim().toUpperCase();
+  if (!s) return '';
+  if (s.length <= 4) return '****';
+  if (s.length <= 8) return s.slice(0, 2) + '****' + s.slice(-2);
+  return s.slice(0, 4) + '**********' + s.slice(-4);
+}
+// 教师初始密码 = 身份证号后 6 位（未登记 / 不足 6 位返回空串）
+function teacherInitPassword(tea) {
+  const id = String((tea && tea.idCard) || '').trim();
+  return id.length >= 6 ? id.slice(-6) : '';
 }
 // 全部学生（未分班学生 + 各班名单），供跨模块引用
 function allStudentsFlat() {
@@ -580,6 +595,12 @@ function findStudentByNo(no) {
 // 学生在哪个宿舍房间（没有则 null）
 function findDormOfStudent(sid) {
   return readDorms().find(r => (r.students || []).some(x => String(x) === String(sid))) || null;
+}
+// 从教师档案中按工号找教师
+function findTeacherByNo(no) {
+  const key = String(no || '').trim();
+  if (!key) return null;
+  return readTeachers().find(t => String(t.teacherNo || '').trim() === key) || null;
 }
 
 // ===== 学生自助端辅助 =====
@@ -667,6 +688,43 @@ function buildStudentPortalHome(stu) {
     appLast: last ? Object.assign({ status: last.status, createdAt: last.createdAt }, roomLabel(last.roomId)) : null,
     applyEnabled: !dorm && !pending,
     rooms: studentApplyRooms(stu)
+  };
+}
+// 教师端首页聚合视图：档案 + 班主任班级 + 花名册
+function buildTeacherPortalHome(t) {
+  const classes = readClasses();
+  const cls = (t.classId && classes.find(c => c.id === t.classId)) || null;
+  const roster = cls ? (cls.students || []) : [];
+  // 班主任班级的宿舍分布概览（供教师快速了解本班住宿情况）
+  const dorms = readDorms();
+  const dormOf = {};
+  dorms.forEach(r => (r.students || []).forEach(sid => { dormOf[sid] = r.building + ' ' + r.roomNo; }));
+  return {
+    tid: t.id,
+    teacherNo: t.teacherNo || '',
+    name: t.name || '',
+    gender: t.gender || '',
+    subject: t.subject || '',
+    title: t.title || '',
+    phone: t.phone || '',
+    joinYear: t.joinYear || '',
+    idCardMasked: maskIdCard(t.idCard),   // 身份证号脱敏（前 4 + 后 4）
+    isHead: !!cls,
+    classId: cls ? cls.id : null,
+    className: cls ? cls.name : null,
+    grade: cls ? (cls.grade || '') : '',
+    headTeacher: cls ? (cls.headTeacher || '') : '',
+    rosterCount: roster.length,
+    maleCount: roster.filter(s => s.gender === '男').length,
+    femaleCount: roster.filter(s => s.gender === '女').length,
+    roster: roster.map(s => ({
+      id: s.id,
+      studentNo: s.studentId || '',
+      name: s.name || '',
+      gender: s.gender || '',
+      specialty: s.specialty || '',
+      dorm: dormOf[s.id] || ''
+    }))
   };
 }
 // 把学生从全部宿舍房间中移除（退宿）
@@ -848,6 +906,29 @@ function authStudent(req) {
     const user = findUser(data.u);
     if (!user || user.role !== ROLES.STUDENT) return null;
     return { username: user.u, role: user.role, sid: user.sid || '', name: user.name || '', must: !!user.must };
+  } catch (e) { return null; }
+}
+function teacherCookieHeader(token, maxAge) {
+  return TEACHER_COOKIE + '=' + token + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge;
+}
+function clearTeacherCookieHeader() {
+  return TEACHER_COOKIE + '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+}
+// 校验教师端 Cookie 会话；仅接受 users.json 中 role=teacher 的教师账号
+function authTeacher(req) {
+  try {
+    const c = parseCookies(req)[TEACHER_COOKIE];
+    if (!c || revokedTokens.has(c)) return null;
+    const dot = c.lastIndexOf('.');
+    if (dot < 0) return null;
+    const payload = c.slice(0, dot);
+    const sig = c.slice(dot + 1);
+    if (!safeEq(sig, sign(payload))) return null;
+    const data = JSON.parse(unb64url(payload));
+    if (!data.u || data.r !== ROLES.TEACHER || typeof data.exp !== 'number' || data.exp < Date.now()) return null;
+    const user = findUser(data.u);
+    if (!user || user.role !== ROLES.TEACHER) return null;
+    return { username: user.u, role: user.role, tid: user.tid || '', name: user.name || '', must: !!user.must };
   } catch (e) { return null; }
 }
 function redirect(res, loc) {
@@ -1173,7 +1254,9 @@ const AUDIT_MODULES = [
   ['/api/server', '服务器管理'],
   ['/api/student/dorm', '学生端 · 住宿申请'],
   ['/api/student/leaves', '学生端 · 请假'],
-  ['/api/student', '学生中心']
+  ['/api/student', '学生中心'],
+  ['/api/teacher/profile', '教师端 · 完善个人信息'],
+  ['/api/teacher', '教师中心']
 ].sort((a, b) => b[0].length - a[0].length);
 const AUDIT_METHOD_LABEL = { POST: '新增', PUT: '更新', PATCH: '更新', DELETE: '删除' };
 function auditModuleOf(pathname) {
@@ -1261,7 +1344,9 @@ async function handle(req, res) {
     || pathname === '/api/users' || pathname.startsWith('/api/users/');
   // 学生自助端接口（独立会话，自行鉴权），不走后台权限闸门
   const isStudentApi = pathname.startsWith('/api/student/');
-  if (pathname.startsWith('/api/') && !isAuthEndpoint && !isStudentApi && !publicRead) {
+  // 教师自助端接口（独立会话，自行鉴权），不走后台权限闸门（注意与后台 /api/teachers 区分）
+  const isTeacherApi = pathname.startsWith('/api/teacher/');
+  if (pathname.startsWith('/api/') && !isAuthEndpoint && !isStudentApi && !isTeacherApi && !publicRead) {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
     if ((pathname === '/api/backup'
@@ -1301,6 +1386,23 @@ async function handle(req, res) {
     }
   }
 
+  // 审计：教师端写操作（排除登录 / 退出 / 改密）
+  if (isTeacherApi && req.method !== 'GET'
+    && pathname !== '/api/teacher/login' && pathname !== '/api/teacher/logout'
+    && pathname !== '/api/teacher/password') {
+    const ta = authTeacher(req);
+    if (ta) {
+      registerAudit(res, {
+        actor: ta.name + '（教师 ' + ta.username + '）',
+        actorRole: ROLES.TEACHER,
+        method: req.method,
+        module: auditModuleOf(pathname),
+        path: pathname,
+        ip: clientIp(req)
+      });
+    }
+  }
+
   // ===== 登录认证 API =====
   // 账号密码登录（remember=true 时会话延长至 7 天）
   if (pathname === '/api/login' && req.method === 'POST') {
@@ -1317,6 +1419,9 @@ async function handle(req, res) {
     }
     if (user.role === ROLES.STUDENT) {
       return sendJson(res, 403, { code: 1, msg: '该账号为学生账号，请前往「学生登录入口」登录' });
+    }
+    if (user.role === ROLES.TEACHER) {
+      return sendJson(res, 403, { code: 1, msg: '该账号为教师账号，请前往「教师登录入口」登录' });
     }
     loginMarkSuccess(req, username);
     const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
@@ -1428,12 +1533,24 @@ async function handle(req, res) {
       if (body.role === ROLES.VIEWER && cur.role === ROLES.ADMIN && isLastAdmin) {
         return sendJson(res, 400, { code: 1, msg: '系统需至少保留一个管理员账号' });
       }
+      // 学生 / 教师自助账号的角色不可在此修改（自助端会话与角色强绑定）
+      if ((cur.role === ROLES.STUDENT || cur.role === ROLES.TEACHER)
+        && (body.role === ROLES.VIEWER || body.role === ROLES.ADMIN)) {
+        return sendJson(res, 400, { code: 1, msg: '学生 / 教师自助账号的角色不可修改' });
+      }
       if (body.role === ROLES.VIEWER || body.role === ROLES.ADMIN) cur.role = body.role;
       if (typeof body.nickname === 'string') cur.nickname = body.nickname.trim().slice(0, 20);
       if (body.password) {
         if (!validPassword(body.password)) return sendJson(res, 400, { code: 1, msg: '密码需为 6～64 位字符' });
         cur.salt = crypto.randomBytes(16).toString('hex');
         cur.hash = hashPassword(body.password, cur.salt);
+        // 学生 / 教师自助账号：重设为「初始默认密码」时恢复首次登录的强制改密状态，否则解除
+        if (cur.role === ROLES.STUDENT || cur.role === ROLES.TEACHER) {
+          let initPwd = '';
+          if (cur.role === ROLES.STUDENT) initPwd = cur.u; // 学生初始密码 = 学号
+          else initPwd = teacherInitPassword(findTeacherByNo(cur.u)); // 教师初始密码 = 身份证后 6 位
+          cur.must = !!initPwd && body.password === initPwd;
+        }
       }
       cur.updatedAt = new Date().toISOString();
       writeUsers(list);
@@ -1645,6 +1762,165 @@ async function handle(req, res) {
     list.splice(idx, 1);
     writeDormApps(list);
     return sendJson(res, 200, { code: 0, msg: '申请已撤销' });
+  }
+
+  // ===== 教师自助端 API（教师入口，账号 = 工号，初始密码 = 身份证号后 6 位）=====
+
+  // 教师登录：账号 = 工号；首次登录密码 = 身份证号后 6 位（无账号时自动建档），登录后强制修改密码
+  if (pathname === '/api/teacher/login' && req.method === 'POST') {
+    const body = await readBody(req);
+    const no = String(body.username || '').trim();
+    const pw = String(body.password || '');
+    if (!no) return sendJson(res, 400, { code: 1, msg: '请输入工号' });
+    const tea = findTeacherByNo(no);
+    if (!tea) return sendJson(res, 401, { code: 1, msg: '未查询到该工号的教师档案，请与学校核对' });
+    const initPwd = teacherInitPassword(tea);
+    if (!initPwd) {
+      return sendJson(res, 403, { code: 1, msg: '教师档案未登记身份证号，请联系管理员在「教师管理」中补录后再登录' });
+    }
+    const locked = loginLockLeft(req, no);
+    if (locked) return sendJson(res, 429, { code: 1, msg: lockMsg(locked) });
+    const exist = findUser(no);
+    if (exist && exist.role !== ROLES.TEACHER) {
+      return sendJson(res, 403, { code: 1, msg: '该工号与后台账号冲突，请联系管理员处理' });
+    }
+    const first = !exist;
+    const ok = first ? (pw === initPwd) : verifyPassword(pw, exist.salt, exist.hash);
+    if (!ok) {
+      const left = loginMarkFail(req, no);
+      return sendJson(res, 401, {
+        code: 1,
+        msg: left ? lockMsg(left) : (first ? '首次登录请使用本人身份证号后 6 位作为初始密码' : '工号或密码不正确，忘记密码请联系管理员重置')
+      });
+    }
+    loginMarkSuccess(req, no);
+    let user = exist;
+    if (first) {
+      const salt = crypto.randomBytes(16).toString('hex');
+      const now = new Date().toISOString();
+      user = {
+        u: no, salt,
+        hash: hashPassword(initPwd, salt),
+        role: ROLES.TEACHER,
+        tid: tea.id,
+        name: tea.name,
+        nickname: tea.name,
+        must: true,               // 首次登录，需强制修改密码
+        createdAt: now,
+        updatedAt: now
+      };
+      const list = readUsers();
+      list.push(user);
+      writeUsers(list);
+    } else if (user.tid !== tea.id || user.name !== tea.name) {
+      // 后台维护教师档案后，同步最新姓名/档案 id
+      user.tid = tea.id;
+      user.name = tea.name;
+      user.nickname = tea.name || user.nickname;
+      user.updatedAt = new Date().toISOString();
+      writeUsers(readUsers().map(x => (x.u === user.u ? user : x)));
+    }
+    const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
+    const token = makeToken(user.u, user.role, ttl);
+    res.setHeader('Set-Cookie', teacherCookieHeader(token, ttl));
+    return sendJson(res, 200, {
+      code: 0, msg: '登录成功',
+      data: {
+        username: user.u,
+        name: tea.name,
+        role: user.role,
+        label: ROLE_LABEL[user.role] || '教师',
+        must: !!user.must
+      }
+    });
+  }
+
+  // 教师端退出
+  if (pathname === '/api/teacher/logout') {
+    const t = parseCookies(req)[TEACHER_COOKIE];
+    if (t) revokedTokens.add(t);
+    res.setHeader('Set-Cookie', clearTeacherCookieHeader());
+    if (req.method === 'GET') return redirect(res, '/tlogin.html');
+    return sendJson(res, 200, { code: 0, msg: '已退出登录' });
+  }
+
+  // 教师端会话信息（强制改密状态 + 个人档案聚合）
+  if (pathname === '/api/teacher/me' && req.method === 'GET') {
+    const t = authTeacher(req);
+    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    const user = findUser(t.username);
+    const teachers = readTeachers();
+    const tea = teachers.find(x => x.id === (user && user.tid)) || teachers.find(x => String(x.teacherNo || '').trim() === t.username) || null;
+    if (!user || !tea) {
+      return sendJson(res, 200, {
+        code: 0,
+        data: {
+          username: t.username,
+          name: (user && user.name) || t.username,
+          role: 'teacher', label: '教师',
+          must: !!(user && user.must),
+          gone: true,
+          profile: null
+        }
+      });
+    }
+    return sendJson(res, 200, {
+      code: 0,
+      data: {
+        username: t.username,
+        name: tea.name || t.username,
+        role: 'teacher', label: '教师',
+        must: !!user.must,
+        profile: buildTeacherPortalHome(tea)
+      }
+    });
+  }
+
+  // 教师端完善个人身份信息：性别 / 任教学科 / 职称 / 联系电话 / 入职年份
+  // （工号、姓名、身份证号、班主任班级等关键身份由管理员在后台维护，教师不可自行修改）
+  if (pathname === '/api/teacher/profile' && req.method === 'PUT') {
+    const t = authTeacher(req);
+    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    const body = await readBody(req);
+    const user = findUser(t.username);
+    const teachers = readTeachers();
+    let idx = user && user.tid ? teachers.findIndex(x => x.id === user.tid) : -1;
+    if (idx === -1) idx = teachers.findIndex(x => String(x.teacherNo || '').trim() === t.username);
+    if (!user || idx === -1) return sendJson(res, 404, { code: 1, msg: '教师档案不存在或已被删除，请联系管理员' });
+    const cur = teachers[idx];
+    if (body.gender !== undefined) cur.gender = body.gender === '女' ? '女' : '男';
+    if (body.subject !== undefined) cur.subject = String(body.subject).trim().slice(0, 50);
+    if (body.title !== undefined) cur.title = String(body.title).trim().slice(0, 30);
+    if (body.phone !== undefined) cur.phone = String(body.phone).trim().slice(0, 30);
+    if (body.joinYear !== undefined) cur.joinYear = String(body.joinYear).trim().slice(0, 10);
+    writeTeachers(teachers);
+    return sendJson(res, 200, { code: 0, msg: '个人信息已更新', data: buildTeacherPortalHome(cur) });
+  }
+
+  // 教师端修改密码：普通修改需验证旧密码；首次登录强制改密(must=true)直接设置新密码，无需旧密码
+  if (pathname === '/api/teacher/password' && req.method === 'PUT') {
+    const t = authTeacher(req);
+    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    const body = await readBody(req);
+    const user = findUser(t.username);
+    if (!user) return sendJson(res, 401, { code: 1, msg: '账号不存在，请重新登录' });
+    const forced = !!user.must; // 处于强制改密状态时，登录时已用初始密码验证过身份
+    if (!forced && !verifyPassword(body.oldPassword, user.salt, user.hash)) {
+      return sendJson(res, 400, { code: 1, msg: '当前密码不正确' });
+    }
+    const np = String(body.newPassword || '');
+    if (!validPassword(np)) return sendJson(res, 400, { code: 1, msg: '新密码需为 6～64 位字符' });
+    if (np === user.u) return sendJson(res, 400, { code: 1, msg: '出于安全考虑，密码不能与工号相同，请重新设置' });
+    const initPwd = teacherInitPassword(findTeacherByNo(user.u));
+    if (initPwd && np === initPwd) {
+      return sendJson(res, 400, { code: 1, msg: '出于安全考虑，密码不能与身份证号后 6 位相同，请重新设置' });
+    }
+    user.salt = crypto.randomBytes(16).toString('hex');
+    user.hash = hashPassword(np, user.salt);
+    user.must = false;
+    user.updatedAt = new Date().toISOString();
+    writeUsers(readUsers().map(x => (x.u === user.u ? user : x)));
+    return sendJson(res, 200, { code: 0, msg: '密码修改成功，请妥善保管新密码' });
   }
 
   // ===== API 路由 =====
@@ -3681,12 +3957,19 @@ async function handle(req, res) {
   const ADMIN_ONLY_PAGES = ['/settings.html'];
   // 学生自助端页面（独立会话，走 icbs_stu_auth）
   const STUDENT_PAGES = ['/student.html'];
+  // 教师自助端页面（独立会话，走 icbs_tea_auth）
+  const TEACHER_PAGES = ['/teacher.html'];
   const asPage = pathname === '/' ? '/index.html' : pathname;
   if (pathname === '/' || (asPage.endsWith('.html'))) {
     if (STUDENT_PAGES.indexOf(asPage) !== -1) {
       if (!authStudent(req)) {
         const next = encodeURIComponent(pathname + url.search);
         return redirect(res, '/slogin.html?next=' + next);
+      }
+    } else if (TEACHER_PAGES.indexOf(asPage) !== -1) {
+      if (!authTeacher(req)) {
+        const next = encodeURIComponent(pathname + url.search);
+        return redirect(res, '/tlogin.html?next=' + next);
       }
     } else if (PROTECTED_PAGES.indexOf(asPage) !== -1) {
       const u = authUser(req);
@@ -3705,6 +3988,9 @@ async function handle(req, res) {
     }
     if (pathname === '/slogin.html' && authStudent(req)) {
       return redirect(res, '/student.html');
+    }
+    if (pathname === '/tlogin.html' && authTeacher(req)) {
+      return redirect(res, '/teacher.html');
     }
   }
 

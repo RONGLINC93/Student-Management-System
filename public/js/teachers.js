@@ -19,6 +19,15 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 
+// 身份证号脱敏（前 4 + 后 4），与 server 端 maskIdCard 保持一致
+function maskIdCard(no) {
+  const s = String(no || '').trim().toUpperCase();
+  if (!s) return '';
+  if (s.length <= 4) return '****';
+  if (s.length <= 8) return s.slice(0, 2) + '****' + s.slice(-2);
+  return s.slice(0, 4) + '**********' + s.slice(-4);
+}
+
 function splitSubjects(subject) {
   if (!subject) return [];
   return String(subject).split(/[,，、;；\/\s]+/).map(s => s.trim()).filter(Boolean);
@@ -52,6 +61,7 @@ function renderTable() {
     list = list.filter(t =>
       (t.name || '').toLowerCase().includes(kw) ||
       (t.teacherNo || '').toLowerCase().includes(kw) ||
+      (t.idCard || '').toLowerCase().includes(kw) ||
       (t.phone || '').toLowerCase().includes(kw) ||
       (t.subject || '').toLowerCase().includes(kw) ||
       (t.className || '').toLowerCase().includes(kw));
@@ -83,7 +93,7 @@ function renderTable() {
           <span class="teacher-avatar ${gen}">${escapeHtml(first)}</span>
           <div class="teacher-meta">
             <span class="teacher-name">${escapeHtml(t.name)}</span>
-            <span class="teacher-sub">${t.teacherNo ? '工号 ' + escapeHtml(t.teacherNo) : '未编工号'}</span>
+            <span class="teacher-sub">${t.teacherNo ? '工号 ' + escapeHtml(t.teacherNo) : '未编工号'}${t.idCard ? ' · ' + escapeHtml(maskIdCard(t.idCard)) : ' · 未登记身份证'}</span>
           </div>
         </div>
       </td>
@@ -119,6 +129,7 @@ function openModal(t) {
   $('#modalTitle').textContent = t ? '编辑教师' : '添加教师';
   $('#fId').value = t ? t.id : '';
   $('#fTeacherNo').value = t ? t.teacherNo : '';
+  $('#fIdCard').value = t ? (t.idCard || '') : '';
   $('#fName').value = t ? t.name : '';
   $('#fGender').value = t ? t.gender : '男';
   $('#fSubject').value = t ? t.subject : '';
@@ -136,6 +147,7 @@ async function saveTeacher(e) {
   const id = $('#fId').value;
   const data = {
     teacherNo: $('#fTeacherNo').value.trim(),
+    idCard: $('#fIdCard').value.trim(),
     name: $('#fName').value.trim(),
     gender: $('#fGender').value,
     subject: $('#fSubject').value.trim(),
