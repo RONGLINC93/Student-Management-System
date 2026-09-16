@@ -3,10 +3,9 @@
 #  Student Management System - 一键打包全部平台 (Linux / macOS)
 #
 #  依次执行:
-#    1) 打包rar.sh   生成 Linux + Windows 的 rar 包
-#                    (Linux/macOS 上只会真正产出 linux rar;
-#                     win rar 需要在 Windows 上跑 打包全部.bat 才能产出)
-#    2) fpk 步骤在 Linux/macOS 上跳过并提示
+#    1) 打包rar-linux.sh  生成 Linux 版 rar   (含 启动.sh)
+#    2) 打包rar-win.sh    生成 Windows 版 rar (含 运行.bat)
+#    3) fpk 步骤在 Linux/macOS 上跳过并提示
 #       (fnpack.exe 是 Windows x86 二进制, fpk 只能在 Windows 上构建)
 #
 #  用法: ./打包全部.sh
@@ -32,38 +31,42 @@ set -e
 countdown() {
     local n=${1:-5}
     echo
-    echo "Closing in $n seconds... (Ctrl+C to cancel)"
+    echo "将在 $n 秒后关闭... (Ctrl+C 可取消)"
     for ((i = n; i >= 1; i--)); do
         echo "  $i..."
         sleep 1
     done
 }
 
-# 任意命令失败时, 统一输出 [ERROR] 提示并倒计时关闭
-trap 'echo; echo "[ERROR] Build failed. See messages above."; countdown 5; exit 1' ERR
+# 任意命令失败时, 统一输出 [错误] 提示并倒计时关闭
+trap 'echo; echo "[错误] 打包失败，详见上方信息。"; countdown 5; exit 1' ERR
 
 # 切换到脚本所在目录
 cd "$(dirname "$0")"
 
 echo "=== [1/2] RAR packages (Linux / Windows) ==="
 echo
-# 设置 PACKAGE_ALL 让 打包rar.sh 不再倒计时 / 不再尝试打开文件管理器
-PACKAGE_ALL=1 ./打包rar.sh
+# 设置 PACKAGE_ALL 让子脚本不再倒计时 / 不再尝试打开文件管理器
+echo "--- 打包 Linux 版 ---"
+PACKAGE_ALL=1 ./打包rar-linux.sh
+echo
+echo "--- 打包 Windows 版 ---"
+PACKAGE_ALL=1 ./打包rar-win.sh
 echo
 
 echo "=== [2/2] fnOS fpk package ==="
 echo
 case "$(uname -s)" in
     Linux*|Darwin*)
-        echo "    [SKIP] fpk 步骤在 $(uname -s) 上跳过"
+        echo "    [跳过] fpk 步骤在 $(uname -s) 上跳过"
         echo "           原因: fnpack.exe 是 Windows x86 二进制"
         echo "           如需 fpk 包, 请在 Windows 上运行 打包全部.bat"
         ;;
     *)
-        echo "    [SKIP] 当前平台不支持 fpk 构建"
+        echo "    [跳过] 当前平台不支持 fpk 构建"
         ;;
 esac
 
 echo
-echo "=== All packages built. 输出目录: dist/ ==="
+echo "=== 全部打包完成. 输出目录: dist/ ==="
 countdown 5

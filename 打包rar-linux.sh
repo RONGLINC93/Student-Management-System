@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 # ===========================================================================
-#  Student Management System - Linux / macOS 调用器
+#  Student Management System - Linux 版 RAR 打包 (Linux / macOS 调用)
 #
 #  真正的打包逻辑在 build.js（Node.js 跨平台脚本）。
-#  这个 .sh 只是为了方便 Linux / macOS 用户使用。
+#  这个 .sh 只是为了方便 Linux / macOS 用户单独打 Linux 版。
 #
-#  用法（与 build.js 一致）：
-#     ./打包rar.sh                同时打两个平台
-#     ./打包rar.sh win            只打 Windows 版（含 运行.bat）
-#     ./打包rar.sh linux          只打 Linux 版（含 启动.sh）
-#     ./打包rar.sh all            同不传参数
+#  同时打多个平台请用 ./打包全部.sh。
+#  Windows 版请用 ./打包rar-win.sh。
 #
-#  前置：Node.js 14+ 已安装；rar 命令可用（apt install rar / brew install --cask rar）
+#  前置: Node.js 14+ 已安装; rar 命令可用
 # ===========================================================================
 
 # 切到 UTF-8 locale, 避免中文输出乱码 (若系统已是 UTF-8 则不动)
@@ -34,17 +31,17 @@ set -e
 countdown() {
     local n=${1:-5}
     echo
-    echo "Closing in $n seconds... (Ctrl+C to cancel)"
+    echo "将在 $n 秒后关闭... (Ctrl+C 可取消)"
     for ((i = n; i >= 1; i--)); do
         echo "  $i..."
         sleep 1
     done
 }
 
-# 错误统一处理: 输出 [ERROR] 提示, 嵌套调用时不倒计时 (外层统一负责)
+# 错误统一处理: 输出 [错误] 提示, 嵌套调用时不倒计时 (外层统一负责)
 err_handler() {
     echo
-    echo "[ERROR] Build failed. See messages above."
+    echo "[错误] 打包失败，详见上方信息。"
     if [ -z "${PACKAGE_ALL:-}" ]; then
         countdown 5
     fi
@@ -57,14 +54,14 @@ trap 'err_handler' ERR
 # 切换到脚本所在目录
 cd "$(dirname "$0")"
 
-# 透传所有参数给 build.js
-node ./build.js "$@"
+# 固定只打 Linux 版
+node ./build.js linux
 
 # 成功提示
 # PACKAGE_ALL 由 打包全部.sh 在嵌套调用前设置, 此时不再倒计时 / 不再打开文件管理器
 if [ -z "${PACKAGE_ALL:-}" ]; then
     echo
-    echo "=== Done. 输出目录: $(pwd)/dist ==="
+    echo "=== 完成. 输出目录: $(pwd)/dist ==="
     # 在桌面环境下尝试弹出文件管理器 (非阻塞, 失败不影响流程)
     if command -v xdg-open >/dev/null 2>&1; then
         xdg-open "$(pwd)/dist" 2>/dev/null &
