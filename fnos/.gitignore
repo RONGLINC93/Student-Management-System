@@ -3,7 +3,3 @@ student-management-system/app/server/
 
 # 打包产物
 student-management-system/*.fpk
-
-# 本地下载的打包工具
-fnpack
-fnpack.exe

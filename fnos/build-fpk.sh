@@ -39,15 +39,24 @@ chmod 0755 "${PKG}"/cmd/* 2>/dev/null || true
 
 echo "[4/5] 查找 fnpack ..."
 FNPACK="${FNPACK:-}"
+# 优先级: $FNPACK 环境变量 > ./fnpack (Linux/macOS/WSL) > ./fnpack.exe (Windows / Git Bash)
+#         > PATH 里的 fnpack > PATH 里的 fnpack.exe
 if [ -z "${FNPACK}" ] && [ -x "${HERE}/fnpack" ]; then
   FNPACK="${HERE}/fnpack"
+fi
+if [ -z "${FNPACK}" ] && [ -x "${HERE}/fnpack.exe" ]; then
+  FNPACK="${HERE}/fnpack.exe"
 fi
 if [ -z "${FNPACK}" ]; then
   FNPACK="$(command -v fnpack || true)"
 fi
 if [ -z "${FNPACK}" ]; then
+  FNPACK="$(command -v fnpack.exe || true)"
+fi
+if [ -z "${FNPACK}" ]; then
   echo "未找到 fnpack。请从 https://developer.fnnas.com/docs/cli/fnpack/ 下载对应平台的版本，"
-  echo "放入 PATH，或命名为 fnpack 放在 ${HERE} 下。"
+  echo "放入 PATH，或命名为 fnpack / fnpack.exe 放在 ${HERE} 下。"
+  echo "(dev 源码包内置 Windows 版 fnpack.exe，Linux/macOS 用户需自行下载对应版本)"
   exit 1
 fi
 echo "    使用 ${FNPACK}"
