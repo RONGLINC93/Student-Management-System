@@ -27,8 +27,15 @@
       - checkbox "记住我（7 天内免登录）" [ref=e40]
       - text: 记住我（7 天内免登录）
     - button "登 录" [ref=e41] [cursor=pointer]
-    - paragraph [ref=e42]: 首次使用默认管理员账号 admin / admin123，登录后请及时在「系统设置 → 账号与安全」中修改密码。
-    - generic [ref=e43]:
+    - button [ref=e42] [cursor=pointer]:
+      - text: 学生登录入口
+      - emphasis [ref=e46]: · 学号登录 · 查分班 / 宿舍
+    - button [ref=e47] [cursor=pointer]:
+      - text: 教师登录入口
+      - emphasis [ref=e52]: · 工号登录 · 查档案 / 班级花名册
+    - paragraph [ref=e53]: 首次使用默认管理员账号 admin / admin123，登录后请及时在「系统设置 → 账号与安全」中修改密码。职位为教务（教务 / 教务主任）或宿管（宿管 / 宿管员）的教师可凭工号在此登录，分别管理教务项目或宿舍项目。
+    - generic [ref=e54]:
       - text: 需要展示分班结果？
-      - link "直接打开分班大屏" [ref=e44] [cursor=pointer]:
+      - link "直接打开分班大屏" [ref=e55] [cursor=pointer]:
         - /url: /result.html
+    - generic [ref=e56]: 作者：RONGLINC · chenronglin1993@hotmail.com

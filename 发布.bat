@@ -10,7 +10,9 @@ rem    1) 打包全部.bat  构建全部产物 (Windows/Linux/macOS rar + fnOS f
 rem    2) release.js    从 package.json 读 version, 创建 git tag 并推送,
 rem                     再用 GitHub API 创建 Release 并上传 dist/ 下的产物
 rem                     (Win/Linux/macOS rar + fpk + dev zip)
-rem    3) 从 dist\.last-release.json 读取并打印发布结果, 然后倒计时关闭
+rem    3) 发布成功后, release.js 自动把 package.json 的 version patch +1
+rem                     并本地 commit, 供下一次发布直接使用
+rem    4) 从 dist\.last-release.json 读取并打印发布结果, 然后倒计时关闭
 rem
 rem  用法: 双击本文件, 或在 cmd 中执行  发布.bat
 rem
@@ -19,10 +21,12 @@ rem    - Node.js 14+ 已安装并在 PATH 中
 rem    - .env 配置好 GITHUB_REPO_URL 与 GITHUB_TOKEN (拉取.bat / 推送.bat 同款)
 rem    - GITHUB_TOKEN 需有 repo 权限 (创建 Release + 上传资产)
 rem    - fnos\fnpack.exe 已就位 (打包全部.bat 依赖)
-rem    - package.json 的 version 已手工调整到目标版本号, 并 commit
+rem    - package.json 的 version 即本次要发布的版本, 且已 commit
 rem
 rem  注意:
-rem    - 不会自动改版本号, 仅按 package.json 当前 version 打 v<version> tag
+rem    - 发布完成后才会自动叠加版本号 (patch +1 并本地 commit, 不推送),
+rem      发布失败则版本号保持不变
+rem    - 如需 minor/major 跳版 (如 1.4.3 -> 1.5.0), 在下次发布前手工改即可
 rem    - Release body 自动从 CHANGELOG.md 提取该版本段
 rem    - 发布结果会持久化到 dist\.last-release.json 供查阅
 rem ===========================================================================

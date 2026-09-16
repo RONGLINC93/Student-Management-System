@@ -4,6 +4,20 @@ const ALL_API = '/api/all-students';
 const GRADES_API = '/api/grades';
 
 const GENDER_TEXT = { any: '混合', male: '男生', female: '女生' };
+
+// 按「职位权限设置」判定宿舍模块是否可写（管理员可写；教务 / 宿管需被授权 dorms 模块）
+function canWriteDorm() {
+  const a = window.AUTH;
+  if (!a) return true;
+  if (a.role === 'admin') return true;
+  return Array.isArray(a.writable) && a.writable.includes('dorms');
+}
+// 未授权时隐藏宿舍页全部写操作按钮（服务端同样拦截写接口）
+function applyDormWriteUI() {
+  const hidden = !canWriteDorm();
+  ['btnCheckin', 'btnDormApps', 'btnAddRoom', 'btnDetailAssign', 'btnDetailEdit', 'btnDetailClear', 'btnDetailDel', 'btnDoAssign', 'btnCiGo']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = hidden ? 'none' : ''; });
+}
 const STATE_TEXT = { empty: '空房', part: '部分入住', full: '满房' };
 
 /* 房态卡片中每个床位的小床图标（描边风格，颜色由 .bed 的 color 决定） */
@@ -609,7 +623,7 @@ function renderApps() {
   const pending = dormAppsCounts.pending || 0;
   const approved = dormAppsCounts.approved || 0;
   const rejected = dormAppsCounts.rejected || 0;
-  const viewer = window.AUTH && window.AUTH.role === 'viewer';
+  const viewer = !canWriteDorm();
   cnt.textContent = dormAppsFilter === 'pending'
     ? (pending ? `待处理 ${pending} 条` : '已全部处理')
     : `共 ${dormApps.length} 条 · 待 ${pending} / 通过 ${approved} / 驳回 ${rejected}`;
@@ -622,7 +636,7 @@ function renderApps() {
     const statusCls = a.status === 'approved' ? 'ok' : (a.status === 'rejected' ? 'rej' : 'no');
     const actionHtml = a.status === 'pending'
       ? (viewer
-        ? `<span class="app-st no">查看模式</span>`
+        ? `<span class="app-st no">只读</span>`
         : `<button type="button" class="btn btn-primary btn-sm" data-app-id="${escAttr(a.id)}" data-app-act="approve" title="通过后自动为该生安排入住">通过入住</button>
            <button type="button" class="btn btn-outline btn-sm danger-text" data-app-id="${escAttr(a.id)}" data-app-act="reject">不通过</button>`)
       : `<span class="app-st ${statusCls}">${escAttr(APP_STATUS_TEXT[a.status] || a.status)}</span>`;
@@ -799,12 +813,13 @@ function bindEvents() {
 window.cbEmbedRefresh = function () { loadDorms(); };
 
 // AUTH（含查看模式角色）就绪后刷新申请角标与操作按钮
-window.addEventListener('cb-auth-ready', () => refreshAppsUI());
+window.addEventListener('cb-auth-ready', () => { applyDormWriteUI(); refreshAppsUI(); });
 
 loadBase().then(() => {
   bindEvents();
   return loadDorms();
 }).then(() => {
   applyRoomDeepLink();
+  applyDormWriteUI();
   refreshAppsUI();
 }).catch(err => { toast(err.message, 'error'); });

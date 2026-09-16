@@ -1036,8 +1036,9 @@
   }
 
   function openTab(key, urlOpt) {
-    // 查看模式账号不能进入「系统设置」（服务端同样拦截 settings.html 与写接口）
-    if (key === 'settings' && window.AUTH && window.AUTH.role !== 'admin') return;
+    // 查看模式账号不能进入「系统设置」（服务端同样拦截 settings.html 与写接口）；
+    // 智能分班同理仅限管理员（服务端拦截 /api/allocate，菜单入口也一并隐藏）
+    if ((key === 'settings' || key === 'allocate') && window.AUTH && window.AUTH.role !== 'admin') return;
     var exist = getTab(key);
     if (exist) {
       // 子页面携带 URL（如宿舍深链 ?room=..）跳转时，重载已有标签页以应用新地址

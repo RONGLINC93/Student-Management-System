@@ -25,8 +25,11 @@ function fmtA(iso) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 function canWrite() {
-  // 教务（staff）可发布公告；宿管（dorm）仅可查看
-  return !window.AUTH || (window.AUTH.role !== 'viewer' && window.AUTH.role !== 'dorm');
+  // 按「职位权限设置」判定：管理员可写；教务 / 宿管需被授权 announcements 模块（默认仅教务）
+  const a = window.AUTH;
+  if (!a) return true;
+  if (a.role === 'admin') return true;
+  return Array.isArray(a.writable) && a.writable.includes('announcements');
 }
 function scopeLabel(x) {
   if (x.scopeType === 'all') return '<span class="scope all">全校</span>';

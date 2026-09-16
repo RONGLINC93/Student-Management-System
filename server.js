@@ -58,6 +58,43 @@ const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学�
 const revokedTokens = new Set();
 
 // 系统默认设置
+// 职位权限可配置模块（系统设置 → 职位权限）：key 供前后端引用，apis 为对应可写接口前缀
+// 注意：教师管理 / 智能分班 / 系统设置 / 备份审计等仅限管理员，不开放配置
+const PERMISSION_MODULES = [
+  { key: 'students',      name: '学生档案', apis: ['/api/students', '/api/trash'] },
+  { key: 'classes',       name: '班级管理', apis: ['/api/classes'] },
+  { key: 'grades',        name: '年级管理', apis: ['/api/grades'] },
+  { key: 'exams',         name: '成绩管理', apis: ['/api/exams'] },
+  { key: 'conduct',       name: '考勤操行', apis: ['/api/attendance', '/api/conduct'] },
+  { key: 'leaves',        name: '请假管理', apis: ['/api/leaves'] },
+  { key: 'announcements', name: '通知公告', apis: ['/api/announcements'] },
+  { key: 'dorms',         name: '宿舍管理', apis: ['/api/dorms', '/api/dorm-apps'] }
+];
+// 读取某角色的可写模块 key 列表（settings 缺失 / 字段异常时回退默认）
+// 教务兼任宿管时并入宿管职位的可写模块（宿舍归宿管管理，教务默认不管宿舍）
+function positionWritable(role, username) {
+  if (role !== ROLES.STAFF && role !== ROLES.DORM) return [];
+  let arr = DEFAULT_SETTINGS.positionPermissions[role];
+  try {
+    const pp = readSettings().positionPermissions;
+    if (pp && Array.isArray(pp[role])) arr = pp[role];
+  } catch (e) { /* 读取失败保持默认 */ }
+  const keys = PERMISSION_MODULES.map(m => m.key).filter(k => arr.indexOf(k) !== -1);
+  if (role === ROLES.STAFF && username) {
+    try {
+      const tea = findTeacherOfAuth({ username });
+      if (tea && isDormStaff(tea)) {
+        let darr = DEFAULT_SETTINGS.positionPermissions[ROLES.DORM];
+        const pp = readSettings().positionPermissions;
+        if (pp && Array.isArray(pp[ROLES.DORM])) darr = pp[ROLES.DORM];
+        PERMISSION_MODULES.forEach(m => {
+          if (darr.indexOf(m.key) !== -1 && keys.indexOf(m.key) === -1) keys.push(m.key);
+        });
+      }
+    } catch (e) { /* 教师档案读取失败时仅按教务权限 */ }
+  }
+  return keys;
+}
 const DEFAULT_SETTINGS = {
   schoolName: '学生管理系统', // 页面顶部 / 工作台品牌 / 标题展示的学校（机构）名称
   logoDataUrl: '',           // 校徽图片（data:image 前缀的 base64 小图，≤900KB）
@@ -78,6 +115,12 @@ const DEFAULT_SETTINGS = {
     auto: false,             // 是否开启每日自动备份
     time: '03:00',           // 自动备份时刻（本地时间 HH:MM）
     keep: 7                  // 自动备份保留份数（超出自动删除最旧）
+  },
+  // 职位权限（系统设置 → 职位权限）：教务（staff）/ 宿管（dorm）可管理的模块 key
+  // 默认：教务可管学籍与教学（不含请假、宿舍——请假审批归班主任，宿舍归宿管）；宿管仅宿舍
+  positionPermissions: {
+    staff: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements'],
+    dorm: ['dorms']
   }
 };
 
@@ -966,7 +1009,7 @@ function isAcademicStaff(t) {
   return !!t && String(t.title || '').indexOf('教务') !== -1;
 }
 // 宿管职位教师：职称 / 职务包含「宿管」或「宿舍管理」（如 宿管、宿管员、宿舍管理员），可登录管理后台管理宿舍项目
-// 注意：同时含「教务」时以教务（staff）身份登录，教务本身即可管理宿舍
+// 注意：同时含「教务」时以教务（staff）身份登录，宿舍权限按「教务 ∪ 宿管」并入（教务本身默认不管宿舍）
 function isDormStaff(t) {
   const title = String((t && t.title) || '');
   return title.indexOf('宿管') !== -1 || title.indexOf('宿舍管理') !== -1;
@@ -1016,6 +1059,20 @@ function validPassword(pw) {
 function sanitizeSettings(body) {
   const s = readSettings();
   const clip = (v, max) => String(v).trim().slice(0, max);
+  // 职位权限：仅接受白名单模块 key；角色字段缺失时保留原值，传入 null 时恢复默认
+  if (body.positionPermissions !== undefined && body.positionPermissions && typeof body.positionPermissions === 'object') {
+    const cur = (s.positionPermissions && typeof s.positionPermissions === 'object')
+      ? s.positionPermissions : DEFAULT_SETTINGS.positionPermissions;
+    const pp = { staff: (cur.staff || []).slice(), dorm: (cur.dorm || []).slice() };
+    [ROLES.STAFF, ROLES.DORM].forEach(role => {
+      const arr = body.positionPermissions[role];
+      if (arr === null) pp[role] = DEFAULT_SETTINGS.positionPermissions[role].slice();
+      else if (Array.isArray(arr)) {
+        pp[role] = PERMISSION_MODULES.map(m => m.key).filter(k => arr.indexOf(k) !== -1);
+      }
+    });
+    s.positionPermissions = pp;
+  }
   if (typeof body.schoolName === 'string') {
     s.schoolName = clip(body.schoolName, 40) || DEFAULT_SETTINGS.schoolName;
   }
@@ -1384,40 +1441,43 @@ async function handle(req, res) {
   const isStudentApi = pathname.startsWith('/api/student/');
   // 教师自助端接口（独立会话，自行鉴权），不走后台权限闸门（注意与后台 /api/teachers 区分）
   const isTeacherApi = pathname.startsWith('/api/teacher/');
-  // 按角色划分的可写模块（服务端硬拦截，前端仅做按钮隐藏的配合）：
-  // 教务（staff）：学籍与班级（学生 / 班级 / 年级 / 回收站）、教学（成绩 / 考勤 / 操行）、事务（公告 / 宿舍）
-  //   —— 请假仅可查看：审批由班主任在教师端完成（/api/teacher/leaves）
-  // 宿管（dorm）：宿舍管理（房间 / 入住 / 调宿 / 退宿 / 入住申请审核），其余模块仅可查看
-  const ROLE_WRITE_PREFIXES = {
-    [ROLES.STAFF]: [
-      '/api/students', '/api/classes', '/api/grades', '/api/trash',
-      '/api/exams', '/api/attendance', '/api/conduct',
-      '/api/announcements', '/api/dorms'
-    ],
-    [ROLES.DORM]: ['/api/dorms', '/api/dorm-apps']
-  };
+  // 个人偏好接口（前端筛选记忆 / 工作台页签状态）：不涉及业务数据，登录即可写，
+  // 不按职位模块闸门拦截（否则教务 / 宿管 / 查看模式在功能页保存筛选会全部 403）
+  const isPrefWrite = req.method !== 'GET'
+    && (pathname === '/api/filters' || pathname === '/api/workbench');
+  // 职位权限（可在「系统设置 → 职位权限」按模块勾选配置，默认值见 DEFAULT_SETTINGS）：
+  // 教务（staff）/ 宿管（dorm）仅可写已授权模块的接口，其余一律只读；教师管理 / 智能分班 /
+  // 系统设置 / 备份审计等仅限管理员，不开放配置。请假默认不对教务开放（审批由班主任在教师端完成）；
+  // 宿舍默认仅宿管可写（教务不管宿舍；教务兼任宿管时按「教务 ∪ 宿管」并集授权）。
+  const POSITION_ROLES = [ROLES.STAFF, ROLES.DORM];
   if (pathname.startsWith('/api/') && !isAuthEndpoint && !isStudentApi && !isTeacherApi && !publicRead) {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
-    const roleWritable = ROLE_WRITE_PREFIXES[u.role];
-    const roleCanWrite = !!roleWritable && roleWritable.some(p => pathname === p || pathname.startsWith(p + '/'));
+    const roleCanWrite = POSITION_ROLES.indexOf(u.role) !== -1
+      && positionWritable(u.role, u.username).some(k => {
+        const m = PERMISSION_MODULES.find(x => x.key === k);
+        return m && m.apis.some(p => pathname === p || pathname.startsWith(p + '/'));
+      });
     if ((pathname === '/api/backup'
       || pathname === '/api/backups' || pathname.startsWith('/api/backups/')
       || pathname === '/api/audit') && u.role !== ROLES.ADMIN) {
       return sendJson(res, 403, { code: 1, msg: '备份与审计功能仅限管理员账号' });
     }
-    if (req.method !== 'GET' && u.role !== ROLES.ADMIN && !roleCanWrite) {
+    if (req.method !== 'GET' && u.role !== ROLES.ADMIN && !roleCanWrite && !isPrefWrite) {
+      const permNames = positionWritable(u.role, u.username)
+        .map(k => (PERMISSION_MODULES.find(x => x.key === k) || {}).name).filter(Boolean).join('、');
       return sendJson(res, 403, {
         code: 1,
-        msg: u.role === ROLES.STAFF
-          ? '教务账号仅可管理学生、班级、年级、成绩、考勤、操行、公告、宿舍等教务项目（请假审批由班主任负责，教务仅可查看）'
-          : u.role === ROLES.DORM
-            ? '宿管账号仅可管理宿舍（房间 / 入住 / 调宿 / 退宿 / 入住申请审核），其余模块仅可查看'
-            : '当前账号为「查看模式」，仅可查看，不能修改数据'
+        msg: POSITION_ROLES.indexOf(u.role) !== -1
+          ? (permNames
+            ? '当前职位仅可管理：' + permNames + '（可在「系统设置 → 职位权限」调整），其余模块仅可查看'
+            : '当前职位未获授权任何可管理模块（可在「系统设置 → 职位权限」调整），仅可查看')
+          : '当前账号为「查看模式」，仅可查看，不能修改数据'
       });
     }
-    // 审计：记录后台写操作（登录 / 改密等含敏感信息的接口不在此列，账号管理 /api/users 保留）
-    if (req.method !== 'GET') {
+    // 审计：记录后台写操作（登录 / 改密等含敏感信息的接口不在此列，账号管理 /api/users 保留；
+    // 个人偏好接口高频且无业务含义，不记录）
+    if (req.method !== 'GET' && !isPrefWrite) {
       registerAudit(res, {
         actor: u.username,
         actorRole: u.role,
@@ -1523,13 +1583,19 @@ async function handle(req, res) {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '未登录' });
     const full = findUser(u.username);
+    // writable：当前会话可写模块 key 列表（admin 全量、viewer 空、教务/宿管按职位权限设置），
+    // 供前端按页面隐藏 / 显示写操作按钮（服务端仍以闸门拦截为准）
+    const writable = u.role === ROLES.ADMIN
+      ? PERMISSION_MODULES.map(m => m.key)
+      : u.role === ROLES.VIEWER ? [] : positionWritable(u.role, u.username);
     return sendJson(res, 200, {
       code: 0,
       data: {
         username: u.username,
         role: u.role,
         nickname: (full && full.nickname) || '',
-        label: ROLE_LABEL[u.role]
+        label: ROLE_LABEL[u.role],
+        writable
       }
     });
   }
@@ -3489,6 +3555,14 @@ async function handle(req, res) {
     const s = Object.assign({}, readSettings()); // 副本：version 不写入设置文件
     s.subjects = readSubjects(); // 始终返回生效科目
     s.version = APP_VERSION;     // 版本号（来自 package.json），供 [data-app-version] 渲染
+    // 未登录（登录页 / 学生端 / 教师端 / 大屏等公开场景）仅返回品牌展示字段，
+    // 避免向匿名访客泄露职位权限 / 备份策略 / 服务器控制等内部配置
+    if (!authUser(req)) {
+      const pub = {};
+      ['schoolName', 'logoDataUrl', 'schoolYear', 'slogan', 'schoolAddress',
+        'schoolPhone', 'schoolWebsite', 'subjects', 'version'].forEach(k => { pub[k] = s[k]; });
+      return sendJson(res, 200, { code: 0, data: pub });
+    }
     return sendJson(res, 200, { code: 0, data: s });
   }
   if (pathname === '/api/settings' && req.method === 'PUT') {

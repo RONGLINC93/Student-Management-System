@@ -5,7 +5,9 @@
     "roomNo": "101",
     "capacity": 4,
     "gender": "male",
-    "students": []
+    "students": [
+      "mtlkhfhivmdv"
+    ]
   },
   {
     "id": "cls_mtsbakgrtbhk",
@@ -53,7 +55,9 @@
     "roomNo": "105",
     "capacity": 4,
     "gender": "female",
-    "students": []
+    "students": [
+      "mtlkhfhiuu8s"
+    ]
   },
   {
     "id": "cls_mtsbh39d06uu",
@@ -253,6 +257,14 @@
     "roomNo": "210",
     "capacity": 4,
     "gender": "male",
+    "students": []
+  },
+  {
+    "id": "cls_mu4ddboqxdd4",
+    "building": "SMOKE楼",
+    "roomNo": "622",
+    "capacity": 4,
+    "gender": "any",
     "students": []
   }
 ]

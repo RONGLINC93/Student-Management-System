@@ -12,6 +12,8 @@
  *   6. 从 CHANGELOG.md 提取 v<version> 段作为 Release body
  *   7. POST /repos/{owner}/{repo}/releases 创建 Release
  *   8. 上传 dist/ 下的 win/linux rar 与 fpk 到 Release
+ *   9. 发布完成后自动将 package.json 的 version patch +1 并本地 commit,
+ *      供下一次发布直接使用 (无需再手工调整版本号)
  *
  * 鉴权走 .env 里的 GITHUB_REPO_URL / GITHUB_TOKEN, 与 拉取.bat / 推送.bat 共用.
  * 报错时 URL 做脱敏 (token 替换为 ******).
@@ -301,6 +303,53 @@ async function uploadAsset(release, filePath) {
 }
 
 // ===========================================================================
+//  15. 发布完成后叠加版本号 (patch +1) 并本地 commit, 供下一次发布使用
+//      仅在 Release 创建成功后调用 (exit 0 / exit 2 均算发布完成);
+//      失败只警告, 不影响发布结果。
+// ===========================================================================
+function bumpVersionAndCommit() {
+  const pkgPath = path.join(ROOT, 'package.json');
+  let text;
+  try {
+    text = fs.readFileSync(pkgPath, 'utf-8');
+  } catch (e) {
+    console.warn(`[警告] 发布成功但读取 package.json 失败，版本号未叠加: ${e.message}`);
+    return;
+  }
+  const cur = (text.match(/"version"\s*:\s*"([^"]+)"/) || [])[1] || '';
+  const m = cur.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!m) {
+    console.warn(`[警告] 当前版本号 "${cur}" 不是 x.y.z 格式，未自动叠加，请手工调整`);
+    return;
+  }
+  const next = `${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
+  // 只替换 version 那一行, 其余字节 (含格式) 原样保留
+  let replaced = false;
+  text = text.replace(/(^[\t ]*"version"\s*:\s*")[^"]+(")/m, (full, a, b) => {
+    replaced = true;
+    return a + next + b;
+  });
+  if (!replaced) {
+    console.warn('[警告] package.json 中未找到 version 字段，版本号未叠加');
+    return;
+  }
+  try {
+    fs.writeFileSync(pkgPath, text, 'utf-8');
+  } catch (e) {
+    console.warn(`[警告] 写入 package.json 失败，版本号未叠加: ${e.message}`);
+    return;
+  }
+  console.log(`版本号已叠加: ${cur} -> ${next} (package.json)`);
+  try {
+    execFileSync('git', ['add', 'package.json'], { cwd: ROOT, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', `chore: 发布 v${cur} 后叠加版本号至 ${next}`], { cwd: ROOT, stdio: 'ignore' });
+    console.log('版本号变更已提交到本地 git (未推送, 随下次 推送.bat 一起推送)');
+  } catch (e) {
+    console.warn('[警告] 自动 commit 失败，请手工提交 package.json 的版本号变更');
+  }
+}
+
+// ===========================================================================
 //  14. 主流程 (异步)
 // ===========================================================================
 async function main() {
@@ -357,6 +406,10 @@ async function main() {
   console.log(`版本:    ${tagName}`);
   console.log(`Release: ${release.html_url}`);
   console.log(`资产:    ${okCount}/${assets.length} 上传成功`);
+
+  // Release 已创建即视为发布完成, 叠加版本号供下一次发布
+  bumpVersionAndCommit();
+
   if (fails.length) {
     console.log('');
     console.log('[警告] 以下资产上传失败，可到 Release 页面手动重试：');

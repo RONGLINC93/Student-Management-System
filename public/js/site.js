@@ -261,20 +261,63 @@
     if (!a) return;
 
     // 查看模式 / 教务 / 宿管：隐藏「系统设置 / 智能分班」等管理与写操作入口
+    // （工作台侧边栏菜单项用 data-mod 标识且无 href，需单独匹配 data-mod="allocate"）
     if (a.role === 'viewer' || a.role === 'staff' || a.role === 'dorm') {
       var hid = document.querySelectorAll(
-        'a[href*="settings"], a[href*="allocate"], .menu-item[data-mod="settings"], .dq-item[href*="settings"]'
+        'a[href*="settings"], a[href*="allocate"], .menu-item[data-mod="settings"], .menu-item[data-mod="allocate"], .dq-item[href*="settings"]'
       );
       for (var i = 0; i < hid.length; i++) hid[i].style.display = 'none';
+
+      // 智能分班页（直接输 URL 进入时）：禁用全部操作按钮，仅可查看
+      // 服务端对 /api/allocate 等写接口同样拦截，此处仅前端提示
+      if (location.pathname === '/allocate.html') {
+        var SEL = ['#btnShuffle', '#btnDeal', '#btnReset', '#floatShuffle', '#btnSettings'];
+        for (var j = 0; j < SEL.length; j++) {
+          var el = document.querySelector(SEL[j]);
+          if (el) el.style.display = 'none';
+        }
+        var ROLE_LBL = { viewer: '查看模式', staff: '教务', dorm: '宿管' };
+        var panel = document.querySelector('.control-right');
+        if (panel) {
+          var tip = document.createElement('span');
+          tip.className = 'ro-tip';
+          tip.style.cssText = 'align-self:center;font-size:13px;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:6px 12px';
+          tip.textContent = '当前账号（' + (ROLE_LBL[a.role] || a.role) + '）仅可查看，智能分班仅限管理员操作';
+          panel.appendChild(tip);
+        }
+      }
     }
 
-    // 教务 / 宿管：非本职模块隐藏写操作按钮（服务端同样拦截写接口）
-    // 宿管本职页 dorm.html 的写按钮使用独立 id（btnCheckin / btnAddRoom 等），不受此样式影响
-    if (a.role === 'staff' || a.role === 'dorm') {
-      document.body.classList.add(a.role === 'staff' ? 'role-staff' : 'role-dorm');
-      var st = document.createElement('style');
-      st.textContent = 'body.role-staff #btnAdd,body.role-staff .row-actions,body.role-staff .head-btn,body.role-dorm #btnAdd,body.role-dorm .row-actions,body.role-dorm .head-btn{display:none!important}';
-      document.head.appendChild(st);
+    // 教务 / 宿管 / 查看模式：按「职位权限设置」（AUTH.writable）隐藏当前页面（未授权模块）的写操作按钮
+    // 服务端同样拦截写接口；页面 → 模块映射，未列出的页面（教师管理 / 总览 / 分析等）一律隐藏写按钮
+    // （查看模式 writable 恒为空，等价于所有页面只读）
+    if (a.role === 'viewer' || a.role === 'staff' || a.role === 'dorm') {
+      var PAGE_MODULE = {
+        '/students.html': 'students', '/classes.html': 'classes', '/grades.html': 'grades',
+        '/exams.html': 'exams', '/conduct.html': 'conduct', '/leaves.html': 'leaves',
+        '/announcements.html': 'announcements', '/dorm.html': 'dorms'
+      };
+      var pageMod = PAGE_MODULE[location.pathname] || '';
+      var writable = Array.isArray(a.writable) ? a.writable : [];
+      if (!pageMod || writable.indexOf(pageMod) === -1) {
+        document.body.classList.add(a.role === 'staff' ? 'role-staff' : 'role-dorm');
+        var st = document.createElement('style');
+        st.textContent = 'body.role-staff #btnAdd,body.role-staff .row-actions,body.role-staff .head-btn,body.role-dorm #btnAdd,body.role-dorm .row-actions,body.role-dorm .head-btn{display:none!important}';
+        document.head.appendChild(st);
+      }
+
+      // 学生档案页的混合权限：页内同时含「学生档案」与「宿舍管理」两类写操作，按授权分别隐藏，
+      // 避免可见但点击必 403（行内宿舍入口 / 批量分配宿舍属宿舍模块；批量分班 / 批量删除属学生档案模块）
+      if (location.pathname === '/students.html') {
+        var hideSel = [];
+        if (writable.indexOf('dorms') === -1) hideSel.push('.dorm-chip', '.dm-act', '[data-act="dorm"]', '#bulkDorm');
+        if (writable.indexOf('students') === -1) hideSel.push('#bulkAssign', '#bulkDelete');
+        if (hideSel.length) {
+          var stDorm = document.createElement('style');
+          stDorm.textContent = hideSel.join(',') + '{display:none!important}';
+          document.head.appendChild(stDorm);
+        }
+      }
     }
 
     // 顶栏（后台工作台右侧 / 单页顶部导航）插入账号胶囊

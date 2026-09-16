@@ -1,6 +1,6 @@
 {
   "admin": {
-    "ts": 1789578822617,
+    "ts": 1789579868930,
     "tabs": [
       {
         "key": "dashboard",
@@ -49,12 +49,62 @@
       {
         "key": "allocate",
         "side": false
+      },
+      {
+        "key": "teachers",
+        "side": false
       }
     ],
     "splitOn": false,
-    "activeKey": "analysis",
+    "activeKey": "settings",
     "leftKey": "",
     "rightKey": "",
     "splitRatio": 0.55
+  },
+  "T2024001": {
+    "ts": 1789580121856,
+    "tabs": [
+      {
+        "key": "dashboard",
+        "side": false
+      },
+      {
+        "key": "dorm",
+        "side": false
+      },
+      {
+        "key": "leaves",
+        "side": false
+      },
+      {
+        "key": "students",
+        "side": false
+      },
+      {
+        "key": "conduct",
+        "side": false
+      },
+      {
+        "key": "analysis",
+        "side": false
+      },
+      {
+        "key": "exams",
+        "side": false
+      },
+      {
+        "key": "teachers",
+        "side": false
+      },
+      {
+        "key": "classes",
+        "side": false
+      }
+    ],
+    "splitOn": false,
+    "activeKey": "dorm",
+    "leftKey": "",
+    "rightKey": "",
+    "splitRatio": 0.5
   }
 }

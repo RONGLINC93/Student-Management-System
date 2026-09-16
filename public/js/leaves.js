@@ -40,8 +40,12 @@ function fmt(iso) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 function canWrite() {
-  // 请假审批 / 代登记仅限管理员（班主任在教师端审批本班申请），教务 / 宿管账号只读
-  return !window.AUTH || (window.AUTH.role !== 'viewer' && window.AUTH.role !== 'staff' && window.AUTH.role !== 'dorm');
+  // 按「职位权限设置」判定：管理员可写；教务 / 宿管需被授权 leaves 模块
+  // 默认不授权（请假审批由班主任在教师端完成）
+  const a = window.AUTH;
+  if (!a) return true;
+  if (a.role === 'admin') return true;
+  return Array.isArray(a.writable) && a.writable.includes('leaves');
 }
 
 function renderChips() {
