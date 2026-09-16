@@ -51,8 +51,8 @@ const STUDENT_COOKIE = 'icbs_stu_auth'; // 学生自助端（与学生登录完�
 const TEACHER_COOKIE = 'icbs_tea_auth'; // 教师自助端（与后台 / 学生登录完全隔离，可同浏览器共存）
 const SESSION_SECONDS = 24 * 3600;      // 默认会话 24 小时
 const REMEMBER_SECONDS = 7 * 24 * 3600; // 「记住我」7 天
-const ROLES = { ADMIN: 'admin', VIEWER: 'viewer', STUDENT: 'student', TEACHER: 'teacher' };
-const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学生', teacher: '教师' };
+const ROLES = { ADMIN: 'admin', VIEWER: 'viewer', STUDENT: 'student', TEACHER: 'teacher', STAFF: 'staff' };
+const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学生', teacher: '教师', staff: '教务' };
 
 // 已注销的会话 token（内存级；保证“退出登录”后旧 Cookie 立即失效）
 const revokedTokens = new Set();
@@ -552,6 +552,13 @@ function normalizeTeacher(raw) {
     phone: String(o.phone || '').trim(),
     joinYear: String(o.joinYear || '').trim(),
     idCard: String(o.idCard || '').trim().toUpperCase().replace(/[^0-9X]/g, '').slice(0, 18), // 身份证号（教师端初始密码 = 后 6 位）
+    ethnic: String(o.ethnic || '').trim().slice(0, 20),         // 民族
+    hometown: String(o.hometown || '').trim().slice(0, 50),     // 籍贯
+    political: String(o.political || '').trim().slice(0, 20),   // 政治面貌
+    education: String(o.education || '').trim().slice(0, 30),   // 学历 / 学位
+    address: String(o.address || '').trim().slice(0, 100),      // 家庭住址
+    emergencyName: String(o.emergencyName || '').trim().slice(0, 30),  // 紧急联系人
+    emergencyPhone: String(o.emergencyPhone || '').trim().slice(0, 30), // 紧急联系电话
     classId: o.classId || '',                  // 班主任所在班级 id
     remark: String(o.remark || '').trim()
   };
@@ -709,6 +716,13 @@ function buildTeacherPortalHome(t) {
     phone: t.phone || '',
     joinYear: t.joinYear || '',
     idCardMasked: maskIdCard(t.idCard),   // 身份证号脱敏（前 4 + 后 4）
+    ethnic: t.ethnic || '',               // 民族
+    hometown: t.hometown || '',           // 籍贯
+    political: t.political || '',         // 政治面貌
+    education: t.education || '',         // 学历 / 学位
+    address: t.address || '',             // 家庭住址（仅本人与管理员可见）
+    emergencyName: t.emergencyName || '', // 紧急联系人
+    emergencyPhone: t.emergencyPhone || '', // 紧急联系电话
     isHead: !!cls,
     classId: cls ? cls.id : null,
     className: cls ? cls.name : null,
@@ -875,8 +889,9 @@ function authUser(req) {
     const data = JSON.parse(unb64url(payload));
     if (!data.u || typeof data.exp !== 'number' || data.exp < Date.now()) return null;
     const user = findUser(data.u);
-    if (!user || user.role !== data.r) return null; // 账号被删除 / 角色变更后旧会话自动失效
-    return { username: user.u, role: user.role };
+    // 账号被删除 / 角色变更后旧会话自动失效；教务（staff）会话对应 users.json 中的教师账号
+    if (!user || (user.role !== data.r && !(data.r === ROLES.STAFF && user.role === ROLES.TEACHER))) return null;
+    return { username: user.u, role: data.r };
   } catch (e) { return null; }
 }
 function cookieHeader(token, maxAge) {
@@ -934,6 +949,20 @@ function authTeacher(req) {
 function redirect(res, loc) {
   res.writeHead(302, { Location: loc });
   res.end();
+}
+// 通过登录用户名解析教师档案（优先 user.tid，其次按工号匹配）
+function findTeacherOfAuth(t) {
+  const user = findUser(t.username);
+  const teachers = readTeachers();
+  if (user && user.tid) {
+    const hit = teachers.find(x => x.id === user.tid);
+    if (hit) return hit;
+  }
+  return teachers.find(x => String(x.teacherNo || '').trim() === t.username) || null;
+}
+// 教务职位教师：职称 / 职务包含「教务」（如 教务、教务主任、教务处），可登录管理后台管理教务项目
+function isAcademicStaff(t) {
+  return !!t && String(t.title || '').indexOf('教务') !== -1;
 }
 function forbiddenPage(msg) {
   return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>403 · 无权限</title></head>' +
@@ -1255,6 +1284,7 @@ const AUDIT_MODULES = [
   ['/api/student/dorm', '学生端 · 住宿申请'],
   ['/api/student/leaves', '学生端 · 请假'],
   ['/api/student', '学生中心'],
+  ['/api/teacher/leaves', '教师端 · 请假审批'],
   ['/api/teacher/profile', '教师端 · 完善个人信息'],
   ['/api/teacher', '教师中心']
 ].sort((a, b) => b[0].length - a[0].length);
@@ -1346,16 +1376,30 @@ async function handle(req, res) {
   const isStudentApi = pathname.startsWith('/api/student/');
   // 教师自助端接口（独立会话，自行鉴权），不走后台权限闸门（注意与后台 /api/teachers 区分）
   const isTeacherApi = pathname.startsWith('/api/teacher/');
+  // 教务（staff）可写模块：学籍与班级（学生 / 班级 / 年级 / 回收站）、教学（成绩 / 考勤 / 操行）、事务（公告 / 宿舍）
+  // 请假仅可查看：审批由班主任在教师端完成（/api/teacher/leaves）
+  const STAFF_WRITE_PREFIXES = [
+    '/api/students', '/api/classes', '/api/grades', '/api/trash',
+    '/api/exams', '/api/attendance', '/api/conduct',
+    '/api/announcements', '/api/dorms'
+  ];
   if (pathname.startsWith('/api/') && !isAuthEndpoint && !isStudentApi && !isTeacherApi && !publicRead) {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
+    const staffCanWrite = u.role === ROLES.STAFF
+      && STAFF_WRITE_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'));
     if ((pathname === '/api/backup'
       || pathname === '/api/backups' || pathname.startsWith('/api/backups/')
       || pathname === '/api/audit') && u.role !== ROLES.ADMIN) {
       return sendJson(res, 403, { code: 1, msg: '备份与审计功能仅限管理员账号' });
     }
-    if (req.method !== 'GET' && u.role !== ROLES.ADMIN) {
-      return sendJson(res, 403, { code: 1, msg: '当前账号为「查看模式」，仅可查看，不能修改数据' });
+    if (req.method !== 'GET' && u.role !== ROLES.ADMIN && !staffCanWrite) {
+      return sendJson(res, 403, {
+        code: 1,
+        msg: u.role === ROLES.STAFF
+          ? '教务账号仅可管理学生、班级、年级、成绩、考勤、操行、公告、宿舍等教务项目（请假审批由班主任负责，教务仅可查看）'
+          : '当前账号为「查看模式」，仅可查看，不能修改数据'
+      });
     }
     // 审计：记录后台写操作（登录 / 改密等含敏感信息的接口不在此列，账号管理 /api/users 保留）
     if (req.method !== 'GET') {
@@ -1421,6 +1465,21 @@ async function handle(req, res) {
       return sendJson(res, 403, { code: 1, msg: '该账号为学生账号，请前往「学生登录入口」登录' });
     }
     if (user.role === ROLES.TEACHER) {
+      // 教务职位教师：允许登录管理后台（会话角色 = staff，仅可管理教务相关项目）
+      const tea = findTeacherOfAuth({ username: user.u });
+      if (tea && isAcademicStaff(tea)) {
+        if (user.must) {
+          return sendJson(res, 403, { code: 1, msg: '请先通过「教师登录入口」完成首次密码修改，再登录管理后台' });
+        }
+        loginMarkSuccess(req, username);
+        const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
+        const token = makeToken(user.u, ROLES.STAFF, ttl);
+        res.setHeader('Set-Cookie', cookieHeader(token, ttl));
+        return sendJson(res, 200, {
+          code: 0, msg: '登录成功（教务）',
+          data: { username: user.u, role: ROLES.STAFF, nickname: user.nickname || '', label: ROLE_LABEL[ROLES.STAFF] }
+        });
+      }
       return sendJson(res, 403, { code: 1, msg: '该账号为教师账号，请前往「教师登录入口」登录' });
     }
     loginMarkSuccess(req, username);
@@ -1893,6 +1952,13 @@ async function handle(req, res) {
     if (body.title !== undefined) cur.title = String(body.title).trim().slice(0, 30);
     if (body.phone !== undefined) cur.phone = String(body.phone).trim().slice(0, 30);
     if (body.joinYear !== undefined) cur.joinYear = String(body.joinYear).trim().slice(0, 10);
+    if (body.ethnic !== undefined) cur.ethnic = String(body.ethnic).trim().slice(0, 20);
+    if (body.hometown !== undefined) cur.hometown = String(body.hometown).trim().slice(0, 50);
+    if (body.political !== undefined) cur.political = String(body.political).trim().slice(0, 20);
+    if (body.education !== undefined) cur.education = String(body.education).trim().slice(0, 30);
+    if (body.address !== undefined) cur.address = String(body.address).trim().slice(0, 100);
+    if (body.emergencyName !== undefined) cur.emergencyName = String(body.emergencyName).trim().slice(0, 30);
+    if (body.emergencyPhone !== undefined) cur.emergencyPhone = String(body.emergencyPhone).trim().slice(0, 30);
     writeTeachers(teachers);
     return sendJson(res, 200, { code: 0, msg: '个人信息已更新', data: buildTeacherPortalHome(cur) });
   }
@@ -3745,6 +3811,61 @@ async function handle(req, res) {
     list.splice(idx, 1);
     writeLeaves(list);
     return sendJson(res, 200, { code: 0, msg: '请假记录已删除' });
+  }
+
+  // ---------- 教师端：班主任请假审批（仅可审批本班学生的申请）----------
+  if (pathname === '/api/teacher/leaves' && req.method === 'GET') {
+    const t = authTeacher(req);
+    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    const tea = findTeacherOfAuth(t);
+    if (!tea) return sendJson(res, 404, { code: 1, msg: '教师档案不存在或已被删除，请联系管理员' });
+    if (!tea.classId) return sendJson(res, 403, { code: 1, msg: '您目前不是班主任，暂无请假审批权限' });
+    const q = url.searchParams;
+    const status = q.get('status') || '';
+    let list = readLeaves().filter(x => String(x.classId || '') === String(tea.classId))
+      .sort((a, b) => {
+        // 待审批优先，其余按提交时间倒序
+        const rank = s => (s === 'pending' ? 0 : 1);
+        return rank(a.status) - rank(b.status) || String(b.createdAt).localeCompare(String(a.createdAt));
+      });
+    if (status) list = list.filter(x => x.status === status);
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+  const tLeafReviewMatch = pathname.match(/^\/api\/teacher\/leaves\/([^/]+)\/review$/);
+  if (tLeafReviewMatch && req.method === 'POST') {
+    const t = authTeacher(req);
+    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    const tea = findTeacherOfAuth(t);
+    if (!tea) return sendJson(res, 404, { code: 1, msg: '教师档案不存在或已被删除，请联系管理员' });
+    if (!tea.classId) return sendJson(res, 403, { code: 1, msg: '您目前不是班主任，暂无请假审批权限' });
+    const body = await readBody(req);
+    const action = body.action === 'approve' ? 'approved' : body.action === 'reject' ? 'rejected' : '';
+    if (!action) return sendJson(res, 400, { code: 1, msg: '审批操作不正确' });
+    const list = readLeaves();
+    const idx = list.findIndex(x => x.id === tLeafReviewMatch[1]);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '该请假申请不存在' });
+    const leaf = list[idx];
+    if (String(leaf.classId || '') !== String(tea.classId)) {
+      return sendJson(res, 403, { code: 1, msg: '该学生不在您负责的班级，无权审批' });
+    }
+    if (leaf.status !== 'pending') return sendJson(res, 400, { code: 1, msg: '该申请已处理，请勿重复审批' });
+    leaf.status = action;
+    leaf.reviewer = t.name + '（班主任）';
+    leaf.reviewNote = String(body.note || '').trim().slice(0, 200);
+    leaf.reviewedAt = new Date().toISOString();
+    leaf.updatedAt = leaf.reviewedAt;
+    if (action === 'approved') applyLeaveToAttendance(leaf);
+    // 事务通知：把审批结果推送到学生中心的消息通知
+    notifyStudent(leaf.sid, 'leave',
+      action === 'approved' ? '请假申请已通过' : '请假申请未通过',
+      leaf.type + '：' + leaf.startDate + ' 至 ' + leaf.endDate + '（' + (leaf.days || 0) + ' 天）'
+        + (action === 'approved' ? '，班主任已批准' : '，班主任未通过')
+        + (leaf.reviewNote ? '。审批意见：' + leaf.reviewNote : ''));
+    writeLeaves(list);
+    return sendJson(res, 200, {
+      code: 0, data: leaf,
+      msg: action === 'approved' ? '已批准，请假已同步写入该班考勤' : '已驳回该请假申请'
+    });
   }
 
   // ---------- 学生回收站（后台：查看 / 恢复 / 彻底删除 / 清空）----------

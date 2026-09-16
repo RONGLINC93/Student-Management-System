@@ -40,7 +40,8 @@ function fmt(iso) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 function canWrite() {
-  return !window.AUTH || window.AUTH.role !== 'viewer';
+  // 请假审批 / 代登记仅限管理员（班主任在教师端审批本班申请），教务账号只读
+  return !window.AUTH || (window.AUTH.role !== 'viewer' && window.AUTH.role !== 'staff');
 }
 
 function renderChips() {
@@ -146,7 +147,7 @@ function loadStudents() {
 }
 // 打开表单弹窗：x 为空 = 代登记，传入记录 = 编辑（与其他页面「同一弹窗复用」一致）
 function openForm(x) {
-  if (!canWrite()) { toast('查看模式仅可浏览', 'error'); return; }
+  if (!canWrite()) { toast('当前账号仅可浏览，请假审批由班主任负责', 'error'); return; }
   editingId = x ? x.id : null;
   $L('#formTitle').textContent = x ? '编辑请假' : '代登记请假';
   $L('#btnSave').textContent = x ? '保存修改' : '提交（待审批）';

@@ -67,5 +67,17 @@
     "must": false,
     "createdAt": "2026-09-09T03:41:34.595Z",
     "updatedAt": "2026-09-09T03:41:39.769Z"
+  },
+  {
+    "u": "T2024001",
+    "salt": "e89e165d6402491975bffd5078ef9ca8",
+    "hash": "879215b3b35729206b7d7824b4bbf79a815b7287bda2c6d8f83f4a11d046c9d3",
+    "role": "teacher",
+    "tid": "cls_mtsfbej9cr6p",
+    "name": "陈老师",
+    "nickname": "陈老师",
+    "must": false,
+    "createdAt": "2026-09-16T16:48:18.146Z",
+    "updatedAt": "2026-09-16T16:48:29.660Z"
   }
 ]

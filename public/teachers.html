@@ -196,11 +196,38 @@
               <option value="三级教师">三级教师</option>
               <option value="教研组长">教研组长</option>
               <option value="年级组长">年级组长</option>
+              <option value="教务">教务</option>
+              <option value="教务主任">教务主任</option>
               <option value="德育主任">德育主任</option>
             </select>
           </div>
           <div class="form-row"><label class="form-label">入职年份</label><input type="text" id="fJoinYear" placeholder="如：2018" /></div>
           <div class="form-row"><label class="form-label">联系电话</label><input type="text" id="fPhone" placeholder="手机号/固话" /></div>
+          <div class="form-row"><label class="form-label">民族</label><input type="text" id="fEthnic" placeholder="如：汉族" maxlength="20" /></div>
+          <div class="form-row"><label class="form-label">籍贯</label><input type="text" id="fHometown" placeholder="如：广东广州" maxlength="50" /></div>
+          <div class="form-row"><label class="form-label">政治面貌</label>
+            <select id="fPolitical">
+              <option value="">请选择</option>
+              <option value="中共党员">中共党员</option>
+              <option value="中共预备党员">中共预备党员</option>
+              <option value="共青团员">共青团员</option>
+              <option value="民主党派">民主党派</option>
+              <option value="群众">群众</option>
+            </select>
+          </div>
+          <div class="form-row"><label class="form-label">学历/学位</label>
+            <select id="fEducation">
+              <option value="">请选择</option>
+              <option value="高中/中专">高中/中专</option>
+              <option value="大专">大专</option>
+              <option value="本科">本科</option>
+              <option value="硕士研究生">硕士研究生</option>
+              <option value="博士研究生">博士研究生</option>
+            </select>
+          </div>
+          <div class="form-row form-row-full"><label class="form-label">家庭住址</label><input type="text" id="fAddress" placeholder="省 / 市 / 区 / 详细地址" maxlength="100" /></div>
+          <div class="form-row"><label class="form-label">紧急联系人</label><input type="text" id="fEmergencyName" placeholder="姓名（如家属）" maxlength="30" /></div>
+          <div class="form-row"><label class="form-label">紧急联系电话</label><input type="text" id="fEmergencyPhone" placeholder="联系人电话" maxlength="30" /></div>
           <div class="form-row form-row-full"><label class="form-label">备注</label><input type="text" id="fRemark" placeholder="备注（如主要任课班级、荣誉等）" /></div>
         </div>
         <datalist id="subjectList"></datalist>

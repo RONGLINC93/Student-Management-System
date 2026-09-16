@@ -62,6 +62,8 @@ function renderTable() {
       (t.name || '').toLowerCase().includes(kw) ||
       (t.teacherNo || '').toLowerCase().includes(kw) ||
       (t.idCard || '').toLowerCase().includes(kw) ||
+      (t.hometown || '').toLowerCase().includes(kw) ||
+      (t.address || '').toLowerCase().includes(kw) ||
       (t.phone || '').toLowerCase().includes(kw) ||
       (t.subject || '').toLowerCase().includes(kw) ||
       (t.className || '').toLowerCase().includes(kw));
@@ -93,7 +95,7 @@ function renderTable() {
           <span class="teacher-avatar ${gen}">${escapeHtml(first)}</span>
           <div class="teacher-meta">
             <span class="teacher-name">${escapeHtml(t.name)}</span>
-            <span class="teacher-sub">${t.teacherNo ? '工号 ' + escapeHtml(t.teacherNo) : '未编工号'}${t.idCard ? ' · ' + escapeHtml(maskIdCard(t.idCard)) : ' · 未登记身份证'}</span>
+            <span class="teacher-sub">${t.teacherNo ? '工号 ' + escapeHtml(t.teacherNo) : '未编工号'}${t.idCard ? ' · ' + escapeHtml(maskIdCard(t.idCard)) : ' · 未登记身份证'}${t.hometown ? ' · ' + escapeHtml(t.hometown) : ''}</span>
           </div>
         </div>
       </td>
@@ -136,6 +138,13 @@ function openModal(t) {
   $('#fTitle').value = t ? t.title : '';
   $('#fJoinYear').value = t ? t.joinYear : '';
   $('#fPhone').value = t ? t.phone : '';
+  $('#fEthnic').value = t ? (t.ethnic || '') : '';
+  $('#fHometown').value = t ? (t.hometown || '') : '';
+  $('#fPolitical').value = t ? (t.political || '') : '';
+  $('#fEducation').value = t ? (t.education || '') : '';
+  $('#fAddress').value = t ? (t.address || '') : '';
+  $('#fEmergencyName').value = t ? (t.emergencyName || '') : '';
+  $('#fEmergencyPhone').value = t ? (t.emergencyPhone || '') : '';
   $('#fRemark').value = t ? t.remark : '';
   $('#modalMask').classList.add('show');
   setTimeout(() => $('#fName').focus(), 100);
@@ -154,6 +163,13 @@ async function saveTeacher(e) {
     title: $('#fTitle').value,
     joinYear: $('#fJoinYear').value.trim(),
     phone: $('#fPhone').value.trim(),
+    ethnic: $('#fEthnic').value.trim(),
+    hometown: $('#fHometown').value.trim(),
+    political: $('#fPolitical').value,
+    education: $('#fEducation').value,
+    address: $('#fAddress').value.trim(),
+    emergencyName: $('#fEmergencyName').value.trim(),
+    emergencyPhone: $('#fEmergencyPhone').value.trim(),
     remark: $('#fRemark').value.trim()
   };
   if (!data.name) { toast('请输入教师姓名', 'error'); return; }

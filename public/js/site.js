@@ -260,12 +260,20 @@
     var a = window.AUTH;
     if (!a) return;
 
-    // 查看模式：隐藏「系统设置 / 智能分班」等管理与写操作入口
-    if (a.role === 'viewer') {
+    // 查看模式 / 教务：隐藏「系统设置 / 智能分班」等管理与写操作入口
+    if (a.role === 'viewer' || a.role === 'staff') {
       var hid = document.querySelectorAll(
         'a[href*="settings"], a[href*="allocate"], .menu-item[data-mod="settings"], .dq-item[href*="settings"]'
       );
       for (var i = 0; i < hid.length; i++) hid[i].style.display = 'none';
+    }
+
+    // 教务：教师管理等非教务模块隐藏写操作按钮（服务端同样拦截写接口）
+    if (a.role === 'staff') {
+      document.body.classList.add('role-staff');
+      var st = document.createElement('style');
+      st.textContent = 'body.role-staff #btnAdd,body.role-staff .row-actions,body.role-staff .head-btn{display:none!important}';
+      document.head.appendChild(st);
     }
 
     // 顶栏（后台工作台右侧 / 单页顶部导航）插入账号胶囊
@@ -275,11 +283,11 @@
 
     var chip = document.createElement('span');
     chip.className = 'auth-chip';
-    chip.title = '当前账号：' + a.username + '（' + (a.label || (a.role === 'viewer' ? '查看模式' : '管理员')) + '）';
+    chip.title = '当前账号：' + a.username + '（' + (a.label || (a.role === 'viewer' ? '查看模式' : a.role === 'staff' ? '教务' : '管理员')) + '）';
     chip.innerHTML =
       IC_USER +
       '<em class="auth-name"></em>' +
-      '<i class="auth-role">' + escHtml(a.role === 'viewer' ? '查看' : '管理') + '</i>' +
+      '<i class="auth-role">' + escHtml(a.role === 'viewer' ? '查看' : a.role === 'staff' ? '教务' : '管理') + '</i>' +
       '<a class="auth-exit" href="/api/logout" title="退出登录">' + IC_LOGOUT + '</a>';
     chip.querySelector('.auth-name').textContent = a.nickname || a.username;
     host.appendChild(chip);

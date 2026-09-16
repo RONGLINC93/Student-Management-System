@@ -127,8 +127,14 @@
     }
     .tag.m { background: #eff6ff; color: #2563eb; border-color: #dbeafe; }
     .tag.f { background: #fdf2f8; color: #db2777; border-color: #fbcfe8; }
+    .tag.p { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .tag.ok { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+    .tag.no { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+    .btn.act { padding: 4px 11px; font-size: 12px; }
+    .lv-reason { max-width: 200px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+    .lv-review { color: var(--muted); font-size: 12px; }
     .search {
-      width: 200px; max-width: 45%; padding: 7px 11px; font-size: 13px;
+      width: 200px;  padding: 7px 11px; font-size: 13px;
       border: 1px solid var(--line); border-radius: 9px; outline: none;
       transition: border-color .15s, box-shadow .15s;
     }
@@ -155,6 +161,8 @@
     .btn.soft:hover { background: #e0e7ff; }
     .btn.plain { padding: 7px 14px; font-weight: 500; font-size: 13px; color: var(--ink-2); background: #fff; border: 1px solid var(--line); }
     .btn.plain:hover { border-color: #c7cdd8; }
+    .f-sec { margin: 16px 0 2px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 13px; font-weight: 700; color: var(--ink); }
+    .f-sec:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
     .form-tip { font-size: 12px; color: var(--muted); line-height: 1.7; margin: 10px 0 0; }
 
     footer { text-align: center; font-size: 12px; color: #9ca3af; padding: 10px 0 26px; }
@@ -246,6 +254,24 @@
             <div class="empty">正在加载…</div>
           </div>
         </div>
+
+        <div class="card" id="leaveCard">
+          <div class="card-head">
+            <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>请假审批 · 我的班级</h3>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+              <span class="cnt" id="leaveCnt"></span>
+              <select class="search" id="leaveFilter" style="width:auto">
+                <option value="">全部状态</option>
+                <option value="pending">待审批</option>
+                <option value="approved">已通过</option>
+                <option value="rejected">已驳回</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body" id="leaveBody">
+            <div class="empty">正在加载…</div>
+          </div>
+        </div>
       </div>
 
       <!-- 右列：个人档案 + 修改密码 -->
@@ -261,6 +287,7 @@
             </div>
             <!-- 编辑表单：完善身份信息（工号 / 姓名 / 身份证号由管理员维护，不可自行修改） -->
             <form id="profileForm" style="display:none" onsubmit="return false">
+              <div class="f-sec">任教信息</div>
               <div class="f-field">
                 <label for="pfGender">性别</label>
                 <select id="pfGender" class="f-inp"><option value="男">男</option><option value="女">女</option></select>
@@ -280,22 +307,67 @@
                   <option value="三级教师">三级教师</option>
                   <option value="教研组长">教研组长</option>
                   <option value="年级组长">年级组长</option>
+                  <option value="教务">教务</option>
+                  <option value="教务主任">教务主任</option>
                   <option value="德育主任">德育主任</option>
                 </select>
-              </div>
-              <div class="f-field">
-                <label for="pfPhone">联系电话</label>
-                <input type="text" id="pfPhone" class="f-inp" placeholder="手机号 / 固话" maxlength="30" />
               </div>
               <div class="f-field">
                 <label for="pfJoinYear">入职年份</label>
                 <input type="text" id="pfJoinYear" class="f-inp" placeholder="如：2018" maxlength="10" />
               </div>
+              <div class="f-sec">个人与家庭信息</div>
+              <div class="f-field">
+                <label for="pfPhone">联系电话</label>
+                <input type="text" id="pfPhone" class="f-inp" placeholder="手机号 / 固话" maxlength="30" />
+              </div>
+              <div class="f-field">
+                <label for="pfEthnic">民族</label>
+                <input type="text" id="pfEthnic" class="f-inp" placeholder="如：汉族" maxlength="20" />
+              </div>
+              <div class="f-field">
+                <label for="pfHometown">籍贯</label>
+                <input type="text" id="pfHometown" class="f-inp" placeholder="如：广东广州" maxlength="50" />
+              </div>
+              <div class="f-field">
+                <label for="pfPolitical">政治面貌</label>
+                <select id="pfPolitical" class="f-inp">
+                  <option value="">请选择</option>
+                  <option value="中共党员">中共党员</option>
+                  <option value="中共预备党员">中共预备党员</option>
+                  <option value="共青团员">共青团员</option>
+                  <option value="民主党派">民主党派</option>
+                  <option value="群众">群众</option>
+                </select>
+              </div>
+              <div class="f-field">
+                <label for="pfEducation">学历 / 学位</label>
+                <select id="pfEducation" class="f-inp">
+                  <option value="">请选择</option>
+                  <option value="高中/中专">高中/中专</option>
+                  <option value="大专">大专</option>
+                  <option value="本科">本科</option>
+                  <option value="硕士研究生">硕士研究生</option>
+                  <option value="博士研究生">博士研究生</option>
+                </select>
+              </div>
+              <div class="f-field">
+                <label for="pfAddress">家庭住址</label>
+                <input type="text" id="pfAddress" class="f-inp" placeholder="省 / 市 / 区 / 详细地址" maxlength="100" />
+              </div>
+              <div class="f-field">
+                <label for="pfEmergencyName">紧急联系人</label>
+                <input type="text" id="pfEmergencyName" class="f-inp" placeholder="姓名（如家属）" maxlength="30" />
+              </div>
+              <div class="f-field">
+                <label for="pfEmergencyPhone">紧急联系电话</label>
+                <input type="text" id="pfEmergencyPhone" class="f-inp" placeholder="联系人电话" maxlength="30" />
+              </div>
               <div style="display:flex;gap:10px">
                 <button type="button" class="btn grad" id="btnSaveProfile" style="flex:1">保存</button>
                 <button type="button" class="btn plain" id="btnCancelProfile">取消</button>
               </div>
-              <p class="form-tip">工号、姓名、身份证号、班主任班级等关键信息由学校管理员维护，如需修改请联系管理员。</p>
+              <p class="form-tip">以上信息仅本人与学校管理员可见。工号、姓名、身份证号、班主任班级等关键信息由管理员维护，如需修改请联系管理员。</p>
             </form>
           </div>
         </div>
@@ -392,6 +464,7 @@
           // 教师档案已被删除
           $('heroSub').textContent = '您的教师档案已被移除或未找到，请联系管理员核对。';
           $('rosterBody').innerHTML = '<div class="empty">暂无可用数据</div>';
+          $('leaveBody').innerHTML = '<div class="empty">暂无可用数据</div>';
           return;
         }
         if (ME.must) $('forceCover').style.display = 'flex';
@@ -413,12 +486,19 @@
           '<div class="k">性别</div><div class="v">' + esc(p.gender || '-') + '</div>' +
           '<div class="k">任教学科</div><div class="v">' + esc(p.subject || '-') + '</div>' +
           '<div class="k">职称 / 职务</div><div class="v">' + esc(p.title || '-') + '</div>' +
+          '<div class="k">入职年份</div><div class="v">' + esc(p.joinYear || '-') + '</div>' +
+          '<div class="k">民族</div><div class="v">' + esc(p.ethnic || '-') + '</div>' +
+          '<div class="k">籍贯</div><div class="v">' + esc(p.hometown || '-') + '</div>' +
+          '<div class="k">政治面貌</div><div class="v">' + esc(p.political || '-') + '</div>' +
+          '<div class="k">学历 / 学位</div><div class="v">' + esc(p.education || '-') + '</div>' +
           '<div class="k">联系电话</div><div class="v">' + esc(p.phone || '-') + '</div>' +
-          '<div class="k">入职年份</div><div class="v">' + esc(p.joinYear || '-') + '</div>';
+          '<div class="k">家庭住址</div><div class="v">' + esc(p.address || '-') + '</div>' +
+          '<div class="k">紧急联系人</div><div class="v">' + esc(p.emergencyName ? (p.emergencyName + (p.emergencyPhone ? '（' + p.emergencyPhone + '）' : '')) : '-') + '</div>';
         $('profileForm').style.display = 'none';
         $('profileKv').style.display = 'grid';
 
         renderRoster('');
+        loadLeaves();
       }
 
       // ===== 班级花名册 =====
@@ -467,6 +547,126 @@
         renderRoster(this.value);
       });
 
+      // ===== 请假审批（班主任）=====
+      var LEAVES = [];
+      function loadLeaves() {
+        var body = $('leaveBody');
+        var p = ME && ME.profile;
+        if (!p || !p.isHead) {
+          $('leaveCnt').textContent = '';
+          body.innerHTML = '<div class="empty">您目前不是班主任，暂无请假审批事项。</div>';
+          return;
+        }
+        var st = $('leaveFilter') ? $('leaveFilter').value : '';
+        body.innerHTML = '<div class="empty">正在加载…</div>';
+        fetch('/api/teacher/leaves' + (st ? '?status=' + encodeURIComponent(st) : ''))
+          .then(function (r) {
+            if (r.status === 401) { location.href = '/tlogin.html'; return null; }
+            return r.json();
+          })
+          .then(function (j) {
+            if (!j) return;
+            if (j.code !== 0) { body.innerHTML = '<div class="empty">' + esc(j.msg || '加载失败') + '</div>'; return; }
+            LEAVES = j.data || [];
+            renderLeaves();
+            // 欢迎语提示待审批数量
+            var pend = 0;
+            for (var i = 0; i < LEAVES.length; i++) if (LEAVES[i].status === 'pending') pend++;
+            var hs = $('heroSub');
+            if (hs && pend > 0 && hs.textContent.indexOf('待审批请假') === -1) {
+              hs.textContent += ' · 有 ' + pend + ' 条待审批请假';
+            }
+          })
+          .catch(function () { body.innerHTML = '<div class="empty">网络异常，请刷新重试</div>'; });
+      }
+      function p2(n) { return n < 10 ? '0' + n : '' + n; }
+      function fmtTime(iso) {
+        if (!iso) return '-';
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+      }
+      function leafOf(id) {
+        for (var i = 0; i < LEAVES.length; i++) if (LEAVES[i].id === id) return LEAVES[i];
+        return null;
+      }
+      function renderLeaves() {
+        var body = $('leaveBody');
+        var pend = 0, i;
+        for (i = 0; i < LEAVES.length; i++) if (LEAVES[i].status === 'pending') pend++;
+        $('leaveCnt').textContent = LEAVES.length ? ('待审批 ' + pend + ' / 共 ' + LEAVES.length + ' 条') : '';
+        if (!LEAVES.length) {
+          var st = $('leaveFilter') ? $('leaveFilter').value : '';
+          body.innerHTML = '<div class="empty">' + (st ? '没有该状态的请假记录' : '本班暂无请假记录') + '</div>';
+          return;
+        }
+        var rows = '';
+        for (i = 0; i < LEAVES.length; i++) {
+          var x = LEAVES[i];
+          var tag = x.status === 'pending' ? '<span class="tag p">待审批</span>'
+            : x.status === 'approved' ? '<span class="tag ok">已通过</span>'
+            : '<span class="tag no">已驳回</span>';
+          var info;
+          if (x.status === 'pending') {
+            info = '<span class="lv-review">提交于 ' + esc(fmtTime(x.createdAt)) + (x.source === 'student' ? ' · 学生在线申请' : ' · 后台代登记') + '</span>';
+          } else {
+            var full = '审批人：' + (x.reviewer || '-') + '\n时间：' + fmtTime(x.reviewedAt) + '\n意见：' + (x.reviewNote || '（无）');
+            info = '<span class="lv-review" title="' + esc(full) + '">' + esc(x.reviewer || '-') + '<br>' + esc(fmtTime(x.reviewedAt)) + (x.reviewNote ? '<br>意见：' + esc(x.reviewNote) : '') + '</span>';
+          }
+          var act = x.status === 'pending'
+            ? '<button type="button" class="btn soft act" data-lv="' + esc(x.id) + '" data-act="approve">通过</button> '
+              + '<button type="button" class="btn plain act" data-lv="' + esc(x.id) + '" data-act="reject">驳回</button>'
+            : '<span style="color:#cacad2">已处理</span>';
+          rows += '<tr>'
+            + '<td style="color:#9ca3af">' + (i + 1) + '</td>'
+            + '<td><b>' + esc(x.name || '-') + '</b><br><span style="color:var(--muted);font-size:12px">' + esc(x.no || '-') + '</span></td>'
+            + '<td><span class="tag">' + esc(x.type || '-') + '</span></td>'
+            + '<td>' + esc(x.startDate || '-') + ' ~ ' + esc(x.endDate || '-') + '</td>'
+            + '<td>' + (x.days || 0) + ' 天</td>'
+            + '<td><span class="lv-reason" title="' + esc(x.reason || '（未填写）') + '">' + esc(x.reason || '—') + '</span></td>'
+            + '<td>' + tag + '</td>'
+            + '<td>' + info + '</td>'
+            + '<td style="white-space:nowrap">' + act + '</td>'
+            + '</tr>';
+        }
+        body.innerHTML = '<div class="tbl-wrap"><table class="tbl">'
+          + '<thead><tr><th>#</th><th>学生</th><th>类型</th><th>起止日期</th><th>时长</th><th>事由</th><th>状态</th><th>审批信息</th><th>操作</th></tr></thead>'
+          + '<tbody>' + rows + '</tbody></table></div>';
+      }
+      function reviewLeave(id, action) {
+        var x = leafOf(id);
+        if (!x) return;
+        var note = '';
+        if (action === 'approve') {
+          note = window.prompt('确认通过「' + (x.name || '该学生') + '」的' + (x.type || '') + '申请（' + x.startDate + ' 至 ' + x.endDate + '）？\n审批意见（可留空）：', '') || '';
+        } else {
+          while (true) {
+            note = window.prompt('驳回「' + (x.name || '该学生') + '」的' + (x.type || '') + '申请。\n请填写驳回原因（必填，学生可见）：', note);
+            if (note === null) return;             // 取消
+            if (String(note).trim()) { note = String(note).trim(); break; }
+            window.alert('驳回时请填写原因，便于学生了解情况');
+          }
+        }
+        fetch('/api/teacher/leaves/' + encodeURIComponent(id) + '/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: action, note: note })
+        }).then(function (r) {
+          if (r.status === 401) { location.href = '/tlogin.html'; return null; }
+          return r.json();
+        }).then(function (j) {
+          if (!j) return;
+          if (j.code !== 0) { window.alert(j.msg || '操作失败，请重试'); return; }
+          loadLeaves();
+        }).catch(function () { window.alert('网络异常，请重试'); });
+      }
+      $('leaveFilter').addEventListener('change', function () { loadLeaves(); });
+      $('leaveBody').addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('button[data-lv]') : null;
+        if (!btn) return;
+        reviewLeave(btn.getAttribute('data-lv'), btn.getAttribute('data-act'));
+      });
+
       // ===== 退出登录 =====
       $('btnLogout').addEventListener('click', function () {
         fetch('/api/teacher/logout', { method: 'POST' }).catch(function () {})
@@ -480,8 +680,15 @@
         $('pfGender').value = p.gender === '女' ? '女' : '男';
         $('pfSubject').value = p.subject || '';
         $('pfTitle').value = p.title || '';
-        $('pfPhone').value = p.phone || '';
         $('pfJoinYear').value = p.joinYear || '';
+        $('pfPhone').value = p.phone || '';
+        $('pfEthnic').value = p.ethnic || '';
+        $('pfHometown').value = p.hometown || '';
+        $('pfPolitical').value = p.political || '';
+        $('pfEducation').value = p.education || '';
+        $('pfAddress').value = p.address || '';
+        $('pfEmergencyName').value = p.emergencyName || '';
+        $('pfEmergencyPhone').value = p.emergencyPhone || '';
         $('profileKv').style.display = 'none';
         $('profileForm').style.display = 'block';
         $('pfSubject').focus();
@@ -501,8 +708,15 @@
             gender: $('pfGender').value,
             subject: $('pfSubject').value.trim(),
             title: $('pfTitle').value,
+            joinYear: $('pfJoinYear').value.trim(),
             phone: $('pfPhone').value.trim(),
-            joinYear: $('pfJoinYear').value.trim()
+            ethnic: $('pfEthnic').value.trim(),
+            hometown: $('pfHometown').value.trim(),
+            political: $('pfPolitical').value,
+            education: $('pfEducation').value,
+            address: $('pfAddress').value.trim(),
+            emergencyName: $('pfEmergencyName').value.trim(),
+            emergencyPhone: $('pfEmergencyPhone').value.trim()
           })
         }).then(function (r) {
           if (r.status === 401) { location.href = '/tlogin.html'; return null; }
