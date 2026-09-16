@@ -52,8 +52,8 @@ set "RC=%ERRORLEVEL%"
 popd
 if not "%RC%"=="0" goto fail
 
-rem --- output folder: <project root>\fpk (created on demand) ---
-set "OUTDIR=%PROJ%fpk"
+rem --- output folder: <project root>\dist (created on demand) ---
+set "OUTDIR=%PROJ%dist"
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 if errorlevel 1 goto fail
 
@@ -74,22 +74,24 @@ if errorlevel 1 goto fail
 set "OUT=%OUTDIR%\%OUTNAME%"
 
 echo.
-echo Done: %OUT%
-echo Install: upload it in the fnOS App Center, or over SSH run
+echo === Done. Output: %OUT% ===
+echo.
+echo Install: upload it in the fnOS App Center, or over SSH run:
 echo   appcenter-cli install-fpk "%OUT%"
 echo.
 
 rem --- open the output folder and highlight the package just built ---
 rem     (explorer returns a non-zero exit code even on success, so ignore it)
-explorer /select,"%OUT%"
+rem     skipped when called from 打包全部.bat (outer script handles this)
+if "%PACKAGE_ALL%"=="" explorer /select,"%OUT%"
 
 echo.
-pause
+if "%PACKAGE_ALL%"==""
 exit /b 0
 
 :nofnpack
 echo.
-echo fnpack.exe not found.
+echo [ERROR] fnpack.exe not found.
 echo Download the Windows x86 build from
 echo   https://developer.fnnas.com/docs/cli/fnpack/
 echo The downloaded file has no extension - rename it to fnpack.exe and put it in:
@@ -100,7 +102,7 @@ exit /b 1
 
 :fail
 echo.
-echo Build FAILED. See the output above.
+echo [ERROR] Build failed. See messages above.
 echo.
 pause
 exit /b 1
