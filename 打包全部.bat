@@ -8,7 +8,8 @@ rem
 rem  依次执行:
 rem    1) 打包rar-win.bat   生成 Windows 版 rar (含 运行.bat)
 rem    2) 打包rar-linux.bat 生成 Linux 版 rar   (含 启动.sh)
-rem    3) 打包fpk.bat       生成 fnOS fpk 包   (依赖 fnos\fnpack.exe)
+rem    3) 打包rar-mac.bat   生成 macOS 版 rar   (含 启动.command, Finder 双击即可)
+rem    4) 打包fpk.bat       生成 fnOS fpk 包   (依赖 fnos\fnpack.exe)
 rem
 rem  用法: 双击本文件, 或在 cmd 中执行  打包全部.bat
 rem  前置: Node.js 14+, 并且 fnos\fnpack.exe 已就位 (用于 fpk 步骤)
@@ -20,7 +21,7 @@ set "WAS_NESTED=%PACKAGE_ALL%"
 
 cd /d "%~dp0"
 
-echo === [1/3] Windows RAR package ===
+echo === [1/4] Windows RAR package ===
 echo.
 rem  设置 PACKAGE_ALL 让 打包rar-win.bat 不再倒计时 / 不再打开资源管理器
 set "PACKAGE_ALL=1"
@@ -29,7 +30,7 @@ set "PACKAGE_ALL="
 if errorlevel 1 goto fail
 
 echo.
-echo === [2/3] Linux RAR package ===
+echo === [2/4] Linux RAR package ===
 echo.
 rem  设置 PACKAGE_ALL 让 打包rar-linux.bat 不再倒计时 / 不再打开资源管理器
 set "PACKAGE_ALL=1"
@@ -38,7 +39,16 @@ set "PACKAGE_ALL="
 if errorlevel 1 goto fail
 
 echo.
-echo === [3/3] fnOS fpk package ===
+echo === [3/4] macOS RAR package ===
+echo.
+rem  设置 PACKAGE_ALL 让 打包rar-mac.bat 不再倒计时 / 不再打开资源管理器
+set "PACKAGE_ALL=1"
+call "%~dp0打包rar-mac.bat"
+set "PACKAGE_ALL="
+if errorlevel 1 goto fail
+
+echo.
+echo === [4/4] fnOS fpk package ===
 echo.
 rem  设置 PACKAGE_ALL 让 打包fpk.bat 内部不再打开资源管理器 / 不再倒计时
 set "PACKAGE_ALL=1"

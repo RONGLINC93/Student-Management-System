@@ -3,11 +3,13 @@
  * Student Management System - RAR package builder (cross-platform)
  *
  * 用法：
- *   node build.js                同时构建 Windows 与 Linux 两个 RAR 包
+ *   node build.js                同时构建 Windows / Linux / macOS 三个 RAR 包
  *   node build.js win            只生成 Student-Management-System-<ver>-win.rar
  *                                （含 运行.bat）
  *   node build.js linux          只生成 Student-Management-System-<ver>-linux.rar
  *                                （含 启动.sh）
+ *   node build.js macos          只生成 Student-Management-System-<ver>-macos.rar
+ *                                （含 启动.command，Finder 双击即可）
  *   node build.js all            同不传参数
  *
  * 设计取舍：
@@ -23,6 +25,7 @@
  * 输出（位于 <项目根>/dist/）：
  *   Student-Management-System-<version>-win.rar
  *   Student-Management-System-<version>-linux.rar
+ *   Student-Management-System-<version>-macos.rar
  *
  * 说明：
  *   - data/ 不会被打包（运行期数据，应单独备份；server.js 首次写入时自动创建）
@@ -50,8 +53,8 @@ const RAR_FILES = [
 const argv = process.argv.slice(2);
 const target = (argv[0] || 'all').toLowerCase();
 
-if (!['win', 'linux', 'all'].includes(target)) {
-  console.error(`Usage: node build.js [win|linux|all]`);
+if (!['win', 'linux', 'macos', 'all'].includes(target)) {
+  console.error(`Usage: node build.js [win|linux|macos|all]`);
   process.exit(1);
 }
 
@@ -109,9 +112,9 @@ function readmeWin(v) {
 }
 
 function readmeLinux(v) {
-  return `# ${APPNAME} v${v} (Linux / macOS)
+  return `# ${APPNAME} v${v} (Linux)
 
-本压缩包是「学生管理系统」的 **Linux / macOS** 版离线发布包，解压后执行 ./启动.sh 即可启动。
+本压缩包是「学生管理系统」的 **Linux** 版离线发布包，解压后执行 ./启动.sh 即可启动。
 
 ## 运行要求
 
@@ -134,7 +137,7 @@ function readmeLinux(v) {
 ## 目录说明
 
 - server.js / package.json / public/     应用本体
-- 启动.sh                               Linux / macOS 启动脚本
+- 启动.sh                               Linux 启动脚本
 - data/                                 首次写入时由 server.js 自动创建，不需要预先提供
 
 ## 数据备份
@@ -142,8 +145,69 @@ function readmeLinux(v) {
 「系统设置 - 数据管理 - 备份与恢复」可一键打包 / 恢复 data/ 下全部 JSON 数据。
 
 ---
-提示：本包不含 Windows 启动脚本。如果你在 Windows 上使用，请改用
-  Student-Management-System-${v}-win.rar
+提示：本包不含 Windows / macOS 启动脚本。如果你在 Windows 上使用，请改用
+  Student-Management-System-${v}-win.rar；
+如在 macOS 上使用，请改用 Student-Management-System-${v}-macos.rar
+（Finder 双击 启动.command 即可，无需 chmod）。
+`;
+}
+
+function readmeMacos(v) {
+  return `# ${APPNAME} v${v} (macOS)
+
+本压缩包是「学生管理系统」的 **macOS** 版离线发布包，解压后在 Finder 里双击 启动.command 即可启动。
+
+## 运行要求
+
+- macOS 10.13 (High Sierra) 或更高版本
+- Node.js 14 或更高版本（项目零依赖，无需 npm install）
+  - 推荐方式：官方安装包 https://nodejs.org （pkg 安装）
+  - 其他方式：brew install node
+- 端口 3000 默认空闲；如被占用请在 Terminal 里 export PORT=<其他端口> 后再双击启动
+
+## 快速开始
+
+1. 解压本压缩包到任意目录（例如 ~/Applications）
+2. 在 Finder 里打开解压后的文件夹
+3. **双击 启动.command**
+
+Finder 会自动用 Terminal 打开并运行脚本，浏览器自动打开 http://localhost:3000。
+默认账号 admin / admin123（首次登录后请到「系统设置 - 账号与安全」修改）。
+
+> 首次双击若提示"无法打开，因为来自身份不明的开发者"，请到
+> 「系统设置 → 隐私与安全性」点击"仍要打开"，或对 启动.command 右键选择"打开"。
+
+## 自定义端口
+
+在 Terminal 里先设置环境变量再双击：
+
+    export PORT=8080
+    open "$(dirname "$(pwd)")"   # 然后双击 启动.command
+
+或者直接用命令行：
+
+    cd "$(dirname "$(pwd)")"
+    PORT=8080 ./启动.command
+
+## 目录说明
+
+- server.js / package.json / public/   应用本体
+- 启动.command                          macOS Finder 双击启动脚本（自动 chmod +x）
+- data/                                首次写入时由 server.js 自动创建，不需要预先提供
+
+## 数据备份
+
+「系统设置 - 数据管理 - 备份与恢复」可一键打包 / 恢复 data/ 下全部 JSON 数据。
+
+## 卸载
+
+直接删除解压目录即可（data/ 内是全部数据，先备份或迁移再删）。
+
+---
+提示：本包不含 Windows / Linux 启动脚本。如果你在 Windows 上使用，请改用
+  Student-Management-System-${v}-win.rar；
+如在 Linux 上使用，请改用 Student-Management-System-${v}-linux.rar
+（chmod +x 启动.sh && ./启动.sh）。
 `;
 }
 
@@ -280,8 +344,8 @@ function main() {
   fs.mkdirSync(distDir, { recursive: true });
 
   // 清理旧产物 —— 只清当前 target 对应的旧包，避免打一个平台时把另一个平台
-  // 之前打好的包误删掉 (target=all 时才两个都清)。
-  const suffixesToClean = target === 'all' ? ['win', 'linux'] : [target];
+  // 之前打好的包误删掉 (target=all 时才三个都清)。
+  const suffixesToClean = target === 'all' ? ['win', 'linux', 'macos'] : [target];
   for (const suffix of suffixesToClean) {
     const old = path.join(distDir, `${APPNAME}-${VERSION}-${suffix}.rar`);
     if (fs.existsSync(old)) fs.unlinkSync(old);
@@ -303,6 +367,13 @@ function main() {
       readme: readmeLinux,
     });
   }
+  if (target === 'macos' || target === 'all') {
+    jobs.push({
+      suffix: 'macos',
+      launch: '启动.command',
+      readme: readmeMacos,
+    });
+  }
 
   try {
     for (const job of jobs) buildOne(job, rarBin);
@@ -321,6 +392,7 @@ function main() {
   console.log(`Install:`);
   console.log(`  Windows : 解压后双击 运行.bat`);
   console.log(`  Linux   : 解压后 chmod +x 启动.sh && ./启动.sh`);
+  console.log(`  macOS   : 解压后在 Finder 里双击 启动.command`);
 }
 
 main();

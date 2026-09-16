@@ -182,10 +182,11 @@ if (existing === tagName) {
 //  8. 找出 dist/ 下的产物
 // ===========================================================================
 const distDir = path.join(ROOT, 'dist');
-// win/linux rar 大写, fpk 文件名小写 (跟 manifest 的 appname 一致)
+// win/linux/macos rar 大写, fpk 文件名小写 (跟 manifest 的 appname 一致)
 const candidates = [
   path.join(distDir, `Student-Management-System-${version}-win.rar`),
   path.join(distDir, `Student-Management-System-${version}-linux.rar`),
+  path.join(distDir, `Student-Management-System-${version}-macos.rar`),
   path.join(distDir, `student-management-system-${version}.fpk`),
 ];
 const assets = [];

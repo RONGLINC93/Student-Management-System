@@ -22,29 +22,82 @@
 
 > 考试科目可在「系统设置 → 科目设置」自由增删（含满分），学生档案成绩、成绩录入、数据总览与分班参考成绩全部按配置科目动态渲染，旧版“语文 / 数学 / 英语 / 理综”成绩会自动迁移。
 
+## 运行平台
+
+本项目是**纯 Node.js 零依赖**应用（标准库 `http` / `fs` / `path` / `crypto` / `child_process`，**无需 `npm install`**），任何能跑 Node.js 14+ 的平台都能直接拉下来跑：
+
+| 平台 | 启动方式 | 备注 |
+|---|---|---|
+| **Windows 10 / 11 / Server** | 双击 `运行.bat` 或 `node server.js` | 启动后自动用默认浏览器打开 <http://localhost:3000> |
+| **macOS** | `chmod +x 启动.sh && ./启动.sh`，或 `node server.js` | 脚本通过 `open` 自动打开浏览器 |
+| **Linux（桌面）** | `chmod +x 启动.sh && ./启动.sh`，或 `node server.js` | 脚本通过 `xdg-open` 自动打开浏览器 |
+| **Linux（服务器 / NAS）** | `node server.js`（建议配合 systemd / Docker） | 无图形界面，需自行访问 <http://<host>:3000> |
+| **Docker / Docker Compose** | `docker compose up -d` | 由 `Dockerfile` + `docker-compose.yml` 构建，数据卷挂载 `data/` 持久化 |
+| **fnOS（飞牛 NAS）** | 应用商店安装，或本地导入 `dist/*.fpk` | `.fpk` 只能在 Windows 上构建，见下表 |
+
+前端仅依赖浏览器，Chrome / Firefox / Edge / Safari / 移动浏览器均可访问。
+
+> Node.js 安装参考：<br>Windows / macOS — 官方安装包 <https://nodejs.org/zh-cn>；<br>Ubuntu / Debian — `sudo apt-get install -y nodejs`；<br>CentOS / RHEL — `sudo yum install -y nodejs`。
+
 ## 快速开始
 
 ```bash
-# 方式一
+# 方式一（任何平台）
 node server.js
 
-# 方式二
+# 方式二（任何平台，等价于 node server.js）
 npm start
 
-# 方式三（Windows）
+# 方式三（Windows：自动打开浏览器）
 双击 运行.bat
+
+# 方式四（macOS / Linux：自动打开浏览器）
+chmod +x 启动.sh && ./启动.sh
+
+# 方式五（Docker）
+docker compose up -d
 ```
 
 浏览器访问 <http://localhost:3000>。默认账号：**admin / admin123**（登录后请及时在「系统设置 → 账号与安全」中修改）。
 
 > 修改 `server.js` 后需重启服务；修改 `public/` 下的前端文件刷新页面即可生效（静态资源已禁用缓存）。
 
+## 打包与发布
+
+| 任务 | Windows | Linux / macOS |
+|---|---|---|
+| 打 rar 包（Linux 产物） | `打包rar-linux.bat` | `./打包rar-linux.sh` |
+| 打 rar 包（Windows 产物） | `打包rar-win.bat` | `./打包rar-win.sh`（需自行安装 `rar` 命令） |
+| 打 rar 包（macOS 产物） | `打包rar-mac.bat` | `./打包rar-mac.sh`（macOS 推荐 `brew install --cask rar`） |
+| 打 fnOS `.fpk` 包 | `打包fpk.bat` | ❌ **不支持** — 依赖 `fnos/fnpack.exe`（Windows x86 二进制） |
+| **一键打全部平台产物** | `打包全部.bat` | `./打包全部.sh`（自动跳过 fpk 步骤并提示） |
+| 拉取 / 推送 | `拉取.bat` / `推送.bat` | 直接 `git pull` / `git push` |
+| **发布新版本到 GitHub** | `发布.bat` | 手工跑 `./打包全部.sh && node release.js` |
+
+**`发布.bat`** 会自动完成：构建全部平台产物 → `git tag v<version>` 并推送 → 用 GitHub API 创建 Release → 上传 `dist/` 下的 rar / fpk 资产 → 显示结果摘要倒计时关闭。详见 `release.js`（顶部 JSDoc 注释说明完整流程与退出码）。
+
+发布前置：Node.js 14+、`.env` 配好 `GITHUB_REPO_URL` 与 `GITHUB_TOKEN`（同 `拉取.bat` / `推送.bat`）、`package.json` 的 `version` 已手工调整并 commit。
+
 ## 项目结构
 
 ```
 ├── server.js              # HTTP 服务：REST API 路由 + 静态文件托管 + 登录认证
 ├── package.json
-├── 运行.bat / 拉取.bat / 推送.bat
+├── Dockerfile             # 生产镜像（Alpine + Node 20）
+├── docker-compose.yml     # 一键部署，数据卷持久化
+├── 运行.bat               # Windows 启动（自动打开浏览器）
+├── 启动.sh                # Linux 启动（自动打开浏览器，Terminal 运行）
+├── 启动.command           # macOS 启动（Finder 双击即可，自动开 Terminal）
+├── 拉取.bat / 推送.bat    # Git 拉取 / 推送（带 token 注入与脱敏）
+├── 打包rar-win.bat/.sh    # 打 Windows rar 包
+├── 打包rar-linux.bat/.sh  # 打 Linux rar 包
+├── 打包rar-mac.bat/.sh    # 打 macOS rar 包（含 启动.command）
+├── 打包fpk.bat            # 打 fnOS .fpk 包（仅 Windows）
+├── 打包全部.bat/.sh       # 一键打全部平台产物
+├── 发布.bat               # 一键发布新版本到 GitHub（打包 + tag + Release）
+├── build.js               # 打包构建逻辑（被 *.bat / *.sh 调用）
+├── release.js             # GitHub Release 创建 + 资产上传
+├── pull.js / push.js      # Git 拉取 / 推送逻辑
 ├── data/                  # JSON 数据存储（缺省文件在首次写入时自动创建）
 │   ├── settings.json      # 系统设置（学校信息 / 科目 / 分班规则）
 │   ├── users.json         # 登录账号

@@ -5,7 +5,8 @@
 #  依次执行:
 #    1) 打包rar-linux.sh  生成 Linux 版 rar   (含 启动.sh)
 #    2) 打包rar-win.sh    生成 Windows 版 rar (含 运行.bat)
-#    3) fpk 步骤在 Linux/macOS 上跳过并提示
+#    3) 打包rar-mac.sh    生成 macOS 版 rar   (含 启动.command, Finder 双击即可)
+#    4) fpk 步骤在 Linux/macOS 上跳过并提示
 #       (fnpack.exe 是 Windows x86 二进制, fpk 只能在 Windows 上构建)
 #
 #  用法: ./打包全部.sh
@@ -44,7 +45,7 @@ trap 'echo; echo "[错误] 打包失败，详见上方信息。"; countdown 5; e
 # 切换到脚本所在目录
 cd "$(dirname "$0")"
 
-echo "=== [1/2] RAR packages (Linux / Windows) ==="
+echo "=== [1/3] RAR packages (Linux / Windows / macOS) ==="
 echo
 # 设置 PACKAGE_ALL 让子脚本不再倒计时 / 不再尝试打开文件管理器
 echo "--- 打包 Linux 版 ---"
@@ -52,6 +53,9 @@ PACKAGE_ALL=1 ./打包rar-linux.sh
 echo
 echo "--- 打包 Windows 版 ---"
 PACKAGE_ALL=1 ./打包rar-win.sh
+echo
+echo "--- 打包 macOS 版 ---"
+PACKAGE_ALL=1 ./打包rar-mac.sh
 echo
 
 echo "=== [2/2] fnOS fpk package ==="
