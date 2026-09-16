@@ -279,8 +279,10 @@ function main() {
   const distDir = path.join(PROJ, 'dist');
   fs.mkdirSync(distDir, { recursive: true });
 
-  // 清理旧产物
-  for (const suffix of ['win', 'linux']) {
+  // 清理旧产物 —— 只清当前 target 对应的旧包，避免打一个平台时把另一个平台
+  // 之前打好的包误删掉 (target=all 时才两个都清)。
+  const suffixesToClean = target === 'all' ? ['win', 'linux'] : [target];
+  for (const suffix of suffixesToClean) {
     const old = path.join(distDir, `${APPNAME}-${VERSION}-${suffix}.rar`);
     if (fs.existsSync(old)) fs.unlinkSync(old);
   }

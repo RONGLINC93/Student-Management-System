@@ -25,4 +25,7 @@ for /l %%i in (%~1,-1,1) do (
     echo   %%i...
     ping -n 2 127.0.0.1 >nul
 )
+rem  双击运行 (PACKAGE_ALL 未设) 时 exit (不带 /b) 会关掉 cmd 窗口;
+rem  嵌套调用 (打包全部.bat 之类) 时 PACKAGE_ALL=1, 仍走 exit /b 让调用方继续。
+if "%PACKAGE_ALL%"=="" exit
 exit /b 0

@@ -3,16 +3,14 @@ rem 切换到 UTF-8 代码页, 避免中文输出乱码
 chcp 65001 >nul 2>&1
 
 rem ===========================================================================
-rem  Student Management System - Windows 调用器
+rem  Student Management System - Windows 版 RAR 打包
 rem
 rem  真正的打包逻辑在 build.js（Node.js 跨平台脚本）。
 rem  这个 .bat 只是为了方便 Windows 用户双击 / 在 cmd 中使用。
 rem
-rem  用法（与 build.js 一致）：
-rem     打包rar.bat                同时打两个平台
-rem     打包rar.bat win            只打 Windows 版（含 运行.bat）
-rem     打包rar.bat linux          只打 Linux 版（含 启动.sh）
-rem     打包rar.bat all            同不传参数
+rem  只会产出 Windows 版 rar（含 运行.bat）。
+rem  同时打多个平台请用 打包全部.bat。
+rem  Linux 版请用 打包rar-linux.bat。
 rem
 rem  前置：Node.js 14+ 已安装并在 PATH 中
 rem ===========================================================================
@@ -20,9 +18,8 @@ rem ===========================================================================
 rem  把当前目录切换到脚本所在目录，避免相对路径出错
 cd /d "%~dp0"
 
-rem  透传所有参数给 build.js；%~dp0build.js 会随 cmd 的当前代码页解析，
-rem  但 build.js 内部只用 Node 默认 UTF-8，所以不会有编码问题。
-node "%~dp0build.js" %*
+rem  固定只打 Windows 版
+node "%~dp0build.js" win
 
 if errorlevel 1 (
     echo.
@@ -56,4 +53,7 @@ for /l %%i in (%~1,-1,1) do (
     echo   %%i...
     ping -n 2 127.0.0.1 >nul
 )
+rem  双击运行 (PACKAGE_ALL 未设) 时 exit (不带 /b) 会关掉 cmd 窗口;
+rem  嵌套调用 (打包全部.bat 之类) 时 PACKAGE_ALL=1, 仍走 exit /b 让调用方继续。
+if "%PACKAGE_ALL%"=="" exit
 exit /b 0

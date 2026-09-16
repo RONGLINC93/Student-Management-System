@@ -83,7 +83,7 @@ echo.
 rem --- open the output folder and highlight the package just built ---
 rem     (explorer returns a non-zero exit code even on success, so ignore it)
 rem     skipped when called from 打包全部.bat (outer script handles this)
-if "%PACKAGE_ALL%"=="" explorer /select,"%OUT%"
+if "%PACKAGE_ALL%"=="" start "" "%PROJ%dist" 2>nul
 
 echo.
 if "%PACKAGE_ALL%"=="" call :countdown 5
@@ -101,6 +101,9 @@ for /l %%i in (%~1,-1,1) do (
     echo   %%i...
     ping -n 2 127.0.0.1 >nul
 )
+rem  双击运行 (PACKAGE_ALL 未设) 时 exit (不带 /b) 会关掉 cmd 窗口;
+rem  嵌套调用 (打包全部.bat 之类) 时 PACKAGE_ALL=1, 仍走 exit /b 让调用方继续。
+if "%PACKAGE_ALL%"=="" exit
 exit /b 0
 
 :nofnpack
