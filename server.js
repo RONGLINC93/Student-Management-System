@@ -3771,7 +3771,13 @@ function notFoundPage(urlPath) {
 
 startBackupScheduler();
 
-server.listen(PORT, () => {
-  console.log(`学生管理系统已启动: http://localhost:${PORT}`);
+// 显式绑 IPv4 0.0.0.0 而非默认 '::' (IPv6).
+// 原因: Node.js 18+ 在 Linux 上 .listen(port) 不传 host 时默认绑 ::, 但某些
+//       容器/NAS (如 fnOS) 的 IPv4 客户端访问 ::-only 监听会被 RST.
+//       fnOS UI 的「打开应用」按钮会拼 NAS 的 IPv4 地址 (192.168.x.x:3000),
+//       此时必须保证 0.0.0.0 才能被 IPv4 客户端连上.
+const HOST = process.env.HOST || '0.0.0.0';
+server.listen(PORT, HOST, () => {
+  console.log(`学生管理系统已启动: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`按 Ctrl+C 停止服务`);
 });
