@@ -10,85 +10,89 @@
 
 ---
 
-## Unreleased
+## v1.4.0 — 2026-09-16
 
-本次为「跨平台打包补齐」批次，独立于下条 v1.3.0 的功能/安全/性能变更；下次发版时合并到正式版本号。
+本版本核心：**「跨平台打包补齐 + 二次开发包」**。补齐 macOS 平台支持，给二次开发者提供源码 zip 包（dev target），dev target 排除策略重构为 `.gitignore`-driven，并修复 `.playwright-cli` 漏放等打包相关问题。
 
-### 新增：macOS 平台支持
+### 新增
 
-- **`启动.command`**：macOS Finder 双击即可启动。Finder 自动 `chmod +x` 并打开 Terminal，无需手动 chmod 或 cd。脚本内 `osascript` 弹原生错误对话框（区别于 `启动.sh` 的纯文本提示），并用 `lsof`（macOS 自带）查端口占用、用 `open` 自动打开浏览器
-- **`启动.sh`**（Linux/macOS 通用）：保留并完善，macOS 上亦可手动 `chmod +x && ./启动.sh` 运行
-- **`运行.bat`**（Windows）：不动
-- **`打包rar-mac.bat`** / **`打包rar-mac.sh`**：分别从 Windows / Linux/macOS 上打 macOS 版 rar 产物 `Student-Management-System-<ver>-macos.rar`
-- **`打包全部.bat`**：步骤由 `[1/3] [2/3] [3/3]` 改为 `[1/4] Windows` / `[2/4] Linux` / `[3/4] macOS` / `[4/4] fnOS fpk`
-- **`打包全部.sh`**：步骤由 `[1/2] [2/2]` 改为 `[1/3] RAR (Linux / Windows / macOS)` / `[2/2] fpk（跳过）`，macOS rar 同 Linux 步骤一起跑
-- **`build.js`**：新增 `macos` target；新函数 `readmeMacos`（macOS 专用 `使用说明.txt`，含 Finder 双击、`osascript` 错误提示、`brew install node` 等 macOS 特有说明）；`install` 提示新增 `macOS : 解压后在 Finder 里双击 启动.command` 行；启动脚本在打包阶段做 **CRLF→LF 归一化**（`.sh` / `.command` 强制 LF，`.bat` 保留 CRLF），避免 Windows 上构建的产物在 macOS/Linux 上因 CRLF shebang 引发报错
+#### 1. macOS 平台支持
+
+- **启动脚本**：
+  - 新增 **`启动.command`**：macOS Finder 双击即可启动。Finder 自动 `chmod +x` 并打开 Terminal，无需手动 chmod 或 cd。脚本内 `osascript` 弹原生错误对话框（区别于 `启动.sh` 的纯文本提示），并用 `lsof`（macOS 自带）查端口占用、用 `open` 自动打开浏览器
+  - **`启动.sh`**（Linux/macOS 通用）：保留并完善，macOS 上亦可手动 `chmod +x && ./启动.sh` 运行
+  - **`运行.bat`**（Windows）：不动
+- **打包脚本**：
+  - **`打包rar-mac.bat`** / **`打包rar-mac.sh`**：分别从 Windows / Linux/macOS 上打 macOS 版 rar 产物 `Student-Management-System-<ver>-macos.rar`
+  - **`打包全部.bat`**：步骤由 `[1/3] [2/3] [3/3]` 改为 `[1/4] Windows` / `[2/4] Linux` / `[3/4] macOS` / `[4/4] fnOS fpk`
+  - **`打包全部.sh`**：步骤由 `[1/2] [2/2]` 改为 `[1/3] RAR (Linux / Windows / macOS)` / `[2/2] fpk（跳过）`，macOS rar 同 Linux 步骤一起跑
+- **`build.js`**：新增 `macos` target；新增 `readmeMacos`（macOS 专用 `使用说明.txt`，含 Finder 双击、`osascript` 错误提示、`brew install node` 等 macOS 特有说明）；`install` 提示新增 `macOS : 解压后在 Finder 里双击 启动.command` 行；启动脚本在打包阶段做 **CRLF→LF 归一化**（`.sh` / `.command` 强制 LF，`.bat` 保留 CRLF），避免 Windows 上构建的产物在 macOS/Linux 上因 CRLF shebang 引发报错
 - **`release.js`**：candidates 列表加入 `Student-Management-System-<version>-macos.rar`，发版时 macOS 包自动随其他平台一并上传到 GitHub Release
 - **`README.md`**：新增「## 运行平台」小节，6 种平台（Windows / macOS / Linux 桌面 / Linux 服务器 / Docker / fnOS）的启动方式与差异一表尽览；macOS 行把"Finder 双击 `启动.command`"作为推荐启动方式，并说明"来自身份不明的开发者"提示的绕过办法；「## 快速开始」由 5 种方式扩展为 6 种（新增 `启动.command`）；「## 打包与发布」表格加入 macOS 产物行；「## 项目结构」加入 `启动.command` 与 `打包rar-mac.bat/.sh`
 
-### 新增：开发包 (`dev` target)
+#### 2. 二次开发包（`dev` target）
 
 面向二次开发者的**完整源代码 zip 包**，与面向终端用户的 rar / fpk 发布包解耦：
 
-- **`build.js`** 新增 `dev` target：
+- **`build.js` 新增 `dev` target**：
   - 输出 `dist/Student-Management-System-<ver>-dev.zip`
   - 用 zip 格式：Windows 走 PowerShell `Compress-Archive`（系统自带，无需安装任何 zip 工具），Linux/macOS 走系统 `zip` 命令
   - **不**依赖 WinRAR / rar，dev target 在没有 rar 的机器上也能跑
-  - 内容是项目根目录完整源码（除 `.git/`、`node_modules/`、`data/`、`dist/`、`fpk/`、`.playwright-cli`、`.vscode/`、`.idea/`、`__pycache__/`、`.cache/`、`.tmp/` 等运行时/构建/缓存目录，以及 `*.rar` / `*.zip` / `*.fpk` / `*.tar` / `*.gz` / `*.log` / `*.tmp` / `*.bak` / `*.swp` / `~` 等后缀与 `.env` / `.env.local` / `.env.*.local` / `.DS_Store` / `Thumbs.db` / `desktop.ini` 等精确文件名 —— **重点：`.env` 含 `GITHUB_TOKEN`，已被黑名单强制排除，不会泄露**）
-  - 新增 `DEV_EXCLUDE_TOP` / `DEV_EXCLUDE_SUFFIX` / `DEV_EXCLUDE_EXACT` 三组黑名单
   - 新增 `prepareDevStaging`（递归拷贝并按黑名单过滤）+ `zipStaging`（跨平台调用 zip 工具）+ `buildDev`（编排整流程）
   - `main()` 增加 `target === 'dev'` 分支：跳过 `locateRar()`（无需 rar），直接走 `buildDev()`
 - **`打包dev.bat`** / **`打包dev.sh`**：独立 dev 打包脚本，Windows 双击 / Linux/macOS `./打包dev.sh` 直接调用 `node build.js dev`，完成后 5 秒倒计时关闭并尝试打开 `dist/`
 - **dev 包内置 `开发包说明.md`**：开发者向，包含目录树、已排除清单、快速开始、打包命令、发布流程
-- **`release.js`**：candidates **不**包含 dev 包 —— dev 包只给二次开发者分发，不参与 GitHub Release 发版（避免给终端用户下载到 3 MB 的源码包） → **本批次后续调整**：dev 包改为**也**随 Release 上传，二次开发者可直接在 Release 页面下载 1.4 MB 的源码 zip，不依赖 `git clone`
+- **`release.js`**：candidates 列表加入 `Student-Management-System-<version>-dev.zip`，dev 包**也**随 Release 上传（**设计调整**：原计划 dev 包不上 Release，二次开发者通过 `git clone` 获取；用户反馈后改为随 Release 上传，便于二次开发者直接下载）
 - **`README.md`**：「## 打包与发布」表格新增「打开发包」行；新增「### 开发者打包（dev target）」小节说明 dev target 用法、前置依赖、与发版流程的关系；「## 项目结构」加入 `打包dev.bat / .sh` 行
 
 ### 改进
 
-- `发布.bat` 发布成功 / 部分失败时分两段（`:warn` / 成功段）从 `dist/.last-release.json` 读取并格式化打印结果，再倒计时关闭 —— 上次会话的修复点，本批次与 macOS / dev 工作一并 commit
-- `build.js main()` 重构：rar 与 dev 两条路径显式分离；rar 路径仍走原有 `locateRar()` + `buildOne()` 流程，dev 路径单独走 `buildDev()`，二者互不耦合
-- `build.js` 黑名单增强：新增 `DEV_EXCLUDE_GLOB` 数组（glob 模式编译成正则）+ `shouldExcludeDev()` 同步加 glob 匹配，修复之前 `.env.*.local` 写在精确名 Set 里实际永不匹配的 bug；新增 `test_*.txt` 模式拦截调试时 `cmd / node > test_xxx.txt` 重定向留下的临时日志
-- `.gitignore`：新增 `test_*.txt` 规则；清理掉上次调试遗留的 `test_output.txt`（`git rm --cached` + 磁盘删除）
-- **`build.js dev target 排除策略重构为 `.gitignore`-driven**（替代之前独立维护的硬编码黑名单）：
-  - 之前 `build.js` 有一组 `DEV_EXCLUDE_TOP / DEV_EXCLUDE_SUFFIX / DEV_EXCLUDE_EXACT / DEV_EXCLUDE_GLOB` 与项目 `.gitignore` 内容重复、且**永远落后于 `.gitignore`**（典型例子：`fnos/.gitignore` 里 `student-management-system/app/server/` 这条目录级排除，硬编码黑名单无法表达，导致 dev 包错误地包含 `fnos/student-management-system/app/server/*` 几十个重复文件）
-  - 现在 `dev target` 完全按项目内**所有 `.gitignore`**（项目根 + `fnos/.gitignore`）规则评估，**不再**维护独立黑名单；内置零依赖的简易 `.gitignore` glob → regex 编译器，支持 `* / ** / ? / [...] / ! / / 锚定 / 末尾 / 仅目录` 这些常用语法
-  - 子目录 `.gitignore` 优先于父目录（深处优先）；同一 `.gitignore` 内规则从下到上处理（最后一条匹配生效，与 git 行为一致）
-  - 保留 7 个**硬编码**顶层黑名单作为"项目层语义"兜底（与 `.gitignore` 内容无关）：`.git / node_modules / data / dist / fpk / .trae / .playwright-cli` —— 这些不写进 `.gitignore` 不合适（`.git` 不该出现在 `.gitignore` 中），且是 dev 包**永远**不该包含的项
-- **`.gitignore` 补全**：将之前散落在 `build.js` 硬编码里的通用后缀黑名单（`*.rar *.zip *.fpk *.tar *.gz *.tgz *.7z *.log *.tmp *.bak *.swp *.swo *~`）与平台杂项（`.DS_STORE Thumbs.db desktop.ini ehthumbs.db`）和机密（`.env / .env.local / .env.*.local`）整合进主 `.gitignore`；现在 dev 包按 `.gitignore` 评估就能自动覆盖这些模式
+#### 1. dev target 排除策略：`.gitignore`-driven（替代独立维护的硬编码黑名单）
+
+- 之前 `build.js` 有一组 `DEV_EXCLUDE_TOP / DEV_EXCLUDE_SUFFIX / DEV_EXCLUDE_EXACT / DEV_EXCLUDE_GLOB` 与项目 `.gitignore` 内容重复、且**永远落后于 `.gitignore`**（典型例子：`fnos/.gitignore` 里 `student-management-system/app/server/` 这条目录级排除，硬编码黑名单无法表达，导致 dev 包错误地包含 `fnos/student-management-system/app/server/*` 几十个重复文件）
+- 现在 `dev target` 完全按项目内**所有 `.gitignore`**（项目根 + `fnos/.gitignore`）规则评估，**不再**维护独立黑名单；内置零依赖的简易 `.gitignore` glob → regex 编译器，支持 `* / ** / ? / [...] / ! / 锚定 / 末尾 / 仅目录` 这些常用语法
+- 子目录 `.gitignore` 优先于父目录（深处优先）；同一 `.gitignore` 内规则从下到上处理（最后一条匹配生效，与 git 行为一致）
+- 保留 7 个**硬编码**顶层黑名单作为"项目层语义"兜底（与 `.gitignore` 内容无关）：`.git / node_modules / data / dist / fpk / .trae / .playwright-cli` —— 这些不写进 `.gitignore` 不合适（`.git` 不该出现在 `.gitignore` 中），且是 dev 包**永远**不该包含的项
+
+#### 2. `.gitignore` 补全
+
+- 将之前散落在 `build.js` 硬编码里的通用后缀黑名单（`*.rar *.zip *.fpk *.tar *.gz *.tgz *.7z *.log *.tmp *.bak *.swp *.swo *~`）与平台杂项（`.DS_STORE Thumbs.db desktop.ini ehthumbs.db`）和机密（`.env / .env.local / .env.*.local`）整合进主 `.gitignore`；现在 dev 包按 `.gitignore` 评估就能自动覆盖这些模式
+- 新增 `test_*.txt` 规则，清理上次调试遗留的 `test_output.txt`（`git rm --cached` + 磁盘删除）
+
+#### 3. `build.js` 黑名单增强（`DEV_EXCLUDE_GLOB`）
+
+- 新增 `DEV_EXCLUDE_GLOB` 数组（glob 模式编译成正则）+ `shouldExcludeDev()` 同步加 glob 匹配
+- 修复之前 `.env.*.local` 写在精确名 Set 里实际永不匹配的 bug
+- 新增 `test_*.txt` 模式拦截调试时 `cmd / node > test_xxx.txt` 重定向留下的临时日志（这一条后来被 `.gitignore`-driven 重构取代，见上面"dev target 排除策略"）
+
+#### 4. `build.js main()` 重构：rar 与 dev 双路径
+
+- rar 与 dev 两条路径显式分离：rar 路径仍走原有 `locateRar()` + `buildOne()` 流程，dev 路径单独走 `buildDev()`，二者互不耦合
+
+#### 5. 发布流程展示
+
+- `发布.bat` 发布成功 / 部分失败时分两段（`:warn` / 成功段）从 `dist/.last-release.json` 读取并格式化打印结果，再倒计时关闭
+
+### Bug 修复
+
+#### `.playwright-cli` 漏放
+
+- **背景**：本批次初版的"已验证"段声称"zip 内无 `.playwright-cli`"，**经用户实测问询后复查发现是错的** —— `.playwright-cli/page-2026-09-11T08-37-26-835Z.yml`（9/11 commit `8c5123d`「手动推送」误 `git add` 的 playwright-cli DOM dump）确实被打进了 dev 包。原因：① 两个 `.gitignore` 都缺 `.playwright-cli/` 规则；② build.js 的 `DEV_HARDCODED_EXCLUDE` 没列入该项；③ 之前那次验证脚本只检查"路径首段含 `.playwright-cli`"，但文件实际名是 `page-...yml`、位于 `.playwright-cli/` 子目录下，扫描逻辑漏匹配
+- **修复**：
+  - 根 `.gitignore`：新增 `.playwright-cli/` 行
+  - `build.js` `DEV_HARDCODED_EXCLUDE`：新增 `.playwright-cli`（与 `.gitignore` 互补的硬编码兜底）
+  - `git rm --cached .playwright-cli/page-2026-09-11T08-37-26-835Z.yml` + 磁盘 `Remove-Item -Recurse`
+  - `README.md`：硬编码顶层黑名单从「6 个」改为「7 个」，并加上 `.playwright-cli/`
+- **重新验证**：dev 包重生为 99 文件 / 1424.8 KB；PowerShell 解压 + Node 完整正则扫描（不仅看路径首段，且按 `.env / .git/ / node_modules/ / data/ / dist/ / fpk/ / .trae/ / .playwright-cli/ / *.rar / *.zip / *.fpk / *.log / *.tmp / *.bak / test_*.txt` 16 项规则逐条匹配）确认 `forbidden hits = 0`
 
 ### 已验证
 
 - `node --check` 通过 `build.js` / `release.js`
 - Windows 上 `node build.js {win,linux,macos}` 三种 rar target 都成功打包；rar 解包验证 `启动.sh` / `启动.command` 是纯 LF（CRLF=0），`运行.bat` 保留 CRLF
-- Windows 上 `node build.js dev` 成功生成 `dist/Student-Management-System-1.3.0-dev.zip`（99 个文件 / 1.42 MB）；PowerShell `Expand-Archive` 解压并扫盘后**确认 zip 内无**：
-  - 硬编码顶层黑名单（`.git / node_modules / data / dist / fpk / .trae / .playwright-cli`）
-  - 通用后缀黑名单（`*.rar / *.zip / *.fpk / *.tar / *.gz / *.tgz / *.7z / *.log / *.tmp / *.bak / *.swp / *.swo / *~`）
-  - 机密文件（`.env / .env.local / .env.*.local`）
-  - 平台杂项（`.DS_Store / Thumbs.db / desktop.ini / ehthumbs.db`）
-  - 调试日志（`test_*.txt`）
-  - `fnos/.gitignore` 特有规则生效：`fnos/student-management-system/app/server/*`（几十个重复文件，未打包）、`fnos/fnpack.exe`（3.96 MB，未打包）、`fnos/student-management-system/*.fpk`（如存在会未打包）
-  - 之前硬编码黑名单版本错误打包的 `fnos/fnpack.exe解压出来就行.rar`（1.36 MB），现已被主 `.gitignore` 的 `*.rar` 正确排除
-- Windows 上 `打包dev.bat` 双击调用 `build.js dev` 全流程跑通，5 秒倒计时 + 自动弹出 `dist/` 资源管理器
+- Windows 上 `node build.js dev` 成功生成 `dist/Student-Management-System-1.4.0-dev.zip`（99 文件 / 1424.8 KB）；16 项黑名单正则扫描详见上面"Bug 修复 → `.playwright-cli` 漏放"
+- Windows 上 `打包全部.bat` 双击调用 `build.js` 全流程跑通（4 步：win/linux/macos rar + fpk），5 秒倒计时 + 自动弹出 `dist/` 资源管理器
+- Windows 上 `打包dev.bat` 双击调用 `build.js dev` 全流程跑通
 - bat 文件保持 UTF-8 无 BOM、全 CRLF
-
-### 改进（.playwright-cli 漏放修复）
-
-- **背景**：上一段"已验证"声称"zip 内无 `.playwright-cli`"，**经用户实测问询后复查发现是错的** —— `.playwright-cli/page-2026-09-11T08-37-26-835Z.yml`（9/11 commit `8c5123d`「手动推送」误 `git add` 的 playwright-cli DOM dump）确实被打进了 dev 包。原因：① 两个 `.gitignore` 都缺 `.playwright-cli/` 规则；② build.js 的 `DEV_HARDCODED_EXCLUDE` 没列入该项；③ 之前那次验证脚本只检查"路径首段含 `.playwright-cli`"，但文件实际名是 `page-...yml`、位于 `.playwright-cli/` 子目录下，扫描逻辑漏匹配
-- **修复**：
-  - 根 `.gitignore`：新增 `.playwright-cli/` 行
-  - `build.js` `DEV_HARDCODED_EXCLUDE`：新增 `.playwright-cli`（与 `.gitignore` 互补的硬编码兜底）
-  - `git rm --cached .playwright-cli/page-2026-09-11T08-37-26-835Z.yml` + 磁盘 `Remove-Item -Recurse`
-  - `README.md` 第 99 行：硬编码顶层黑名单从「6 个」改为「7 个」，并加上 `.playwright-cli/`
-- **重新验证**：dev 包重生为 99 文件 / 1424.8 KB；PowerShell 解压 + Node 完整正则扫描（不仅看路径首段，且按 `.env / .git/ / node_modules/ / data/ / dist/ / fpk/ / .trae/ / .playwright-cli/ / *.rar / *.zip / *.fpk / *.log / *.tmp / *.bak / test_*.txt` 16 项规则逐条匹配）确认 `forbidden hits = 0`
-
-### 改进（dev 包随 Release 上传）
-
-- **背景**：之前设计"dev 包不上 Release"（理由：避免给终端用户下载到 1.4 MB 源码包）。用户问询"发布怎么没有发布开发包"后**主动要求改为随 Release 上传**：让二次开发者可在 Release 页面直接下载源码 zip，不依赖 `git clone`
-- **`release.js`**：candidates 列表新增 `Student-Management-System-${version}-dev.zip`（行号 186 后），跟 win/linux/macos rar + fpk 一起上传；产物不存在时静默跳过（与现有候选逻辑一致）
-- **`打包全部.bat`**：注释里"打包全部平台 (Windows)" → "打包全部产物 (Windows)"；新增 `[5/5] dev source package` 步调调 `打包dev.bat`，确保 `发布.bat` → `打包全部.bat` 全流程跑完后 `dist/` 里 dev zip 已就位
-- **`打包全部.sh`**：同样新增 `[3/3] dev source package` 步调调 `打包dev.sh`
-- **`发布.bat`**：顶部注释更新"Win/Linux rar + fpk" → "Win/Linux/macOS rar + fpk + dev zip"
-- **`README.md`** 第 100 行：从"dev 包**不**随发布流程上传"改为"dev 包**也**随发布流程上传"
 
 ---
 
@@ -204,7 +208,7 @@
   - 分页 `.pagination`、提示 `toast`、班级卡片 `.classes-grid`、名册工具条 `.roster-*`
   - 智能分班舞台 `.stage` 高度与年级水印字号按屏宽递减
 - `site.js` 新增 `setupMobileNav()`：自动向 `.header-inner` 注入汉堡按钮并接管展开 / 收起，**各功能页无需修改 HTML**；大屏页（`result.html`，无导航）与登录页自动跳过
-- 大屏页 `result.html` 顶栏右侧新增「&lt; 返回」入口（`js/result.js` 绑定）：同源且确有上一页时回退上一页，否则跳 `/login.html`（已登录会被服务端重定向到工作台），补上大屏页既无导航又无返回按钮的出口
+- 大屏页 `result.html` 顶栏右侧新增「< 返回」入口（`js/result.js` 绑定）：同源且确有上一页时回退上一页，否则跳 `/login.html`（已登录会被服务端重定向到工作台），补上大屏页既无导航又无返回按钮的出口
 - 大屏页公开访问（无需登录）时，顶栏「去分班」与空态里的「班级管理 / 智能分班」链接会把人弹回登录页：现按登录状态处理——未登录或查看模式隐藏「去分班」（`js/result.js` 拉 `/api/auth/me` 判定），空态文案改为引导登录
 
 #### 3. 各功能页内联样式补充断点
@@ -248,20 +252,20 @@
 #### 6. 涉及文件
 
 ```
- public/announcements.html |  14 ++++-
- public/conduct.html       |  21 +++++++
- public/css/admin.css      | 119 +++++++++++++++++++++++++++++++++++-
- public/css/style.css      | 152 ++++++++++++++++++++++++++++++++++++++++++++++
- public/dorm.html          |  24 ++++++++
- public/exams.html         |  26 ++++++++
- public/index.html         |   8 +++
- public/js/admin.js        |  43 +++++++++++++
- public/js/site.js         |  56 +++++++++++++++++
- public/leaves.html        |  16 +++++
- public/login.html         |  52 +++++-
- public/slogin.html        |  53 +++++-
- public/teachers.html      |  10 +++
- 13 files changed, 589 insertions(+), 11 deletions(-)
+public/announcements.html |  14 ++++-
+public/conduct.html       |  21 +++++++
+public/css/admin.css      | 119 +++++++++++++++++++++++++++++++++++-
+public/css/style.css      | 152 ++++++++++++++++++++++++++++++++++++++++++++++
+public/dorm.html          |  24 ++++++++
+public/exams.html         |  26 ++++++++
+public/index.html         |   8 +++
+public/js/admin.js        |  43 +++++++++++++
+public/js/site.js         |  56 +++++++++++++++++
+public/leaves.html        |  16 ++++++
+public/login.html         |  52 ++++-
+public/slogin.html        |  53 ++++-
+public/teachers.html      |  10 +++
+13 files changed, 589 insertions(+), 11 deletions(-)
 ```
 
 ---
