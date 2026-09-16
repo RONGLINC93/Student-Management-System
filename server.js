@@ -51,8 +51,8 @@ const STUDENT_COOKIE = 'icbs_stu_auth'; // 学生自助端（与学生登录完�
 const TEACHER_COOKIE = 'icbs_tea_auth'; // 教师自助端（与后台 / 学生登录完全隔离，可同浏览器共存）
 const SESSION_SECONDS = 24 * 3600;      // 默认会话 24 小时
 const REMEMBER_SECONDS = 7 * 24 * 3600; // 「记住我」7 天
-const ROLES = { ADMIN: 'admin', VIEWER: 'viewer', STUDENT: 'student', TEACHER: 'teacher', STAFF: 'staff' };
-const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学生', teacher: '教师', staff: '教务' };
+const ROLES = { ADMIN: 'admin', VIEWER: 'viewer', STUDENT: 'student', TEACHER: 'teacher', STAFF: 'staff', DORM: 'dorm' };
+const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学生', teacher: '教师', staff: '教务', dorm: '宿管' };
 
 // 已注销的会话 token（内存级；保证“退出登录”后旧 Cookie 立即失效）
 const revokedTokens = new Set();
@@ -889,8 +889,9 @@ function authUser(req) {
     const data = JSON.parse(unb64url(payload));
     if (!data.u || typeof data.exp !== 'number' || data.exp < Date.now()) return null;
     const user = findUser(data.u);
-    // 账号被删除 / 角色变更后旧会话自动失效；教务（staff）会话对应 users.json 中的教师账号
-    if (!user || (user.role !== data.r && !(data.r === ROLES.STAFF && user.role === ROLES.TEACHER))) return null;
+    // 账号被删除 / 角色变更后旧会话自动失效；教务（staff）/ 宿管（dorm）会话对应 users.json 中的教师账号
+    const sessionOnTeacher = !!user && (data.r === ROLES.STAFF || data.r === ROLES.DORM) && user.role === ROLES.TEACHER;
+    if (!user || (user.role !== data.r && !sessionOnTeacher)) return null;
     return { username: user.u, role: data.r };
   } catch (e) { return null; }
 }
@@ -963,6 +964,12 @@ function findTeacherOfAuth(t) {
 // 教务职位教师：职称 / 职务包含「教务」（如 教务、教务主任、教务处），可登录管理后台管理教务项目
 function isAcademicStaff(t) {
   return !!t && String(t.title || '').indexOf('教务') !== -1;
+}
+// 宿管职位教师：职称 / 职务包含「宿管」或「宿舍管理」（如 宿管、宿管员、宿舍管理员），可登录管理后台管理宿舍项目
+// 注意：同时含「教务」时以教务（staff）身份登录，教务本身即可管理宿舍
+function isDormStaff(t) {
+  const title = String((t && t.title) || '');
+  return title.indexOf('宿管') !== -1 || title.indexOf('宿舍管理') !== -1;
 }
 function forbiddenPage(msg) {
   return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>403 · 无权限</title></head>' +
@@ -1269,6 +1276,7 @@ const AUDIT_MODULES = [
   ['/api/conduct', '操行管理'],
   ['/api/leaves', '请假管理'],
   ['/api/announcements', '通知公告'],
+  ['/api/dorm-apps', '宿舍管理 · 入住申请审核'],
   ['/api/dorms', '宿舍管理'],
   ['/api/allocate', '智能分班'],
   ['/api/live', '大屏直播'],
@@ -1376,29 +1384,36 @@ async function handle(req, res) {
   const isStudentApi = pathname.startsWith('/api/student/');
   // 教师自助端接口（独立会话，自行鉴权），不走后台权限闸门（注意与后台 /api/teachers 区分）
   const isTeacherApi = pathname.startsWith('/api/teacher/');
-  // 教务（staff）可写模块：学籍与班级（学生 / 班级 / 年级 / 回收站）、教学（成绩 / 考勤 / 操行）、事务（公告 / 宿舍）
-  // 请假仅可查看：审批由班主任在教师端完成（/api/teacher/leaves）
-  const STAFF_WRITE_PREFIXES = [
-    '/api/students', '/api/classes', '/api/grades', '/api/trash',
-    '/api/exams', '/api/attendance', '/api/conduct',
-    '/api/announcements', '/api/dorms'
-  ];
+  // 按角色划分的可写模块（服务端硬拦截，前端仅做按钮隐藏的配合）：
+  // 教务（staff）：学籍与班级（学生 / 班级 / 年级 / 回收站）、教学（成绩 / 考勤 / 操行）、事务（公告 / 宿舍）
+  //   —— 请假仅可查看：审批由班主任在教师端完成（/api/teacher/leaves）
+  // 宿管（dorm）：宿舍管理（房间 / 入住 / 调宿 / 退宿 / 入住申请审核），其余模块仅可查看
+  const ROLE_WRITE_PREFIXES = {
+    [ROLES.STAFF]: [
+      '/api/students', '/api/classes', '/api/grades', '/api/trash',
+      '/api/exams', '/api/attendance', '/api/conduct',
+      '/api/announcements', '/api/dorms'
+    ],
+    [ROLES.DORM]: ['/api/dorms', '/api/dorm-apps']
+  };
   if (pathname.startsWith('/api/') && !isAuthEndpoint && !isStudentApi && !isTeacherApi && !publicRead) {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
-    const staffCanWrite = u.role === ROLES.STAFF
-      && STAFF_WRITE_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'));
+    const roleWritable = ROLE_WRITE_PREFIXES[u.role];
+    const roleCanWrite = !!roleWritable && roleWritable.some(p => pathname === p || pathname.startsWith(p + '/'));
     if ((pathname === '/api/backup'
       || pathname === '/api/backups' || pathname.startsWith('/api/backups/')
       || pathname === '/api/audit') && u.role !== ROLES.ADMIN) {
       return sendJson(res, 403, { code: 1, msg: '备份与审计功能仅限管理员账号' });
     }
-    if (req.method !== 'GET' && u.role !== ROLES.ADMIN && !staffCanWrite) {
+    if (req.method !== 'GET' && u.role !== ROLES.ADMIN && !roleCanWrite) {
       return sendJson(res, 403, {
         code: 1,
         msg: u.role === ROLES.STAFF
           ? '教务账号仅可管理学生、班级、年级、成绩、考勤、操行、公告、宿舍等教务项目（请假审批由班主任负责，教务仅可查看）'
-          : '当前账号为「查看模式」，仅可查看，不能修改数据'
+          : u.role === ROLES.DORM
+            ? '宿管账号仅可管理宿舍（房间 / 入住 / 调宿 / 退宿 / 入住申请审核），其余模块仅可查看'
+            : '当前账号为「查看模式」，仅可查看，不能修改数据'
       });
     }
     // 审计：记录后台写操作（登录 / 改密等含敏感信息的接口不在此列，账号管理 /api/users 保留）
@@ -1465,19 +1480,21 @@ async function handle(req, res) {
       return sendJson(res, 403, { code: 1, msg: '该账号为学生账号，请前往「学生登录入口」登录' });
     }
     if (user.role === ROLES.TEACHER) {
-      // 教务职位教师：允许登录管理后台（会话角色 = staff，仅可管理教务相关项目）
+      // 教务 / 宿管职位教师：允许登录管理后台（会话角色 = staff / dorm，仅可管理对应项目）
       const tea = findTeacherOfAuth({ username: user.u });
-      if (tea && isAcademicStaff(tea)) {
+      const sessionRole = tea && isAcademicStaff(tea) ? ROLES.STAFF
+        : tea && isDormStaff(tea) ? ROLES.DORM : null;
+      if (sessionRole) {
         if (user.must) {
           return sendJson(res, 403, { code: 1, msg: '请先通过「教师登录入口」完成首次密码修改，再登录管理后台' });
         }
         loginMarkSuccess(req, username);
         const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
-        const token = makeToken(user.u, ROLES.STAFF, ttl);
+        const token = makeToken(user.u, sessionRole, ttl);
         res.setHeader('Set-Cookie', cookieHeader(token, ttl));
         return sendJson(res, 200, {
-          code: 0, msg: '登录成功（教务）',
-          data: { username: user.u, role: ROLES.STAFF, nickname: user.nickname || '', label: ROLE_LABEL[ROLES.STAFF] }
+          code: 0, msg: '登录成功（' + ROLE_LABEL[sessionRole] + '）',
+          data: { username: user.u, role: sessionRole, nickname: user.nickname || '', label: ROLE_LABEL[sessionRole] }
         });
       }
       return sendJson(res, 403, { code: 1, msg: '该账号为教师账号，请前往「教师登录入口」登录' });

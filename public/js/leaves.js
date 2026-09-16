@@ -40,8 +40,8 @@ function fmt(iso) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 function canWrite() {
-  // 请假审批 / 代登记仅限管理员（班主任在教师端审批本班申请），教务账号只读
-  return !window.AUTH || (window.AUTH.role !== 'viewer' && window.AUTH.role !== 'staff');
+  // 请假审批 / 代登记仅限管理员（班主任在教师端审批本班申请），教务 / 宿管账号只读
+  return !window.AUTH || (window.AUTH.role !== 'viewer' && window.AUTH.role !== 'staff' && window.AUTH.role !== 'dorm');
 }
 
 function renderChips() {

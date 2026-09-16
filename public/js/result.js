@@ -882,7 +882,7 @@ function autoFollowGrade() {
 // 大屏是公开页面（未登录也能看）：未登录 / 查看模式下「去分班」与空态里的后台页链接
 // 都会被登录守卫弹回登录页，因此按登录状态显隐顶栏入口，并让空态改用登录引导文案。
 function applyAuthUI(auth) {
-  boardCanAllocate = !!(auth && auth.username) && auth.role !== 'viewer' && auth.role !== 'staff';
+  boardCanAllocate = !!(auth && auth.username) && auth.role !== 'viewer' && auth.role !== 'staff' && auth.role !== 'dorm';
   const btn = $('#boardAllocate');
   if (btn) btn.style.display = boardCanAllocate ? '' : 'none';
   updateEmptyTip(); // 空态文案由 updateEmptyTip 统一生成（每帧重写，不能在这里直接改）
