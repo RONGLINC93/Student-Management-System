@@ -1203,7 +1203,10 @@ function registerAudit(res, rec) {
   });
 }
 
-const server = http.createServer((req, res) => {
+// 共享请求处理函数: 两个 server 实例 (IPv4 / IPv6) 都通过它处理请求,
+// 这样 Node.js 的 http.Server.listen() 多次调用限制 (ERR_SERVER_ALREADY_LISTEN)
+// 就被规避, 各自独立绑定一个 socket.
+function serverHandler(req, res) {
   Promise.resolve(handle(req, res)).catch(err => {
     console.error('[请求处理异常]', req.method, req.url, err);
     if (!res.headersSent) {
@@ -1212,7 +1215,10 @@ const server = http.createServer((req, res) => {
       try { res.end(); } catch (e) {}
     }
   });
-});
+}
+
+const server = http.createServer(serverHandler);
+const serverV6 = http.createServer(serverHandler);
 
 // 进程级兜底：意外异常只记录日志，避免直接终止整个服务
 process.on('unhandledRejection', (reason) => {
@@ -3771,13 +3777,19 @@ function notFoundPage(urlPath) {
 
 startBackupScheduler();
 
-// 显式绑 IPv4 0.0.0.0 而非默认 '::' (IPv6).
-// 原因: Node.js 18+ 在 Linux 上 .listen(port) 不传 host 时默认绑 ::, 但某些
-//       容器/NAS (如 fnOS) 的 IPv4 客户端访问 ::-only 监听会被 RST.
-//       fnOS UI 的「打开应用」按钮会拼 NAS 的 IPv4 地址 (192.168.x.x:3000),
-//       此时必须保证 0.0.0.0 才能被 IPv4 客户端连上.
-const HOST = process.env.HOST || '0.0.0.0';
-server.listen(PORT, HOST, () => {
-  console.log(`学生管理系统已启动: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
-  console.log(`按 Ctrl+C 停止服务`);
+// 双栈监听 IPv4 0.0.0.0 + IPv6 ::.
+// 原因: Node.js 18+ 在 Linux 上 .listen(port) 不传 host 时默认绑 :: (IPv6 双栈),
+//       但某些容器/NAS (如 fnOS) 的 IPv4 mapped IPv6 被禁用, IPv4 客户端访问
+//       ::-only 监听会被 RST. 反之若只绑 0.0.0.0, fnOS 桌面 WebView (Chromium
+//       内核) 默认 IPv6 first, localhost 解析成 ::1 后连接被 RST.
+//       双栈同时绑 IPv4+IPv6 解决两端的 happy-eyeballs 兼容性问题.
+const HOST_V4 = process.env.HOST || '0.0.0.0';
+const HOST_V6 = process.env.HOST_V6 || '::';
+console.log(`[v1.4.0 dual-stack] student-management-system 启动中...`);
+server.listen(PORT, HOST_V4, () => {
+  console.log(`[v1.4.0 IPv4-bind] listening on http://${HOST_V4 === '0.0.0.0' ? 'localhost' : HOST_V4}:${PORT}`);
 });
+server.listen(PORT, HOST_V6, () => {
+  console.log(`[v1.4.0 IPv6-bind] listening on http://[${HOST_V6 === '::' ? 'localhost' : HOST_V6}]:${PORT}`);
+});
+console.log(`按 Ctrl+C 停止服务`);
