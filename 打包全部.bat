@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 rem 切换到 UTF-8 代码页, 避免中文输出乱码
 chcp 65001 >nul 2>&1
 
@@ -13,6 +13,10 @@ rem
 rem  用法: 双击本文件, 或在 cmd 中执行  打包全部.bat
 rem  前置: Node.js 14+, 并且 fnos\fnpack.exe 已就位 (用于 fpk 步骤)
 rem ===========================================================================
+
+rem  缓存外层 PACKAGE_ALL, 用于末尾判断是否嵌套调用
+rem    (中间流程会用 set "PACKAGE_ALL=" 清空, 所以不能直接看 PACKAGE_ALL)
+set "WAS_NESTED=%PACKAGE_ALL%"
 
 cd /d "%~dp0"
 
@@ -36,14 +40,21 @@ if errorlevel 1 goto fail
 echo.
 echo === [3/3] fnOS fpk package ===
 echo.
+rem  设置 PACKAGE_ALL 让 打包fpk.bat 内部不再打开资源管理器 / 不再倒计时
+set "PACKAGE_ALL=1"
 call "%~dp0打包fpk.bat"
+set "PACKAGE_ALL="
 if errorlevel 1 goto fail
 
 echo.
 echo === All packages built. 输出目录: dist/ ===
-rem explorer 返回值不可靠, 用 start 兜底
-start "" "%~dp0dist"
-call :countdown 5
+rem  单独运行 (WAS_NESTED 空) 时打开 dist + 倒计时关窗口
+rem  被 发布.bat 等嵌套调用 (WAS_NESTED=1) 时跳过, 由外层脚本统一倒计时
+if "%WAS_NESTED%"=="" (
+    rem explorer 返回值不可靠, 用 start 兜底
+    start "" "%~dp0dist"
+    call :countdown 5
+)
 exit /b 0
 
 :fail
