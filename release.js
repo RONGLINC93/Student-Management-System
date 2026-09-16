@@ -21,6 +21,9 @@
  *   1 = 失败 (tag / push / Release 创建)
  *   2 = Release 已创建但部分资产上传失败 (到 GitHub 页面手动重试)
  *
+ * 副作用: Release 创建后会写一份结果摘要到 dist/.last-release.json,
+ *         供 发布.bat 读取并显示给用户.
+ *
  * @author RONGLINC <chenronglin1993@hotmail.com>
  */
 const fs = require('fs');
@@ -313,16 +316,37 @@ async function main() {
   console.log(`开始上传 ${assets.length} 个产物到 Release:`);
   let okCount = 0;
   const fails = [];
+  const assetResults = [];
   for (const p of assets) {
     process.stdout.write(`  上传 ${path.basename(p)} ... `);
     const r = await uploadAsset(release, p);
     if (r.ok) {
       console.log('OK');
       okCount++;
+      assetResults.push({ name: r.fileName, ok: true });
     } else {
       console.log(`失败 (HTTP ${r.status})`);
       fails.push({ fileName: r.fileName, body: mask(r.body) });
+      assetResults.push({ name: r.fileName, ok: false, status: r.status });
     }
+  }
+
+  // 把发布结果写到 dist/.last-release.json, 供 发布.bat 读取并显示
+  try {
+    fs.writeFileSync(
+      path.join(distDir, '.last-release.json'),
+      JSON.stringify({
+        success: fails.length === 0,
+        version,
+        tagName,
+        html_url: release.html_url,
+        assets: assetResults,
+        timestamp: new Date().toISOString(),
+      }, null, 2) + '\n',
+      'utf-8'
+    );
+  } catch (e) {
+    console.warn(`[警告] 写 dist/.last-release.json 失败: ${e.message}`);
   }
 
   console.log('');

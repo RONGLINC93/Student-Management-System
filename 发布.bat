@@ -10,6 +10,7 @@ rem    1) 打包全部.bat  构建全部平台产物 (Windows/Linux rar + fnOS f
 rem    2) release.js    从 package.json 读 version, 创建 git tag 并推送,
 rem                     再用 GitHub API 创建 Release 并上传 dist/ 下的产物
 rem                     (Win/Linux rar + fpk)
+rem    3) 从 dist\.last-release.json 读取并打印发布结果, 然后倒计时关闭
 rem
 rem  用法: 双击本文件, 或在 cmd 中执行  发布.bat
 rem
@@ -23,6 +24,7 @@ rem
 rem  注意:
 rem    - 不会自动改版本号, 仅按 package.json 当前 version 打 v<version> tag
 rem    - Release body 自动从 CHANGELOG.md 提取该版本段
+rem    - 发布结果会持久化到 dist\.last-release.json 供查阅
 rem ===========================================================================
 
 cd /d "%~dp0"
@@ -39,14 +41,35 @@ echo.
 echo === [2/2] Tag, Release and upload to GitHub ===
 echo.
 node "%~dp0release.js"
+if errorlevel 2 goto warn
 if errorlevel 1 goto fail
 
+rem 全部成功 - 从 dist\.last-release.json 读取并显示结果
 echo.
-echo === Release complete. 产物: dist\, git tag 已推送, GitHub Release 已创建 ===
+echo === [结果] 发布成功 ===
+if exist "dist\.last-release.json" (
+  node -e "const j=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8'));console.log('  版本:    '+j.tagName);console.log('  Release: '+j.html_url);console.log('  资产:');for (const a of j.assets){console.log('    - '+a.name+(a.ok?'  [OK]':'  [FAIL HTTP '+a.status+']'));}" "dist\.last-release.json"
+) else (
+  echo   (dist\.last-release.json 未生成, 见上方 release.js 输出)
+)
+echo.
+echo   详情: dist\.last-release.json
 call :countdown 5
 exit /b 0
 
-::fail
+:warn
+rem Release 已建, 部分资产上传失败
+echo.
+echo === [结果] Release 已创建, 部分资产上传失败 ===
+if exist "dist\.last-release.json" (
+  node -e "const j=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8'));console.log('  Release: '+j.html_url);console.log('  资产:');for (const a of j.assets){console.log('    - '+a.name+(a.ok?'  [OK]':'  [FAIL HTTP '+a.status+']'));}" "dist\.last-release.json"
+)
+echo.
+echo   失败资产可手动重传到上方 Release URL
+call :countdown 5
+exit /b 2
+
+:fail
 echo.
 echo [ERROR] Release failed. See messages above.
 call :countdown 5
@@ -57,7 +80,7 @@ rem  :countdown <秒数>
 rem  从 <秒数> 倒数到 0, 每秒打印剩余秒数 (Ctrl+C 可中断).
 rem  本子例程只倒计时不退出, 调用方负责 exit /b.
 rem ---------------------------------------------------------------------------
-::countdown
+:countdown
 echo.
 echo %~1 秒后自动关闭窗口... (按 Ctrl+C 取消)
 for /l %%i in (%~1,-1,1) do (
