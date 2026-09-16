@@ -6,20 +6,23 @@ rem ===========================================================================
 rem  Student Management System - 一键发布新版本 (Windows)
 rem
 rem  依次执行:
-rem    1) 打包全部.bat   构建全部平台产物 (Windows/Linux rar + fnOS fpk)
-rem    2) release.js     从 package.json 读 version, 创建 git tag 并推送
+rem    1) 打包全部.bat  构建全部平台产物 (Windows/Linux rar + fnOS fpk)
+rem    2) release.js    从 package.json 读 version, 创建 git tag 并推送,
+rem                     再用 GitHub API 创建 Release 并上传 dist/ 下的产物
+rem                     (Win/Linux rar + fpk)
 rem
-rem  用法: 双击本文件, 或在 cmd 中执行  生成发布.bat
+rem  用法: 双击本文件, 或在 cmd 中执行  发布.bat
 rem
 rem  前置:
 rem    - Node.js 14+ 已安装并在 PATH 中
 rem    - .env 配置好 GITHUB_REPO_URL 与 GITHUB_TOKEN (拉取.bat / 推送.bat 同款)
+rem    - GITHUB_TOKEN 需有 repo 权限 (创建 Release + 上传资产)
 rem    - fnos\fnpack.exe 已就位 (打包全部.bat 依赖)
 rem    - package.json 的 version 已手工调整到目标版本号, 并 commit
 rem
 rem  注意:
 rem    - 不会自动改版本号, 仅按 package.json 当前 version 打 v<version> tag
-rem    - tag 推送成功后, 仍需到 GitHub Releases 页面基于该 tag 创建 Release
+rem    - Release body 自动从 CHANGELOG.md 提取该版本段
 rem ===========================================================================
 
 cd /d "%~dp0"
@@ -33,13 +36,13 @@ set "PACKAGE_ALL="
 if errorlevel 1 goto fail
 
 echo.
-echo === [2/2] Tag and push to GitHub ===
+echo === [2/2] Tag, Release and upload to GitHub ===
 echo.
 node "%~dp0release.js"
 if errorlevel 1 goto fail
 
 echo.
-echo === Release complete. 产物: dist\, git tag 已推送 ===
+echo === Release complete. 产物: dist\, git tag 已推送, GitHub Release 已创建 ===
 call :countdown 5
 exit /b 0
 
