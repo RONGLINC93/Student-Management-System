@@ -308,10 +308,15 @@ function syncAddForm() {
   $('#rowStartNo').hidden = isEdit;   // 编辑班级时只有名称/年级/班主任/容量
   $('#rowCount').hidden = isEdit;
   $('#rowPreview').hidden = isEdit;
-  $('#fStartNo').disabled = !batch;   // 自定义名称时序号/数量不生效，置灰避免误解
-  $('#fCount').disabled = !batch;
+  // 年级未选时进一步禁用序号/数量，避免误生成「1班」类无名班级
+  const gradeVal = String($('#fGrade').value || '').trim();
+  const noGrade = !gradeVal;
+  $('#fStartNo').disabled = !batch || noGrade;
+  $('#fCount').disabled = !batch || noGrade;
   const submitBtn = $('#clsForm').querySelector('button[type="submit"]');
   if (submitBtn && !submitBtn.querySelector('svg')) submitBtn.textContent = batch ? '批量创建' : '保存';
+  // 批量模式 + 年级为空时禁用提交，避免直接点击「批量创建」却因年级为空被服务器拒绝
+  if (submitBtn) submitBtn.disabled = batch && noGrade;
   if (isEdit) return;
   if (batch) {
     if (!batchStartTouched) $('#fStartNo').value = suggestStartNo($('#fGrade').value);

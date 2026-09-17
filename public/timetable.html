@@ -97,8 +97,8 @@
         <div class="tt-warn" id="cellWarn" hidden></div>
         <div class="form-row">
           <label class="form-label">科目 *</label>
-          <input type="text" id="cSubject" list="subjectList" maxlength="20" placeholder="如：语文 / 数学" />
-          <datalist id="subjectList"></datalist>
+          <select id="cSubjectSel"></select>
+          <input type="text" id="cSubjectCustom" maxlength="20" placeholder="请输入自定义科目" style="display:none; margin-top:8px;" />
         </div>
         <div class="form-row"><label class="form-label">任课教师</label><select id="cTeacher"></select></div>
         <div class="form-row"><label class="form-label">教室（可选）</label><input type="text" id="cRoom" maxlength="20" placeholder="如：教学楼 301 / 操场" /></div>

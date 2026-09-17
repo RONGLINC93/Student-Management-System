@@ -10,7 +10,7 @@
   <style>
     /* 表格美化：吸附表头 / 头像 / 标签化 */
     .table-scroll { max-height: 540px; max-height: calc(100vh - 340px); overflow: auto; overscroll-behavior: contain; }
-    .t-table { width: 100%; min-width: 940px; border-collapse: collapse; }
+    .t-table { width: 100%; min-width: 1020px; border-collapse: collapse; }
     .t-table thead th {
       position: sticky; top: 0; z-index: 3;
       background: #f8fafc;
@@ -41,6 +41,48 @@
     /* 学科 / 班主任 / 状态 */
     .subj-chips { display: flex; gap: 4px; flex-wrap: wrap; }
     .subj-chip { padding: 2px 8px; border-radius: 6px; font-size: 12px; background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; white-space: nowrap; }
+    .grade-chip { padding: 2px 8px; border-radius: 6px; font-size: 12px; background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; white-space: nowrap; }
+    .grade-empty { color: var(--text-light); font-size: 13px; }
+    /* 任教年级复选框组（弹窗内） */
+    .grade-checks { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
+    .grade-checks label {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 13px; border: 1px solid var(--border); border-radius: 999px;
+      cursor: pointer; font-size: 13px; background: #fff; user-select: none;
+      transition: background .12s, border-color .12s, color .12s;
+    }
+    .grade-checks label:hover { border-color: #c7d2fe; }
+    .grade-checks input { margin: 0; cursor: pointer; }
+    .grade-checks label:has(input:checked) {
+      background: #eef2ff; border-color: #a5b4fc; color: #4338ca; font-weight: 600;
+    }
+    .grade-checks .form-tip { color: var(--text-light); font-size: 12.5px; padding: 6px 0; }
+    .grade-checks .empty-tip-inline { color: var(--text-light); font-size: 12.5px; padding: 6px 0; }
+    /* 任教学科 chip 多选输入框 */
+    .chip-input {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+      padding: 5px 8px; min-height: 38px; border: 1px solid var(--border); border-radius: 8px;
+      background: #fff; transition: border-color .12s, box-shadow .12s;
+    }
+    .chip-input:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+    .chip-input .chip-list { display: contents; }
+    .chip-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 4px 3px 10px; border-radius: 999px;
+      background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca;
+      font-size: 13px; line-height: 1.2;
+    }
+    .chip-tag button {
+      border: 0; background: transparent; cursor: pointer; padding: 0;
+      width: 18px; height: 18px; border-radius: 50%; display: inline-flex;
+      align-items: center; justify-content: center; color: #6366f1; font-size: 14px; line-height: 1;
+    }
+    .chip-tag button:hover { background: #c7d2fe; color: #312e81; }
+    .chip-input input {
+      flex: 1; min-width: 160px; border: 0; outline: 0;
+      padding: 4px 4px; font: inherit; color: inherit; background: transparent;
+    }
+    .chip-input input::placeholder { color: #94a3b8; }
     .head-tag {
       display: inline-flex; align-items: center; gap: 5px;
       background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857;
@@ -162,9 +204,9 @@
       <div class="table-scroll">
         <table class="t-table">
           <thead>
-            <tr><th>教师</th><th>性别</th><th>任教学科</th><th>职称/职务</th><th>联系电话</th><th>入职年份</th><th>班主任（班级）</th><th>操作</th></tr>
+            <tr><th>教师</th><th>性别</th><th>任教学科</th><th>职称/职务</th><th>联系电话</th><th>入职年份</th><th>任教年级</th><th>班主任（班级）</th><th>操作</th></tr>
           </thead>
-          <tbody id="tBody"><tr><td colspan="8" class="empty-tip">加载中...</td></tr></tbody>
+          <tbody id="tBody"><tr><td colspan="9" class="empty-tip">加载中...</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -186,7 +228,15 @@
           <div class="form-row"><label class="form-label">性别</label>
             <select id="fGender"><option value="男">男</option><option value="女">女</option></select>
           </div>
-          <div class="form-row"><label class="form-label">任教学科</label><input type="text" id="fSubject" list="subjectList" placeholder="如：语文" /></div>
+          <div class="form-row form-row-full"><label class="form-label">任教学科</label>
+            <div id="fSubjectBox" class="chip-input">
+              <div id="fSubjectChips" class="chip-list"></div>
+              <input type="text" id="fSubjectInput" list="subjectList" placeholder="输入学科后回车 / 逗号添加（可多次添加多个学科）" autocomplete="off" />
+            </div>
+          </div>
+          <div class="form-row form-row-full"><label class="form-label">任教年级</label>
+            <div id="fGrades" class="grade-checks"><span class="form-tip">加载中...</span></div>
+          </div>
           <div class="form-row"><label class="form-label">职称/职务</label>
             <select id="fTitle">
               <option value="">请选择</option>

@@ -11,24 +11,67 @@
 .tt-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-light, #6b7280); }
 .tt-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 
-.tt-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #eef1f4; border-radius: 12px; }
-table.tt-tbl { width: 100%; min-width: 720px; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
-.tt-tbl th, .tt-tbl td { border-right: 1px solid #eef1f4; border-bottom: 1px solid #eef1f4; }
+/* ---- 网格容器：卡片化，强化与页面背景的边界 ---- */
+.tt-wrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  border: 1px solid #e3e9f2; border-radius: 14px; background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 10px 26px -20px rgba(16, 24, 40, .45);
+}
+table.tt-tbl { width: 100%; min-width: 760px; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
+.tt-tbl th, .tt-tbl td { border-right: 1px solid #eceff5; border-bottom: 1px solid #eceff5; }
 .tt-tbl tr > *:last-child { border-right: 0; }
 .tt-tbl tbody tr:last-child > * { border-bottom: 0; }
-.tt-tbl thead th { background: #f8f9fd; color: #6b7280; font-weight: 600; font-size: 12px; padding: 9px 8px; text-align: center; white-space: nowrap; }
-.tt-tbl tbody th.tt-period { width: 96px; background: #f8f9fd; text-align: center; padding: 8px 6px; font-weight: 600; }
-.tt-tbl tbody th.tt-period b { display: block; font-size: 12.5px; color: #374151; }
-.tt-tbl tbody th.tt-period span { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: #9ca3af; }
-.tt-tbl td.tt-cell { height: 66px; padding: 7px 8px; vertical-align: top; }
-.tt-tbl td.tt-cell.empty { color: #d1d5db; }
+
+/* ---- 表头 / 节次列 ---- */
+.tt-tbl thead th {
+  background: #f4f7fb; color: #475569; font-weight: 700; font-size: 12px;
+  padding: 11px 8px; text-align: center; white-space: nowrap; letter-spacing: .02em;
+}
+.tt-tbl thead th.tt-corner { border-top-left-radius: 13px; }
+.tt-tbl thead th:last-child { border-top-right-radius: 13px; }
+.tt-tbl tbody th.tt-period { width: 100px; background: #fafbfd; text-align: center; padding: 10px 6px; vertical-align: middle; }
+.tt-tbl tbody th.tt-period b { display: block; font-size: 12.5px; color: #334155; font-weight: 700; }
+.tt-tbl tbody th.tt-period span { display: block; margin-top: 3px; font-size: 11px; font-weight: 400; color: #94a3b8; }
+
+/* ---- 单元格 ---- */
+.tt-tbl td.tt-cell { height: 72px; padding: 5px 6px; vertical-align: top; background: #fff; }
+.tt-tbl td.tt-cell.empty { text-align: center; vertical-align: middle; }
+.tt-add { display: inline-block; font-size: 16px; line-height: 1; color: #ccd4e0; transition: color .12s, transform .12s; }
 .tt-tbl.tt-edit td.tt-cell { cursor: pointer; transition: background .12s; }
-.tt-tbl.tt-edit td.tt-cell:hover { background: #f5f7ff; }
-.tt-add { font-size: 17px; line-height: 1; }
-.tt-it + .tt-it { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #eef1f4; }
-.tt-it .s { font-weight: 600; color: #1f2937; font-size: 13px; }
-.tt-it .m { margin-top: 2px; font-size: 11.5px; color: #6b7280; line-height: 1.5; word-break: break-all; }
-.tt-tbl td.tt-cell.has-conflict { background: #fff7ed; box-shadow: inset 0 0 0 1px #fdba74; }
+.tt-tbl.tt-edit td.tt-cell:hover { background: #f7f9ff; }
+.tt-tbl.tt-edit td.tt-cell.empty:hover .tt-add { color: var(--primary, #4f6df5); transform: scale(1.28); }
+
+/* ---- 课程卡片：8 套柔和配色，按科目名哈希分配，保证「同科目始终同色」 ---- */
+.tt-c0 { --tt-bg: #eff6ff; --tt-bd: #60a5fa; --tt-tx: #1d4ed8; --tt-mt: #2563eb; }
+.tt-c1 { --tt-bg: #f5f3ff; --tt-bd: #a78bfa; --tt-tx: #6d28d9; --tt-mt: #7c3aed; }
+.tt-c2 { --tt-bg: #ecfdf5; --tt-bd: #34d399; --tt-tx: #047857; --tt-mt: #059669; }
+.tt-c3 { --tt-bg: #fff7ed; --tt-bd: #fb923c; --tt-tx: #c2410c; --tt-mt: #ea580c; }
+.tt-c4 { --tt-bg: #fff1f2; --tt-bd: #fb7185; --tt-tx: #be123c; --tt-mt: #e11d48; }
+.tt-c5 { --tt-bg: #ecfeff; --tt-bd: #22d3ee; --tt-tx: #0e7490; --tt-mt: #0891b2; }
+.tt-c6 { --tt-bg: #fffbeb; --tt-bd: #fbbf24; --tt-tx: #b45309; --tt-mt: #d97706; }
+.tt-c7 { --tt-bg: #eef2ff; --tt-bd: #818cf8; --tt-tx: #4338ca; --tt-mt: #4f46e5; }
+
+.tt-it {
+  margin: 2px 0; padding: 6px 8px; border-radius: 8px;
+  border-left: 3px solid var(--tt-bd, #a5b4fc); background: var(--tt-bg, #eef2ff);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.tt-it + .tt-it { margin-top: 5px; }
+.tt-tbl.tt-edit td.tt-cell:hover .tt-it { transform: translateY(-1px); box-shadow: 0 4px 10px -2px rgba(16, 24, 40, .18); }
+.tt-it .s { font-weight: 700; color: var(--tt-tx, #3730a3); font-size: 13px; line-height: 1.35; }
+.tt-it .m { margin-top: 3px; font-size: 11.5px; color: var(--tt-mt, #4f46e5); line-height: 1.5; word-break: break-all; opacity: .92; }
+
+/* ---- 上 / 下午 / 晚上 分组行（左侧色条区分时段）---- */
+.tt-tbl tbody tr.tt-sec th {
+  background: #f6f8fb; color: #334155; font-weight: 700; font-size: 12px;
+  text-align: left; padding: 7px 10px; letter-spacing: .08em;
+  border-left: 3px solid var(--sec-c, #94a3b8);
+}
+.tt-sec-am { --sec-c: #f59e0b; }
+.tt-sec-pm { --sec-c: #3b82f6; }
+.tt-sec-nt { --sec-c: #6366f1; }
+
+.tt-tbl td.tt-cell.has-conflict { background: #fff7ed; box-shadow: inset 0 0 0 1.5px #fb923c; }
 
 .tt-empty { text-align: center; color: #6b7280; font-size: 13px; line-height: 1.9; padding: 30px 14px; }
 .tt-tip { margin: 10px 0 0; font-size: 12.5px; color: #9ca3af; line-height: 1.7; }
@@ -57,8 +100,10 @@ table.tt-tbl { width: 100%; min-width: 720px; border-collapse: separate; border-
 
 @media print {
   .app-header, .toolbar, .tt-bar, .tt-tip, .tt-alert, .tt-legend { display: none !important; }
-  .tt-wrap { border: 0; overflow: visible; }
+  .tt-wrap { border: 0; overflow: visible; box-shadow: none; }
   table.tt-tbl { min-width: 0; font-size: 11px; }
   .tt-tbl td.tt-cell { height: auto; }
   .tt-tbl td.tt-cell.has-conflict { background: transparent; box-shadow: none; }
+  /* 打印时去掉彩色底与阴影，只保留左侧色条，省墨且更清晰 */
+  .tt-it { background: #fff !important; box-shadow: none !important; transform: none !important; border-left-width: 2px; }
 }

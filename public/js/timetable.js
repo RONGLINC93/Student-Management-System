@@ -11,6 +11,7 @@
   var classes = [];
   var teachers = [];
   var settingsSubjects = [];
+  var gradePlans = {};   // 各年级课程计划（来自「课程管理」页）：{ [grade]: { courses: [course] } }
   var curId = '';        // 当前排课班级
   var dirty = false;     // 是否有未保存的排课改动
 
@@ -61,7 +62,8 @@
     return Promise.all([
       api(API),
       api('/api/classes').catch(function () { return []; }),
-      api('/api/teachers').catch(function () { return []; })
+      api('/api/teachers').catch(function () { return []; }),
+      api('/api/course-plans').catch(function () { return { plans: {} }; })
     ]).then(function (res) {
       var d = res[0] || {};
       state.term = d.term || '';
@@ -77,6 +79,10 @@
       teachers = (res[2] || []).slice().sort(function (a, b) {
         return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hans-CN', { numeric: true });
       });
+      // 各年级课程计划：{ [grade]: { courses: [ { name, type, weeklyHours, examType } ] } }
+      // 注意：api() 内部已 return j.data，此处 res[3] 就是 { grades, plans }，不能再取 .data（会恒为 undefined）
+      var planRes = res[3] || {};
+      gradePlans = (planRes && planRes.plans) || {};
       if (!classes.some(function (c) { return c.id === curId; })) {
         var first = sortedClasses()[0];
         curId = first ? first.id : '';
@@ -122,6 +128,29 @@
     return set;
   }
 
+  // 按节次开始时间划分「上午 / 下午 / 晚上」；未填写时间的节次返回 null（沿用上一分组）
+  function periodSection(p) {
+    var m = String((p && p.time) || '').match(/(\d{1,2})\s*[:：]/);
+    if (!m) return null;
+    var h = Number(m[1]);
+    if (!(h >= 0 && h <= 23)) return null;
+    if (h < 12) return { key: 'am', label: '上午', cls: 'tt-sec-am' };
+    if (h < 18) return { key: 'pm', label: '下午', cls: 'tt-sec-pm' };
+    return { key: 'nt', label: '晚上', cls: 'tt-sec-nt' };
+  }
+
+  // 科目配色：优先按科目在「本年级课程计划」中的序号取色，
+  // 保证同一张课表里前 8 门科目颜色互不相同（不会语数英撞同色）；
+  // 不在计划内的科目（如班会）按名称哈希取色，保证跨班级稳定同色
+  function subjectTone(name) {
+    var i = subjectOptions().indexOf(name);
+    if (i !== -1) return i % 8;
+    var s = String(name || '');
+    var h = 0;
+    for (var k = 0; k < s.length; k++) h = (h * 31 + s.charCodeAt(k)) % 100003;
+    return h % 8;
+  }
+
   function cellHtml(cls, day, period, conflict) {
     var s = (cls.slots || {})[day + '-' + period];
     var cn = 'tt-cell' + (s ? '' : ' empty') + (conflict ? ' has-conflict' : '');
@@ -131,7 +160,7 @@
     var meta = [s.teacher, s.room].filter(Boolean).join(' · ');
     var title = [s.subject, s.teacher, s.room].filter(Boolean).join(' · ') + (conflict ? '（该时段存在排课冲突）' : '');
     return '<td class="' + cn + '" data-day="' + day + '" data-period="' + period + '" title="' + esc(title) + '">'
-      + '<div class="tt-it"><div class="s">' + esc(s.subject || '（未填科目）') + '</div>'
+      + '<div class="tt-it tt-c' + subjectTone(s.subject) + '"><div class="s">' + esc(s.subject || '（未填科目）') + '</div>'
       + (meta ? '<div class="m">' + esc(meta) + '</div>' : '') + '</div></td>';
   }
 
@@ -165,8 +194,16 @@
       return '<th>' + esc(wd(d)) + '</th>';
     }).join('') + '</tr>';
     var body = '';
+    var lastSec = '';
     state.periods.forEach(function (p, i) {
       var n = i + 1;
+      // 节次跨越上/下午时插入分组标题行
+      var sec = periodSection(p);
+      if (sec && sec.key !== lastSec) {
+        lastSec = sec.key;
+        body += '<tr class="tt-sec ' + sec.cls + '"><th colspan="' + (state.days.length + 1) + '">'
+          + esc(sec.label) + '</th></tr>';
+      }
       body += '<tr><th class="tt-period"><b>' + esc(p.label || ('第' + n + '节')) + '</b>'
         + (p.time ? '<span>' + esc(p.time) + '</span>' : '') + '</th>';
       body += state.days.map(function (d) {
@@ -196,26 +233,223 @@
   // ===== 单元格排课 =====
   var editing = { day: 0, period: 0 };
 
+  // 内置通用科目：不需要在「课程管理」中配置，每个年级都可以直接选
+  var BUILTIN_SUBJECTS = ['班会'];
+
+  // 严格按「当前班级所在年级的课程计划」出科目，不做任何兜底
   function subjectOptions() {
-    var set = {};
-    settingsSubjects.forEach(function (s) { if (s) set[s] = 1; });
-    teachers.forEach(function (t) { if (t.subject) set[t.subject] = 1; });
-    var t = curId ? tableOf(curId) : null;
-    if (t) Object.keys(t.slots || {}).forEach(function (k) { if (t.slots[k].subject) set[t.slots[k].subject] = 1; });
-    return Object.keys(set);
+    var cur = curId ? classes.filter(function (c) { return c.id === curId; })[0] : null;
+    if (!cur || !cur.grade) return [];
+    var plan = gradePlans[cur.grade];
+    if (!plan) return [];
+    var list = Array.isArray(plan) ? plan : (plan.courses || []);
+    var seen = {};
+    var out = [];
+    list.forEach(function (c) {
+      var n = c && String(c.name || '').trim();
+      if (n && !seen[n]) { seen[n] = 1; out.push(n); }
+    });
+    return out;
   }
-  function fillSubjectList() {
-    var dl = $('#subjectList');
-    if (!dl) return;
-    dl.innerHTML = subjectOptions().map(function (s) { return '<option value="' + esc(s) + '"></option>'; }).join('');
+  // 读取当前最终科目值（仅取 select 选项）
+  function getSubjectValue() {
+    var sel = $('#cSubjectSel');
+    return sel ? sel.value.trim() : '';
   }
+  // 取当前选中教师「任教学科」列表（空数组 = 未指定 / 未配置任教年级）
+  function currentTeacherSubjects() {
+    var v = $('#cTeacher');
+    if (!v) return [];
+    var raw = v.value || '';
+    var i = raw.indexOf('|');
+    if (i === -1) return [];
+    var teacherNo = raw.slice(0, i).trim();
+    var teacherName = raw.slice(i + 1).trim();
+    var t = teachers.filter(function (x) {
+      return (teacherNo && String(x.teacherNo || '').trim() === teacherNo)
+          || (teacherName && String(x.name || '').trim() === teacherName);
+    })[0];
+    if (!t || !t.subject) return [];
+    return String(t.subject).split(/[,，、;；\/\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  // 应用科目值：若不在计划内则插入一条「已不在当前年级课程计划」的临时项保留展示，避免编辑历史数据时被静默改掉
+  function applySubjectValue(value) {
+    var sel = $('#cSubjectSel');
+    if (!sel) return;
+    if (value) {
+      var inPlan = false;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === value && !sel.options[i].dataset.outdated) { inPlan = true; break; }
+      }
+      if (!inPlan) {
+        // 移除同名的旧临时项，避免重复
+        for (var j = sel.options.length - 1; j >= 0; j--) {
+          if (sel.options[j].value === value && sel.options[j].dataset.outdated === '1') sel.remove(j);
+        }
+        var opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = value + '（已不在当前年级课程计划）';
+        opt.dataset.outdated = '1';
+        // 插到「请选择」之后
+        if (sel.children.length > 0) sel.insertBefore(opt, sel.children[1]);
+        else sel.appendChild(opt);
+      }
+    }
+    sel.value = value || '';
+  }
+  // 联动核心：
+  //   第一层 —— 任教年级（教师任教该年级的过滤已在 fillTeacherSelect 里做完）
+  //   第二层 —— 对应学科（已选教师时，科目下拉只显示该教师任教的学科 ∩ 当前年级课程计划）
+  function fillSubjectList(savedSubject) {
+    var sel = $('#cSubjectSel');
+    if (!sel) return;
+    var opts = subjectOptions();
+    var teacherSubs = currentTeacherSubjects();
+    var teacherSet = {}; teacherSubs.forEach(function (s) { teacherSet[s] = 1; });
+
+    var html = '<option value="">— 请选择科目 —</option>';
+
+    // 1) 通用科目（始终展示）
+    if (BUILTIN_SUBJECTS.length > 0) {
+      html += '<optgroup label="通用科目">';
+      BUILTIN_SUBJECTS.forEach(function (s) {
+        html += '<option value="' + esc(s) + '">' + esc(s) + '</option>';
+      });
+      html += '</optgroup>';
+    }
+
+    // 2) 当前年级课程计划中的科目
+    if (opts.length === 0) {
+      html += '<option value="" disabled>（当前年级尚未配置课程计划，请先在「课程管理」中添加）</option>';
+    } else if (teacherSubs.length > 0) {
+      // 已选教师：拆成「教师任教（∩）」「其他计划科目」两组，优先显示匹配的
+      var mine = opts.filter(function (s) { return teacherSet[s]; });
+      var other = opts.filter(function (s) { return !teacherSet[s]; });
+      if (mine.length) {
+        html += '<optgroup label="本班教师任教">';
+        html += mine.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join('');
+        html += '</optgroup>';
+      }
+      if (other.length) {
+        html += '<optgroup label="其他计划科目（不在该教师任教范围）">';
+        html += other.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join('');
+        html += '</optgroup>';
+      }
+    } else {
+      // 未指定教师：原样展示
+      html += '<optgroup label="课程计划">';
+      html += opts.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join('');
+      html += '</optgroup>';
+    }
+    sel.innerHTML = html;
+    applySubjectValue(savedSubject || '');
+  }
+  // 取某教师的任教学科列表（空数组 = 该教师未登记任教学科）
+  function teacherSubjectsOf(t) {
+    if (!t || !t.subject) return [];
+    return String(t.subject).split(/[,，、;；\/\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  // 生成单个教师 option
+  function teacherOption(t, curGrade, subject, dim) {
+    var subs = teacherSubjectsOf(t);
+    var subjStr = subs.length ? '（' + (subs.length > 2 ? subs.slice(0, 2).join('、') + '…' : subs.join('、')) + '）' : '';
+    var gOk = !curGrade || (Array.isArray(t.grades) && t.grades.indexOf(curGrade) !== -1);
+    var suffix = '';
+    if (!gOk) suffix += '  （未任教' + curGrade + '）';
+    // 已选科目且该教师有登记任教学科，但不含本科目 → 明确标注，避免误选
+    if (subject && subs.length && subs.indexOf(subject) === -1) suffix += '  （不教' + subject + '）';
+    var label = t.name + subjStr + (t.teacherNo ? ' ' + t.teacherNo : '') + suffix;
+    var grey = dim || !gOk;
+    return '<option value="' + esc(t.teacherNo || '') + '|' + esc(t.name || '') + '"'
+      + (grey ? ' style="color:#94a3b8"' : '') + '>' + esc(label) + '</option>';
+  }
+  // 科目 → 教师 联动：
+  // 严格级联：科目（第一级）→ 教师（第二级）
+  //   未选科目：不加载任何教师，下拉禁用并提示「请先选择科目」
+  //   已选科目：只加载有资质（任教学科含本科目）的教师，不适合的不再显示
+  //   例外：当前已选中的教师即使不匹配也强制保留，避免历史排课数据被静默清空
   function fillTeacherSelect(sel) {
-    $('#cTeacher').innerHTML = '<option value="">— 未指定 —</option>' + teachers.map(function (t) {
-      var label = t.name + (t.subject ? '（' + t.subject + '）' : '') + (t.teacherNo ? ' ' + t.teacherNo : '');
-      return '<option value="' + esc(t.teacherNo || '') + '|' + esc(t.name || '') + '">' + esc(label) + '</option>';
-    }).join('');
-    if (sel && sel.teacherNo) $('#cTeacher').value = sel.teacherNo + '|' + (sel.teacher || '');
-    else if (sel && sel.teacher) $('#cTeacher').value = '|' + sel.teacher;
+    var cur = curId ? classes.filter(function (c) { return c.id === curId; })[0] : null;
+    var curGrade = cur && cur.grade;
+    var subject = getSubjectValue();
+    var keep = sel || currentTeacher(); // 重建后恢复原选中项
+
+    function keyOf(t) { return String(t.teacherNo || '') + '|' + String(t.name || ''); }
+    // 当前选中项对应的 value
+    var keepVal = '';
+    if (keep && keep.teacherNo) keepVal = keep.teacherNo + '|' + (keep.teacher || '');
+    else if (keep && keep.teacher) keepVal = '|' + keep.teacher;
+
+    var html = '';
+    // ---- 第一级未选：教师不可选 ----
+    if (!subject) {
+      var keepHit0 = keepVal ? teachers.filter(function (t) { return keyOf(t) === keepVal; })[0] : null;
+      if (keepHit0) {
+        html += '<optgroup label="当前已选">';
+        html += teacherOption(keepHit0, curGrade, '', false);
+        html += '</optgroup>';
+      }
+      html += '<option value="">— 请先选择科目 —</option>';
+      $('#cTeacher').innerHTML = html;
+      $('#cTeacher').disabled = true;
+      if (keepVal) $('#cTeacher').value = keepVal;
+      return;
+    }
+
+    // ---- 已选科目：加载有资质的教师 ----
+    $('#cTeacher').disabled = false;
+
+    // 班会等通用科目：由本班班主任主持，直接加载班主任（不受学科 / 年级资质限制）
+    if (BUILTIN_SUBJECTS.indexOf(subject) !== -1) {
+      var htName = String((cur && cur.headTeacher) || '').trim();
+      var ht = htName ? teachers.filter(function (t) { return String(t.name || '').trim() === htName; })[0] : null;
+      html = '<option value="">— 未指定 —</option>';
+      if (ht) {
+        html += '<optgroup label="本班班主任">';
+        html += teacherOption(ht, curGrade, '', false);
+        html += '</optgroup>';
+      } else if (htName) {
+        // 班主任未建立教师档案：按姓名生成选项，保证仍可选可保存
+        html += '<optgroup label="本班班主任">';
+        html += '<option value="|' + esc(htName) + '">' + esc(htName) + '</option>';
+        html += '</optgroup>';
+      } else {
+        html += '<option value="" disabled>（该班级尚未设置班主任，请先在「班级管理」中设置）</option>';
+      }
+      $('#cTeacher').innerHTML = html;
+      // 优先选中班主任；班主任缺失时才保留原选中值
+      $('#cTeacher').value = ht ? keyOf(ht) : (htName ? '|' + htName : (keepVal || ''));
+      return;
+    }
+
+    function subOk(t) { return teacherSubjectsOf(t).indexOf(subject) !== -1; }
+    // 任教年级严格判定：必须登记了任教年级且包含本班年级，否则视为无资质
+    function gradeOk(t) { return !!curGrade && Array.isArray(t.grades) && t.grades.indexOf(curGrade) !== -1; }
+    function qualified(t) { return subOk(t) && gradeOk(t); }
+    var list = teachers.slice().sort(function (a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hans-CN', { numeric: true });
+    });
+    var matched = list.filter(qualified);
+    // 已选教师若不在资质名单内，强制保留，防止选中值被清空
+    var keepHit = keepVal && !matched.some(function (t) { return keyOf(t) === keepVal; })
+      ? teachers.filter(function (t) { return keyOf(t) === keepVal; })[0]
+      : null;
+
+    html = '<option value="">— 未指定 —</option>';
+    if (matched.length) {
+      html += '<optgroup label="可教「' + esc(subject) + '」且任教' + esc(curGrade) + '">';
+      html += matched.map(function (t) { return teacherOption(t, curGrade, subject, false); }).join('');
+      html += '</optgroup>';
+    } else {
+      html += '<option value="" disabled>（暂无同时任教「' + esc(subject) + '」与' + esc(curGrade) + '的教师）</option>';
+    }
+    if (keepHit) {
+      html += '<optgroup label="当前已选（无本科目资质）">';
+      html += teacherOption(keepHit, curGrade, subject, true);
+      html += '</optgroup>';
+    }
+    $('#cTeacher').innerHTML = html;
+    if (keepVal) $('#cTeacher').value = keepVal;
   }
   function currentTeacher() {
     var v = $('#cTeacher').value || '';
@@ -267,20 +501,34 @@
 
   function openCell(day, period) {
     if (!canWrite()) { toast('当前账号仅可查看课表，不能排课', 'error'); return; }
+    // 前置检查：班级未设置年级 / 年级未配置课程计划时，先行提示再去排课（避免下拉只有「班会」让人困惑）
+    var cur = curId ? classes.filter(function (c) { return c.id === curId; })[0] : null;
+    if (!cur) return;
+    if (!cur.grade) {
+      toast('该班级尚未设置年级，请先在「班级管理」中给「' + (cur.name || '该班级') + '」指定年级后再排课', 'error');
+      return;
+    }
+    // 课程计划存在两种存储形态：数组 [course,...] 或对象 { courses: [...] }
+    var _plan = gradePlans[cur.grade];
+    var _planCourses = Array.isArray(_plan) ? _plan : (_plan && _plan.courses) || [];
+    if (!_planCourses.length) {
+      toast('「' + cur.grade + '」尚未配置课程计划，请先在「课程管理」中添加科目后再排课', 'error');
+      return;
+    }
     editing.day = day;
     editing.period = period;
     var t = tableOf(curId);
     var s = (t.slots || {})[day + '-' + period] || {};
     $('#cellTitle').textContent = classLabel(classes.filter(function (c) { return c.id === curId; })[0] || { name: '' })
       + ' · ' + wd(day) + ' 第' + period + '节';
-    $('#cSubject').value = s.subject || '';
     $('#cRoom').value = s.room || '';
+    // 顺序固定：先建科目下拉并定值 → 再按科目建教师下拉（教师分组依赖科目值）
+    fillSubjectList(s.subject || '');
     fillTeacherSelect(s);
-    fillSubjectList();
     fillQuick();
     refreshCellWarn();
     $('#cellMask').classList.add('show');
-    setTimeout(function () { $('#cSubject').focus(); }, 50);
+    setTimeout(function () { var s2 = $('#cSubjectSel'); if (s2) s2.focus(); }, 50);
   }
   function closeCell() { $('#cellMask').classList.remove('show'); }
   function saveCell(clear) {
@@ -289,7 +537,7 @@
     if (clear) {
       delete t.slots[key];
     } else {
-      var subject = $('#cSubject').value.trim();
+      var subject = getSubjectValue();
       var tn = currentTeacher();
       var room = $('#cRoom').value.trim();
       if (!subject && !tn.teacher && !room) { delete t.slots[key]; }
@@ -477,7 +725,7 @@
     $('#classSel').addEventListener('change', function () {
       var next = this.value;
       if (!next || next === curId) { if (!next) this.value = curId; return; }
-      var go = function () { curId = next; markDirty(false); render(); loadTermToInput(); };
+      var go = function () { curId = next; markDirty(false); render(); loadTermToInput(); fillSubjectList(); };
       if (dirty) {
         confirmDlg('当前班级有未保存的排课改动，切换班级将丢弃这些改动。', { title: '放弃未保存的改动？', okText: '放弃并切换', danger: true })
           .then(function (ok) { if (ok) go(); else $('#classSel').value = curId; });
@@ -498,7 +746,31 @@
     $('#cCancel').onclick = closeCell;
     $('#cOk').onclick = function () { saveCell(false); };
     $('#cClear').onclick = function () { saveCell(true); };
-    $('#cTeacher').onchange = refreshCellWarn;
+    $('#cTeacher').onchange = function () {
+      // 教师变更 → 联动刷新「对应学科」下拉（保留原科目若仍在列表中）
+      var prevSubject = getSubjectValue();
+      fillSubjectList(prevSubject);
+      refreshCellWarn();
+    };
+    $('#cSubjectSel').onchange = function () {
+      // 科目变更 → 反向联动刷新「教师」下拉（只列出能教本科目的教师）
+      var prev = currentTeacher();
+      var subject = getSubjectValue();
+      // 已选教师若明确不能教新科目，直接清空，避免残留不匹配的值
+      // （未登记任教学科的教师无法判定，予以保留）
+      if (subject && (prev.teacherNo || prev.teacher)) {
+        var t = teachers.filter(function (x) {
+          return (prev.teacherNo && String(x.teacherNo || '').trim() === prev.teacherNo)
+              || (prev.teacher && String(x.name || '').trim() === prev.teacher);
+        })[0];
+        if (t) {
+          var subs = teacherSubjectsOf(t);
+          if (subs.length && subs.indexOf(subject) === -1) prev = { teacherNo: '', teacher: '' };
+        }
+      }
+      fillTeacherSelect(prev);
+      refreshCellWarn();
+    };
     $('#cRoom').oninput = refreshCellWarn;
     $('#cQuick').addEventListener('click', function (e) {
       var chip = e.target.closest ? e.target.closest('.tt-chip') : null;
@@ -506,7 +778,7 @@
       var items = JSON.parse(this.dataset.items || '[]');
       var s = items[Number(chip.dataset.quick)];
       if (!s) return;
-      $('#cSubject').value = s.subject || '';
+      applySubjectValue(s.subject || '');
       $('#cRoom').value = s.room || '';
       fillTeacherSelect(s);
       refreshCellWarn();
@@ -560,8 +832,8 @@
     loadAll().catch(function (e) { toast(e.message, 'error'); });
   };
 
-  (function init() {
-    if (!window.AUTH) return; // 未登录时不做额外处理（服务端已守卫页面）
+  // 等 site.js 拉取 AUTH 就绪后再启动（loadAuth 是异步 fetch，同步执行时 AUTH 仍为 null）
+  function start() {
     var w = canWrite();
     ['#btnSave', '#btnClear', '#btnMeta', '#btnCopy', '#btnPrint'].forEach(function (sel) {
       var el = $(sel);
@@ -579,5 +851,19 @@
     loadAll().catch(function (e) {
       $('#gridHost').innerHTML = '<div class="tt-empty">加载失败：' + esc(e.message) + '</div>';
     });
+  }
+  (function init() {
+    if (window.AUTH) {
+      start();
+      return;
+    }
+    // site.js 加载完 AUTH 后会派发 cb-auth-ready；事件可被多处订阅，无需 once
+    window.addEventListener('cb-auth-ready', function onAuth() {
+      window.removeEventListener('cb-auth-ready', onAuth);
+      start();
+    });
+    // 兜底：1.5s 内 AUTH 仍未就绪（未登录 / 接口异常）也尝试启动一次，
+    // 让写接口以外的部分（读取网格、查看冲突、导出 CSV）仍能用，避免空白页
+    setTimeout(function () { if (!window.AUTH) start(); }, 1500);
   })();
 })();

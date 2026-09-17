@@ -629,7 +629,7 @@
               <tr>
                 <td>管理员</td>
                 <td>管理员入口登录（初始账号 admin）</td>
-                <td>全部业务模块：学生档案、班级管理、年级管理、成绩管理、考勤操行、请假、通知公告、宿舍管理</td>
+                <td>全部业务模块：学生档案、班级管理、年级管理、成绩管理、考勤操行、请假、通知公告、宿舍管理、课程表、课程管理</td>
                 <td>另享管理员专属功能：教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、系统设置、账号与安全；固定权限，不可配置</td>
               </tr>
               <tr>
@@ -830,10 +830,11 @@
         { key: 'leaves',        name: '请假管理' },
         { key: 'announcements', name: '通知公告' },
         { key: 'timetables',    name: '课程表' },
+        { key: 'courses',       name: '课程管理' },
         { key: 'dorms',         name: '宿舍管理' }
       ];
       var PERM_DEFAULTS = {
-        staff: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables'],
+        staff: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables', 'courses'],
         dorm: ['dorms']
       };
 

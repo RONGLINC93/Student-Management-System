@@ -1,8 +1,10 @@
 // 教师管理 - 主界面逻辑
 const TEA_API = '/api/teachers';
 const CLASS_API = '/api/classes';
+const GRADES_API = '/api/grades';
 let teachers = [];
 let classList = [];
+let gradeList = [];
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -33,6 +35,61 @@ function splitSubjects(subject) {
   return String(subject).split(/[,，、;；\/\s]+/).map(s => s.trim()).filter(Boolean);
 }
 
+// ========== 任教学科 chip 多选输入 ==========
+function addSubjectChip(value) {
+  const v = String(value || '').trim();
+  if (!v) return;
+  const box = $('#fSubjectChips');
+  if (!box) return;
+  // 去重（忽略大小写）
+  const norm = v.toLowerCase();
+  const exist = Array.from(box.querySelectorAll('.chip-tag')).some(el => (el.dataset.value || '').toLowerCase() === norm);
+  if (exist) return;
+  const chip = document.createElement('span');
+  chip.className = 'chip-tag';
+  chip.dataset.value = v;
+  chip.innerHTML = '<span>' + escapeHtml(v) + '</span><button type="button" aria-label="删除该学科">&times;</button>';
+  chip.querySelector('button').onclick = () => chip.remove();
+  box.appendChild(chip);
+}
+function renderSubjectChips(list) {
+  const box = $('#fSubjectChips');
+  if (!box) return;
+  box.innerHTML = '';
+  (list || []).forEach(s => addSubjectChip(s));
+}
+function getSubjectChips() {
+  const box = $('#fSubjectChips');
+  if (!box) return [];
+  return Array.from(box.querySelectorAll('.chip-tag'))
+    .map(el => (el.dataset.value || '').trim())
+    .filter(Boolean);
+}
+function bindSubjectChipInput() {
+  const input = $('#fSubjectInput');
+  if (!input || input.dataset.bound) return;
+  input.dataset.bound = '1';
+  const commit = () => {
+    // 取出输入，去掉末尾分隔符，然后作为单个学科加入
+    const raw = (input.value || '').trim().replace(/[,，、;；\/\s]+$/, '');
+    if (!raw) return;
+    // 同一行多个学科：用分隔符拆开，逐个加
+    raw.split(/[,，、;；\/]+/).map(s => s.trim()).filter(Boolean).forEach(addSubjectChip);
+    input.value = '';
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Backspace' && !input.value) {
+      const chips = $('#fSubjectChips').querySelectorAll('.chip-tag');
+      if (chips.length) chips[chips.length - 1].remove();
+    }
+  });
+  // 中文输入法 / 粘贴场景：失焦时把残留值也提交
+  input.addEventListener('blur', () => { if (input.value.trim()) commit(); });
+}
+
 async function loadClasses() {
   try {
     const res = await fetch(CLASS_API);
@@ -52,6 +109,33 @@ async function loadClasses() {
   }
 }
 
+async function loadGrades() {
+  try {
+    const res = await fetch(GRADES_API);
+    const json = await res.json();
+    gradeList = json.data || [];
+    renderGradeChecks([]);
+  } catch (e) {
+    const box = $('#fGrades');
+    if (box) box.innerHTML = '<span class="empty-tip-inline">年级列表加载失败</span>';
+  }
+}
+
+// 渲染弹窗内「任教年级」复选框组；checkedNames 为已勾选年级名数组
+function renderGradeChecks(checkedNames) {
+  const box = $('#fGrades');
+  if (!box) return;
+  if (!gradeList || !gradeList.length) {
+    box.innerHTML = '<span class="empty-tip-inline">暂无可选年级，请先在「年级管理」中添加</span>';
+    return;
+  }
+  const set = new Set((checkedNames || []).map(String));
+  box.innerHTML = gradeList.map(g => {
+    const ck = set.has(g) ? ' checked' : '';
+    return `<label><input type="checkbox" value="${escapeHtml(g)}"${ck}/>${escapeHtml(g)}</label>`;
+  }).join('');
+}
+
 function renderTable() {
   const kw = ($('#searchInput').value || '').trim().toLowerCase();
   const gender = $('#genderFilter').value;
@@ -66,7 +150,8 @@ function renderTable() {
       (t.address || '').toLowerCase().includes(kw) ||
       (t.phone || '').toLowerCase().includes(kw) ||
       (t.subject || '').toLowerCase().includes(kw) ||
-      (t.className || '').toLowerCase().includes(kw));
+      (t.className || '').toLowerCase().includes(kw) ||
+      (Array.isArray(t.grades) ? t.grades.join(' ') : '').toLowerCase().includes(kw));
   }
   if (gender) list = list.filter(t => t.gender === gender);
   if (headState === 'head') list = list.filter(t => !!t.classId);
@@ -78,7 +163,7 @@ function renderTable() {
   $('#statHead').textContent = teachers.filter(t => !!t.classId).length;
 
   if (!list.length) {
-    $('#tBody').innerHTML = '<tr><td colspan="8" class="empty-tip">暂无教师数据，点击右上角「添加教师」开始</td></tr>';
+    $('#tBody').innerHTML = '<tr><td colspan="9" class="empty-tip">暂无教师数据，点击右上角「添加教师」开始</td></tr>';
     return;
   }
 
@@ -89,6 +174,10 @@ function renderTable() {
     const headCell = t.classId && t.className
       ? `<span class="head-tag">${IC_HEAD}${escapeHtml(t.className)}</span>`
       : '<span class="head-none">未担任</span>';
+    const grades = Array.isArray(t.grades) ? t.grades : [];
+    const gradeCell = grades.length
+      ? grades.map(g => `<span class="grade-chip">${escapeHtml(g)}</span>`).join('')
+      : '<span class="grade-empty">未指定</span>';
     return `<tr data-id="${escapeHtml(t.id)}">
       <td>
         <div class="teacher-cell">
@@ -104,6 +193,7 @@ function renderTable() {
       <td>${escapeHtml(t.title || '—')}</td>
       <td class="t-phone">${escapeHtml(t.phone || '—')}</td>
       <td>${escapeHtml(t.joinYear || '—')}</td>
+      <td>${gradeCell}</td>
       <td>${headCell}</td>
       <td>
         <div class="row-actions">
@@ -134,7 +224,9 @@ function openModal(t) {
   $('#fIdCard').value = t ? (t.idCard || '') : '';
   $('#fName').value = t ? t.name : '';
   $('#fGender').value = t ? t.gender : '男';
-  $('#fSubject').value = t ? t.subject : '';
+  // 任教学科 chip 多选
+  renderSubjectChips(splitSubjects(t && t.subject));
+  bindSubjectChipInput();
   $('#fTitle').value = t ? t.title : '';
   $('#fJoinYear').value = t ? t.joinYear : '';
   $('#fPhone').value = t ? t.phone : '';
@@ -146,6 +238,9 @@ function openModal(t) {
   $('#fEmergencyName').value = t ? (t.emergencyName || '') : '';
   $('#fEmergencyPhone').value = t ? (t.emergencyPhone || '') : '';
   $('#fRemark').value = t ? t.remark : '';
+  // 任教年级复选框组
+  const currentGrades = (t && Array.isArray(t.grades)) ? t.grades : [];
+  renderGradeChecks(currentGrades);
   $('#modalMask').classList.add('show');
   setTimeout(() => $('#fName').focus(), 100);
 }
@@ -154,12 +249,16 @@ function closeModal() { $('#modalMask').classList.remove('show'); }
 async function saveTeacher(e) {
   e.preventDefault();
   const id = $('#fId').value;
+  // 收集任教年级（勾选的复选框 value）
+  const checkedGrades = Array.from(document.querySelectorAll('#fGrades input[type="checkbox"]:checked'))
+    .map(cb => String(cb.value || '').trim())
+    .filter(Boolean);
   const data = {
     teacherNo: $('#fTeacherNo').value.trim(),
     idCard: $('#fIdCard').value.trim(),
     name: $('#fName').value.trim(),
     gender: $('#fGender').value,
-    subject: $('#fSubject').value.trim(),
+    subject: getSubjectChips().join('、'),
     title: $('#fTitle').value,
     joinYear: $('#fJoinYear').value.trim(),
     phone: $('#fPhone').value.trim(),
@@ -170,6 +269,7 @@ async function saveTeacher(e) {
     address: $('#fAddress').value.trim(),
     emergencyName: $('#fEmergencyName').value.trim(),
     emergencyPhone: $('#fEmergencyPhone').value.trim(),
+    grades: checkedGrades,
     remark: $('#fRemark').value.trim()
   };
   if (!data.name) { toast('请输入教师姓名', 'error'); return; }
@@ -357,9 +457,9 @@ function bindEvents() {
   });
 }
 
-window.cbEmbedRefresh = function () { loadClasses().then(loadTeachers); };
+window.cbEmbedRefresh = function () { loadClasses().then(loadGrades).then(loadTeachers); };
 
-loadClasses().then(() => {
+loadClasses().then(() => loadGrades()).then(() => {
   bindEvents();
   loadTeachers();
 });

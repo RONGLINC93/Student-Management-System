@@ -42,7 +42,8 @@
         '/students.html': 1, '/classes.html': 1, '/grades.html': 1,
         '/teachers.html': 1, '/exams.html': 1, '/conduct.html': 1,
         '/dorm.html': 1, '/allocate.html': 1, '/settings.html': 1,
-        '/leaves.html': 1, '/announcements.html': 1, '/timetable.html': 1
+        '/leaves.html': 1, '/announcements.html': 1, '/timetable.html': 1,
+        '/courses.html': 1
       };
       if (KNOWN[path]) {
         e.preventDefault();

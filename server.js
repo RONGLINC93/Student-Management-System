@@ -43,6 +43,7 @@ const ANNOUNCEMENTS_FILE = path.join(__dirname, 'data', 'announcements.json'); /
 const TRASH_FILE = path.join(__dirname, 'data', 'students_trash.json');        // 学生回收站（删除后软归档，可恢复）
 const NOTIFICATIONS_FILE = path.join(__dirname, 'data', 'notifications.json'); // 学生中心站内消息（各类事务变化通知）
 const TIMETABLES_FILE = path.join(__dirname, 'data', 'timetables.json');       // 课程表（按班级排课，教师/学生端只读查看）
+const COURSE_PLANS_FILE = path.join(__dirname, 'data', 'course-plans.json');    // 各年级课程计划（决定课表可排什么课）
 const AUDIT_FILE = path.join(__dirname, 'data', 'audit.json');                  // 操作审计日志
 const BACKUP_DIR = path.join(__dirname, 'data', 'backups');                     // 服务器本地自动 / 手动备份目录
 
@@ -70,6 +71,7 @@ const PERMISSION_MODULES = [
   { key: 'leaves',        name: '请假管理', apis: ['/api/leaves'] },
   { key: 'announcements', name: '通知公告', apis: ['/api/announcements'] },
   { key: 'timetables',    name: '课程表',   apis: ['/api/timetables'] },
+  { key: 'courses',       name: '课程管理', apis: ['/api/course-plans'] },
   { key: 'dorms',         name: '宿舍管理', apis: ['/api/dorms', '/api/dorm-apps'] }
 ];
 // 读取某角色的可写模块 key 列表（settings 缺失 / 字段异常时回退默认）
@@ -107,7 +109,7 @@ const DEFAULT_SETTINGS = {
   // 职位权限（系统设置 → 职位权限）：教务（staff）/ 宿管（dorm）可管理的模块 key
   // 默认：教务可管学籍与教学（不含请假、宿舍——请假审批归班主任，宿舍归宿管）；宿管仅宿舍
   positionPermissions: {
-    staff: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables'],
+    staff: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables', 'courses'],
     dorm: ['dorms']
   }
 };
@@ -175,6 +177,41 @@ if (!fs.existsSync(SETTINGS_FILE)) {
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf-8');
 });
 if (!fs.existsSync(TIMETABLES_FILE)) fs.writeFileSync(TIMETABLES_FILE, JSON.stringify(defaultTimetables(), null, 2), 'utf-8');
+
+// 课程计划：与现存年级一致；如尚无年级则按常见的高一/高二/高三兜底，并预置一份默认课程清单
+function defaultCoursePlansFor(gradeList) {
+  const COMMON_TYPES = ['必修'];
+  const DEFAULT_COURSES = [
+    { name: '语文', type: '必修', weeklyHours: 5, examType: '考试', remark: '' },
+    { name: '数学', type: '必修', weeklyHours: 5, examType: '考试', remark: '' },
+    { name: '英语', type: '必修', weeklyHours: 5, examType: '考试', remark: '' },
+    { name: '物理', type: '必修', weeklyHours: 3, examType: '考试', remark: '' },
+    { name: '化学', type: '必修', weeklyHours: 3, examType: '考试', remark: '' },
+    { name: '生物', type: '必修', weeklyHours: 2, examType: '考试', remark: '' },
+    { name: '政治', type: '必修', weeklyHours: 2, examType: '考试', remark: '' },
+    { name: '历史', type: '必修', weeklyHours: 2, examType: '考试', remark: '' },
+    { name: '地理', type: '必修', weeklyHours: 2, examType: '考试', remark: '' },
+    { name: '体育', type: '必修', weeklyHours: 2, examType: '考查', remark: '' },
+    { name: '音乐', type: '必修', weeklyHours: 1, examType: '考查', remark: '' },
+    { name: '美术', type: '必修', weeklyHours: 1, examType: '考查', remark: '' },
+    { name: '信息技术', type: '必修', weeklyHours: 1, examType: '考查', remark: '' },
+    { name: '综合实践', type: '必修', weeklyHours: 1, examType: '考查', remark: '含劳动、研学等' }
+  ];
+  const out = {};
+  (gradeList || []).forEach(g => { if (g) out[g] = { courses: DEFAULT_COURSES.slice() }; });
+  return out;
+}
+function readCoursePlans() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(COURSE_PLANS_FILE, 'utf-8'));
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  } catch (e) { /* fall through */ }
+  return defaultCoursePlansFor(readGrades());
+}
+function writeCoursePlans(data) { atomicWriteJson(COURSE_PLANS_FILE, data || {}); }
+if (!fs.existsSync(COURSE_PLANS_FILE)) {
+  writeCoursePlans(defaultCoursePlansFor(readGrades()));
+}
 if (!fs.existsSync(AUDIT_FILE)) fs.writeFileSync(AUDIT_FILE, '[]', 'utf-8');
 if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
@@ -444,6 +481,43 @@ const readTrash = () => readJsonFile(TRASH_FILE, []);
 const writeTrash = l => writeJsonFile(TRASH_FILE, l);
 const readNotifications = () => readJsonFile(NOTIFICATIONS_FILE, []);
 const writeNotifications = l => writeJsonFile(NOTIFICATIONS_FILE, l);
+
+// ===== 课程计划（各年级课程清单，决定课表可排什么课）=====
+// 数据结构：{ [grade]: { courses: [ { name, type, weeklyHours, examType, remark } ] } }
+// 与现存 grades.json 一一对应；删除年级时其计划可保留在文件里但 API 不返回
+const COURSE_TYPES = ['必修', '选修', '校本', '实践'];
+const COURSE_EXAM_TYPES = ['考试', '考查', '无'];
+function normalizeCoursePlanEntry(c) {
+  if (!c || typeof c !== 'object') return null;
+  const name = String(c.name || '').trim().slice(0, 20);
+  if (!name) return null;
+  const type = COURSE_TYPES.indexOf(c.type) !== -1 ? c.type : '必修';
+  const hours = Math.max(0, Math.min(20, Math.floor(Number(c.weeklyHours) || 0)));
+  const examType = COURSE_EXAM_TYPES.indexOf(c.examType) !== -1 ? c.examType : '考试';
+  const remark = String(c.remark || '').trim().slice(0, 100);
+  return { name, type, weeklyHours: hours, examType, remark };
+}
+function normalizeCoursePlan(raw) {
+  if (!raw || typeof raw !== 'object') return { courses: [] };
+  const seen = {};
+  const courses = [];
+  (Array.isArray(raw.courses) ? raw.courses : []).forEach(c => {
+    const n = normalizeCoursePlanEntry(c);
+    if (!n) return;
+    if (seen[n.name]) return; // 同名课程仅保留一个
+    seen[n.name] = 1;
+    courses.push(n);
+  });
+  return { courses };
+}
+function publicCoursePlans() {
+  // 仅返回当前 grades.json 里实际存在的年级对应的计划；返回中附带所有年级列表，便于前端识别缺失项
+  const grades = readGrades();
+  const all = readCoursePlans();
+  const plans = {};
+  grades.forEach(g => { plans[g] = normalizeCoursePlan(all[g]); });
+  return { grades, plans };
+}
 
 // ===== 课程表（按班级排课，教师 / 学生端只读查看）=====
 // 数据结构：{ term, periods: [{label,time}], days: [1..7], tables: { [classId]: { classId, className, grade, slots, updatedAt } } }
@@ -753,6 +827,11 @@ function notifyStudent(sid, type, title, body) {
 // 教师档案规范化
 function normalizeTeacher(raw) {
   const o = (raw && typeof raw === 'object') ? raw : {};
+  // 任教年级：兼容数组 / 逗号串 / 旧字段
+  let grades = [];
+  if (Array.isArray(o.grades)) grades = o.grades;
+  else if (typeof o.grades === 'string') grades = o.grades.split(/[,，、;；\/\s]+/);
+  grades = [...new Set(grades.map(g => String(g || '').trim()).filter(Boolean))].slice(0, 20);
   return {
     id: o.id || genId(),
     teacherNo: String(o.teacherNo || '').trim(),
@@ -770,6 +849,7 @@ function normalizeTeacher(raw) {
     address: String(o.address || '').trim().slice(0, 100),      // 家庭住址
     emergencyName: String(o.emergencyName || '').trim().slice(0, 30),  // 紧急联系人
     emergencyPhone: String(o.emergencyPhone || '').trim().slice(0, 30), // 紧急联系电话
+    grades,                                   // 任教年级（联动课程表教师下拉）
     classId: o.classId || '',                  // 班主任所在班级 id
     remark: String(o.remark || '').trim()
   };
@@ -1502,6 +1582,7 @@ const AUDIT_MODULES = [
   ['/api/leaves', '请假管理'],
   ['/api/announcements', '通知公告'],
   ['/api/timetables', '课程表'],
+  ['/api/course-plans', '课程管理'],
   ['/api/dorm-apps', '宿舍管理 · 入住申请审核'],
   ['/api/dorms', '宿舍管理'],
   ['/api/allocate', '智能分班'],
@@ -2767,15 +2848,29 @@ async function handle(req, res) {
     const list = readClasses();
     const idx = list.findIndex(c => c.id === id);
     if (idx === -1) return sendJson(res, 404, { code: 1, msg: '班级不存在' });
+    const nextGrade = body.grade !== undefined ? body.grade : list[idx].grade;
+    const gradeChanged = nextGrade !== list[idx].grade;
     list[idx] = {
       ...list[idx],
       name: body.name !== undefined ? body.name.trim() : list[idx].name,
-      grade: body.grade !== undefined ? body.grade : list[idx].grade,
+      grade: nextGrade,
       headTeacher: body.headTeacher !== undefined ? body.headTeacher.trim() : list[idx].headTeacher,
       capacity: body.capacity !== undefined ? Number(body.capacity) : list[idx].capacity
     };
+    // 年级变动：班级内学生 grade 字段一并同步，避免"班级高一/学生高二"出现
+    if (gradeChanged) {
+      (list[idx].students || []).forEach(s => { s.grade = nextGrade; });
+    }
     writeClasses(list);
     syncClassHeadTeacher(id); // 班主任变更后同步教师档案中的归属
+    // 课表数据中该班的 grade 字段跟着同步（供多端读取保持一致）
+    if (gradeChanged) {
+      const timetables = readTimetables();
+      if (timetables.tables[id]) {
+        timetables.tables[id].grade = nextGrade;
+        writeTimetables(timetables);
+      }
+    }
     return sendJson(res, 200, { code: 0, data: readClasses().find(c => c.id === id) });
   }
 
@@ -3022,6 +3117,21 @@ async function handle(req, res) {
     writeClasses(classes);
     writeExams(readExams().map(x => Object.assign({}, x, { grade: x.grade === name ? '' : x.grade })));
     writeAttendance(readAttendance().map(x => Object.assign({}, x, { grade: x.grade === name ? '' : x.grade })));
+    // 同步清理：课程计划中该年级键 / 课表中残留条目（前置条件：年级下已无班级）
+    const plans = readCoursePlans();
+    if (Object.prototype.hasOwnProperty.call(plans, name)) {
+      delete plans[name];
+      writeCoursePlans(plans);
+    }
+    const timetables = readTimetables();
+    let ttChanged = false;
+    Object.keys(timetables.tables || {}).forEach(cid => {
+      if (timetables.tables[cid] && timetables.tables[cid].grade === name) {
+        delete timetables.tables[cid];
+        ttChanged = true;
+      }
+    });
+    if (ttChanged) writeTimetables(timetables);
     return sendJson(res, 200, { code: 0, msg: '已删除' });
   }
 
@@ -3056,6 +3166,22 @@ async function handle(req, res) {
     writeClasses(classes);
     writeExams(readExams().map(x => Object.assign({}, x, { grade: nameSet.has(x.grade) ? '' : x.grade })));
     writeAttendance(readAttendance().map(x => Object.assign({}, x, { grade: nameSet.has(x.grade) ? '' : x.grade })));
+    // 同步清理：课程计划中各年级键 / 课表中残留条目
+    const plans = readCoursePlans();
+    let plansChanged = false;
+    nameSet.forEach(n => {
+      if (Object.prototype.hasOwnProperty.call(plans, n)) { delete plans[n]; plansChanged = true; }
+    });
+    if (plansChanged) writeCoursePlans(plans);
+    const timetables = readTimetables();
+    let ttChanged = false;
+    Object.keys(timetables.tables || {}).forEach(cid => {
+      if (timetables.tables[cid] && nameSet.has(timetables.tables[cid].grade)) {
+        delete timetables.tables[cid];
+        ttChanged = true;
+      }
+    });
+    if (ttChanged) writeTimetables(timetables);
     return sendJson(res, 200, { code: 0, msg: `已删除 ${hit.length} 个年级`, data: { removed: hit } });
   }
 
@@ -3109,8 +3235,21 @@ async function handle(req, res) {
     if (body.teacherNo && body.teacherNo !== list[idx].teacherNo && list.some(x => x.teacherNo === body.teacherNo)) {
       return sendJson(res, 400, { code: 1, msg: '工号已存在' });
     }
+    const oldName = list[idx].name;
     list[idx] = normalizeTeacher(Object.assign({}, list[idx], body));
     if (!list[idx].name) return sendJson(res, 400, { code: 1, msg: '教师姓名不能为空' });
+    // 改名联动：把仍以旧姓名作为班主任的班级同步更新为新姓名
+    if (oldName && list[idx].name !== oldName) {
+      const classes = readClasses();
+      let clsChanged = false;
+      classes.forEach(c => {
+        if (c.headTeacher === oldName) {
+          c.headTeacher = list[idx].name;
+          clsChanged = true;
+        }
+      });
+      if (clsChanged) writeClasses(classes);
+    }
     writeTeachers(list);
     return sendJson(res, 200, { code: 0, data: list[idx] });
   }
@@ -3968,6 +4107,49 @@ async function handle(req, res) {
     return sendJson(res, 200, { code: 0, data: a, msg: '公告已更新' });
   }
 
+  // ---------- 课程计划（各年级课程清单）----------
+  if (pathname === '/api/course-plans' && req.method === 'GET') {
+    return sendJson(res, 200, { code: 0, data: publicCoursePlans() });
+  }
+  // 保存/替换某年级的课程计划（整体覆盖式 PUT）
+  const planMatch = pathname.match(/^\/api\/course-plans\/([^/]+)$/);
+  if (planMatch && req.method === 'PUT') {
+    const grade = decodeURIComponent(planMatch[1]).trim();
+    const grades = readGrades();
+    if (!grade || grades.indexOf(grade) === -1) {
+      return sendJson(res, 404, { code: 1, msg: '年级不存在或已被删除，请先在「年级管理」中创建年级' });
+    }
+    const body = await readBody(req);
+    const plan = normalizeCoursePlan(body);
+    const all = readCoursePlans();
+    all[grade] = plan;
+    writeCoursePlans(all);
+    return sendJson(res, 200, { code: 0, data: { grade, plan }, msg: '「' + grade + '」的课程计划已保存' });
+  }
+  // 删除某年级的课程计划（年级被删除时可显式调用清理文件）
+  if (planMatch && req.method === 'DELETE') {
+    const grade = decodeURIComponent(planMatch[1]).trim();
+    const all = readCoursePlans();
+    if (Object.prototype.hasOwnProperty.call(all, grade)) {
+      delete all[grade];
+      writeCoursePlans(all);
+    }
+    return sendJson(res, 200, { code: 0, msg: '「' + grade + '」的课程计划已删除' });
+  }
+  // 一键将某年级课程计划重置为内置默认（含所有常见科目）
+  if (pathname.match(/^\/api\/course-plans\/[^/]+\/reset$/) && req.method === 'POST') {
+    const grade = decodeURIComponent(pathname.split('/').slice(-2, -1)[0]).trim();
+    const grades = readGrades();
+    if (!grade || grades.indexOf(grade) === -1) {
+      return sendJson(res, 404, { code: 1, msg: '年级不存在或已被删除' });
+    }
+    const defaults = defaultCoursePlansFor([grade]);
+    const all = readCoursePlans();
+    all[grade] = defaults[grade] || { courses: [] };
+    writeCoursePlans(all);
+    return sendJson(res, 200, { code: 0, data: { grade, plan: all[grade] }, msg: '已恢复「' + grade + '」的默认课程计划' });
+  }
+
   // ---------- 课程表（后台：课表设置 / 按班级排课 / 复制 / 冲突检测）----------
   if (pathname === '/api/timetables' && req.method === 'GET') {
     const t = readTimetables();
@@ -4460,7 +4642,8 @@ async function handle(req, res) {
   const PROTECTED_PAGES = ['/index.html', '/dashboard.html', '/students.html',
     '/classes.html', '/grades.html', '/allocate.html', '/settings.html',
     '/teachers.html', '/exams.html', '/conduct.html', '/dorm.html',
-    '/analysis.html', '/leaves.html', '/announcements.html', '/timetable.html'];
+    '/analysis.html', '/leaves.html', '/announcements.html', '/timetable.html',
+    '/courses.html'];
   const ADMIN_ONLY_PAGES = ['/settings.html'];
   // 学生自助端页面（独立会话，走 icbs_stu_auth）
   const STUDENT_PAGES = ['/student.html'];

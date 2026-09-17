@@ -34,6 +34,7 @@
     leave: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>',
     notice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
     timetable: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>',
+    courses: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/></svg>',
     more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
   };
@@ -50,6 +51,7 @@
     leaves:   { key: 'leaves',   title: '请假管理', icon: IC.leave, src: '/leaves.html', pinned: false },
     notice:   { key: 'notice',   title: '通知公告', icon: IC.notice, src: '/announcements.html', pinned: false },
     timetable:{ key: 'timetable',title: '课程表',   icon: IC.timetable, src: '/timetable.html', pinned: false },
+    courses:  { key: 'courses',  title: '课程管理', icon: IC.courses,  src: '/courses.html',  pinned: false },
     dorm:     { key: 'dorm',     title: '宿舍管理', icon: IC.dorm, src: '/dorm.html', pinned: false },
     allocate: { key: 'allocate', title: '智能分班', icon: IC.allocate, src: '/allocate.html', pinned: false },
     settings: { key: 'settings', title: '系统设置', icon: IC.settings, src: '/settings.html', pinned: false }
@@ -1137,6 +1139,7 @@
       case '/leaves.html': return 'leaves';
       case '/announcements.html': return 'notice';
       case '/timetable.html': return 'timetable';
+      case '/courses.html': return 'courses';
       case '/dorm.html': return 'dorm';
       case '/allocate.html': return 'allocate';
       case '/settings.html': return 'settings';
