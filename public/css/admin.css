@@ -683,3 +683,31 @@ input, select, textarea, button { font-family: inherit; }
   .worktab { max-width: 140px; }
 }
 
+/* ===== 顶栏「刷新」的可见反馈 ===== */
+/* 刷新进行中：按钮图标旋转 */
+.icon-btn.spin svg { animation: wb-spin .7s linear infinite; }
+@keyframes wb-spin { to { transform: rotate(360deg); } }
+
+/* 工作台轻提示（刷新结果等非模态反馈） */
+.wb-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 12px);
+  max-width: calc(100% - 32px);
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #fff;
+  background: #334155;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, .18);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3000;
+  transition: opacity .18s, transform .18s;
+}
+.wb-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.wb-toast.ok { background: #16a34a; }
+.wb-toast.err { background: #dc2626; }
+

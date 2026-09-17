@@ -1106,8 +1106,10 @@
       // ================= 二级侧边栏菜单：分组切换 =================
       // 科目设置已整合到「课程管理」，此处不再保留 subjects 分组
       var NAV_KEYS = ['info', 'rules', 'data', 'audit', 'account', 'roles', 'server'];
+      var curSec = NAV_KEYS[0];   // 当前分组（刷新时据此重载对应列表）
       function switchSec(key) {
         if (NAV_KEYS.indexOf(key) === -1) key = NAV_KEYS[0];
+        curSec = key;
         var items = document.querySelectorAll('.set-nav-item');
         for (var i = 0; i < items.length; i++) {
           items[i].className = 'set-nav-item' + (items[i].getAttribute('data-key') === key ? ' active' : '');
@@ -1571,6 +1573,16 @@
           waitServerBack(delaySec + 2);
         }).finally(function () { done(); });
       });
+
+      // 工作台顶栏 / 页签菜单「刷新当前页」：重新读取设置，并刷新当前分组内的列表
+      //（此前本页未暴露钩子，embed.js 找不到回调 → 点击刷新完全无反应）
+      window.cbEmbedRefresh = function () {
+        load();
+        if (curSec === 'account' && typeof renderAccList === 'function') renderAccList();
+        else if (curSec === 'audit' && auditLoaded) loadAudit(auditPage);
+        else if (curSec === 'data' && backupListLoaded) loadBackupList();
+        else if (curSec === 'server' && typeof refreshServerStatus === 'function') refreshServerStatus();
+      };
 
       load();
     })();

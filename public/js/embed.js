@@ -53,21 +53,44 @@
     });
   }
 
-  // 静默刷新：页内已有模态框 / 对话框打开时不打扰
-  function refresh() {
+  // 向父窗口回执刷新结果，便于顶栏给出可见反馈（停止旋转 + 轻提示）
+  function report(res) {
+    if (!embedded) return;
     try {
-      if (document.querySelector('.modal-mask.show, .dialog-mask.show')) return;
+      window.parent.postMessage({
+        type: 'icst-refreshed', ok: res.ok !== false, skipped: res.skipped || ''
+      }, location.origin);
+    } catch (e) {}
+  }
+
+  // 静默刷新：页内已有模态框 / 对话框打开时不打扰。
+  // withReport=true 表示本次是用户点顶栏 / 页签菜单触发的手动刷新，需要回执；
+  // 切回页签时的自动刷新（icst-active）不回执，避免误弹提示。
+  function refresh(withReport) {
+    try {
+      if (document.querySelector('.modal-mask.show, .dialog-mask.show')) {
+        if (withReport) report({ ok: false, skipped: 'modal' });
+        return;
+      }
     } catch (e) {}
     try {
-      if (typeof window.cbEmbedRefresh === 'function') { window.cbEmbedRefresh(); return; }
-      if (typeof window.loadData === 'function') { window.loadData(); return; }
-      if (typeof window.loadStudents === 'function') { window.loadStudents(); }
-    } catch (err) {}
+      if (typeof window.cbEmbedRefresh === 'function') { window.cbEmbedRefresh(); if (withReport) report({ ok: true }); return; }
+      if (typeof window.loadData === 'function') { window.loadData(); if (withReport) report({ ok: true }); return; }
+      if (typeof window.loadStudents === 'function') { window.loadStudents(); if (withReport) report({ ok: true }); return; }
+    } catch (err) {
+      if (withReport) report({ ok: false, skipped: 'error' });
+      return;
+    }
+    if (!withReport) return;
+    // 兜底：页面未暴露刷新钩子（如自建页）时整页重载，保证“刷新”一定有效果
+    report({ ok: true, skipped: 'reload' });
+    try { location.reload(); } catch (e) {}
   }
 
   window.addEventListener('message', function (ev) {
     if (!ev.data) return;
-    if (ev.data.type === 'icst-active' || ev.data.type === 'icst-refresh') refresh();
+    if (ev.data.type === 'icst-active') refresh(false);
+    else if (ev.data.type === 'icst-refresh') refresh(true);
   });
 
   // 页面加载完成后通知父窗口，父窗口随即下发“激活”刷新指令
@@ -79,4 +102,5 @@
     if (document.readyState === 'complete') sendReady();
     else window.addEventListener('load', sendReady);
   }
+
 })();

@@ -786,6 +786,24 @@
     scheduleWbSave();   // 记忆当前操作页/窗格当前页
   }
 
+  // 仅把“当前操作目标”设为某页签（分屏下同步左右窗格归属与高亮/标题），
+  // 不触发页内刷新：用于 iframe 内部聚焦（点击 / 触屏 / 键盘进入）时让顶栏
+  // 刷新 / 新窗口跟随实际聚焦的窗格，避免点进右侧副窗格后刷新按钮仍刷左侧。
+  function markActive(key) {
+    var t = getTab(key);
+    if (!t || activeKey === key) return;
+    activeKey = key;
+    if (splitOn) {
+      if (t.side) rightKey = key;   // 副栏页签：操作目标落到右窗格当前页
+      else leftKey = key;           // 主栏页签：操作目标落到左窗格当前页
+    } else {
+      leftKey = key;
+    }
+    syncActiveChrome();
+    layoutPanes();
+    scheduleWbSave();
+  }
+
   // 点击页签 / 打开模块。分屏时右侧副栏页签属于右窗格组：点它只切换右窗格当前页
   // 与操作目标，主栏/左窗格原样保留；点主栏页签同理，两栏互不干预。
   function activate(key) {
@@ -941,12 +959,49 @@
     return false;
   }
 
+  // 刷新反馈：点击后按钮图标旋转，收到子页回执（或超时）后停止并轻提示，
+  // 避免“点了没反应”——数据无变化时页面看不出动静，至少要有可见反馈。
+  var refreshSpinTimer = null;
+  var toastTimer = null;
+
+  function wbToast(msg, type) {
+    var el = document.getElementById('wbToast');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'wb-toast show' + (type ? ' ' + type : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = 'wb-toast'; }, 1800);
+  }
+
+  function stopRefreshSpin() {
+    clearTimeout(refreshSpinTimer);
+    refreshSpinTimer = null;
+    if (btnRefresh) btnRefresh.classList.remove('spin');
+  }
+
+  function startRefreshSpin() {
+    if (!btnRefresh) return;
+    btnRefresh.classList.add('spin');
+    clearTimeout(refreshSpinTimer);
+    // 兜底：子页 3 秒内无回执（旧缓存 embed.js 等）也停止旋转
+    refreshSpinTimer = setTimeout(stopRefreshSpin, 3000);
+  }
+
   // 刷新当前操作页（顶栏刷新按钮与下拉菜单“刷新当前页”共用）
   function refreshActiveTab() {
     var t = activeKey ? getTab(activeKey) : null;
     if (!t) return;
-    if (t.loaded) sendTo(t, 'icst-refresh');
-    else t.pendingActive = true;
+    if (!t.loaded) { t.pendingActive = true; return; }
+    startRefreshSpin();
+    sendTo(t, 'icst-refresh');
+  }
+
+  // 子页刷新回执（embed.js 回传）：停止旋转并按结果轻提示
+  function onTabRefreshed(d) {
+    stopRefreshSpin();
+    if (d.skipped === 'modal') wbToast('有弹窗未关闭，已跳过刷新');
+    else if (d.ok === false) wbToast('刷新失败，请重试', 'err');
+    else wbToast('已刷新「' + ((MODULES[activeKey] && MODULES[activeKey].title) || '当前页') + '」', 'ok');
   }
 
   function syncTabMenuStates() {
@@ -1076,6 +1131,7 @@
         t.pendingActive = false;
         sendTo(t, 'icst-active');
       }
+      wireFrameFocus(t);   // 同域：父窗口接管该窗格的焦点判定
     });
     t.frame = frame;
     workbench.appendChild(frame);
@@ -1158,8 +1214,32 @@
       refreshDormBadge();
     } else if (d.type === 'icst-leaves') {
       refreshLeafBadge();
+    } else if (d.type === 'icst-refreshed') {
+      // 只认当前操作页所在窗格的回执，避免分屏时另一窗格的回执误结束旋转
+      for (var ti = 0; ti < tabs.length; ti++) {
+        if (tabs[ti].frame && tabs[ti].frame.contentWindow === ev.source && tabs[ti].key === activeKey) {
+          onTabRefreshed(d);
+          break;
+        }
+      }
     }
   });
+
+  // 焦点判定完全由父窗口掌握：iframe 加载后，直接在其同域 contentDocument 上监听
+  // focusin / pointerdown，由父窗口判断“用户在哪个窗格里点击 / 键盘进入”，把操作目标
+  // 切到对应页签，使顶栏刷新按钮稳定刷新“当前可见 / 聚焦”的窗格（分屏左右各管各的）。
+  // 不再依赖 iframe 内部主动 postMessage 上报（icst-focus），去掉跨帧耦合，更干净可靠。
+  // 注意只在“进入窗格”时置位、不在失焦时清除：点顶栏刷新按钮会让 iframe 失焦，
+  // 但操作目标应保留为上次聚焦的窗格，避免误刷别的窗格。
+  function wireFrameFocus(t) {
+    try {
+      var d = t.frame && t.frame.contentDocument;
+      if (!d) return;
+      var on = function () { markActive(t.key); };
+      d.addEventListener('focusin', on);
+      d.addEventListener('pointerdown', on);
+    } catch (e) {}
+  }
 
   // 左侧菜单点击
   document.querySelectorAll('.menu-item[data-mod]').forEach(function (item) {
