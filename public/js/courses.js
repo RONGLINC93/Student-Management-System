@@ -24,7 +24,6 @@
   let currentGrade = '';                 // 当前选中的年级
   let workingCourses = [];               // 当前年级的编辑缓冲（未保存改动）
   let subjectsFromSettings = [];         // 全校科目候选（来自各年级课程计划汇总）
-  let subjectMax = {};                   // 科目满分：{ [科目名]: 满分 }
 
   function toast(msg, type) {
     const el = $('#toast');
@@ -45,13 +44,11 @@
   function load() {
     return Promise.all([
       fetch(API).then(r => r.json()),
-      fetch('/api/grades').then(r => r.json()),
-      fetch('/api/subject-max').then(r => r.json()).catch(() => ({ data: {} }))
-    ]).then(([planRes, gradeRes, maxRes]) => {
+      fetch('/api/grades').then(r => r.json())
+    ]).then(([planRes, gradeRes]) => {
       grades = (gradeRes && gradeRes.data) || [];
       plans = (planRes && planRes.data && planRes.data.plans) || {};
 
-      subjectMax = (maxRes && maxRes.data && typeof maxRes.data === 'object') ? maxRes.data : {};
       // 科目候选 = 各年级课程计划中出现的全部课程（课程即考试科目）
       subjectsFromSettings = allSubjectNames();
 
@@ -65,7 +62,6 @@
       }
       renderGradeBar();
       renderActive();
-      renderMax();
     }).catch((e) => {
       toast('加载失败：' + (e && e.message ? e.message : '网络异常'), 'error');
     });
@@ -90,6 +86,7 @@
       type: c.type || '必修',
       weeklyHours: Number(c.weeklyHours) || 0,
       examType: c.examType || '考试',
+      max: Math.max(10, Math.min(1000, Math.floor(Number(c.max) || 100))),
       remark: c.remark || ''
     }));
   }
@@ -131,7 +128,7 @@
   function isDirty() {
     const saved = (plans[currentGrade] && plans[currentGrade].courses) || [];
     if (saved.length !== workingCourses.length) return true;
-    const key = c => c.name + '|' + c.type + '|' + c.weeklyHours + '|' + c.examType + '|' + c.remark;
+    const key = c => c.name + '|' + c.type + '|' + c.weeklyHours + '|' + c.examType + '|' + c.max + '|' + c.remark;
     const a = saved.map(key).join('#');
     const b = workingCourses.map(key).join('#');
     return a !== b;
@@ -154,7 +151,7 @@
       titleEl.textContent = '请选择年级';
       subEl.textContent = '';
       sumEl.hidden = true;
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-tip">尚无年级，请先到「年级管理」创建，再返回此处配置课程</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-tip">尚无年级，请先到「年级管理」创建，再返回此处配置课程</td></tr>';
       return;
     }
 
@@ -182,7 +179,7 @@
     $('#sumWarn').hidden = workingCourses.length > 0;
 
     if (!workingCourses.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-tip">还没有课程，点击右上「+ 添加课程」开始配置；或使用「从系统科目导入」/「恢复默认」一键填充</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-tip">还没有课程，点击右上「+ 添加课程」开始配置；或使用「从系统科目导入」/「恢复默认」一键填充</td></tr>';
       return;
     }
 
@@ -215,6 +212,7 @@
     if (!workingCourses[idx]) return;
     let v = el.value;
     if (fld === 'weeklyHours') v = Math.max(0, Math.min(20, Math.floor(Number(v) || 0)));
+    if (fld === 'max') v = Math.max(10, Math.min(1000, Math.floor(Number(v) || 100)));
     workingCourses[idx][fld] = v;
     // 周课时变化时实时刷新标题与汇总
     if (fld === 'weeklyHours') {
@@ -251,6 +249,7 @@
             ${['考试', '考查', '无'].map(t => `<option value="${t}"${t === c.examType ? ' selected' : ''}>${t}</option>`).join('')}
           </select>
         </td>
+        <td><input class="cs-max" data-idx="${i}" data-fld="max" type="number" min="10" max="1000" step="1" value="${c.max || 100}" ${disabled} /></td>
         <td><input class="cs-remark" data-idx="${i}" data-fld="remark" maxlength="100" value="${remark}" placeholder="选填" ${disabled} /></td>
         <td>
           <div class="row-actions">
@@ -272,6 +271,7 @@
     $('#eType').value = c.type || '必修';
     $('#eHours').value = c.weeklyHours == null ? 0 : c.weeklyHours;
     $('#eExam').value = c.examType || '考试';
+    $('#eMax').value = c.max == null ? 100 : c.max;
     $('#eRemark').value = c.remark || '';
     $('#editMask').classList.add('show');
     setTimeout(() => $('#eName').focus(), 50);
@@ -293,6 +293,7 @@
       type: $('#eType').value || '必修',
       weeklyHours: Math.max(0, Math.min(20, Math.floor(Number($('#eHours').value) || 0))),
       examType: $('#eExam').value || '考试',
+      max: Math.max(10, Math.min(1000, Math.floor(Number($('#eMax').value) || 100))),
       remark: $('#eRemark').value.trim().slice(0, 100)
     };
     if (idxStr === '') {
@@ -325,6 +326,7 @@
         type: c.type || '必修',
         weeklyHours: Math.max(0, Math.min(20, Math.floor(Number(c.weeklyHours) || 0))),
         examType: c.examType || '考试',
+        max: Math.max(10, Math.min(1000, Math.floor(Number(c.max) || 100))),
         remark: String(c.remark || '').trim().slice(0, 100)
       });
     });
@@ -343,11 +345,9 @@
         plans[currentGrade] = { courses: cleaned };
         workingCourses = clonePlan(cleaned);
         toast('「' + currentGrade + '」的课程计划已保存', 'success');
-        // 课程变动会改变全校科目清单，同步刷新满分设置区
         subjectsFromSettings = allSubjectNames();
         renderGradeBar();
         renderActive();
-        renderMax();
       })
       .catch(e => toast(e.message, 'error'))
       .then(() => { btn.textContent = oldText; btn.disabled = false; });
@@ -384,7 +384,7 @@
     let added = 0;
     subjectsFromSettings.forEach(name => {
       if (!existing.has(name)) {
-        merged.push({ name, type: '必修', weeklyHours: 2, examType: '考试', remark: '' });
+        merged.push({ name, type: '必修', weeklyHours: 2, examType: '考试', max: 100, remark: '' });
         existing.add(name);
         added += 1;
       }
@@ -399,58 +399,6 @@
     toast('已添加 ' + added + ' 门新课程，点击「保存课程计划」后生效', 'success');
   }
 
-  // ===== 考试科目满分 =====
-  function renderMax() {
-    const box = $('#maxBox');
-    const grid = $('#maxGrid');
-    if (!box || !grid) return;
-    const names = allSubjectNames();
-    const isW = canWrite();
-    $('#btnSaveMax').disabled = !isW || !names.length;
-    if (!names.length) {
-      grid.innerHTML = '<span class="cs-max-empty">尚未配置任何课程。保存课程计划后，可在此为各科设置满分。</span>';
-      box.hidden = false;
-      return;
-    }
-    grid.innerHTML = names.map(n => (
-      '<div class="cs-max-item">'
-      + '<span class="nm" title="' + esc(n) + '">' + esc(n) + '</span>'
-      + '<input type="number" min="10" max="1000" step="1" data-subj="' + esc(n) + '"'
-      + ' value="' + (Number(subjectMax[n]) || 100) + '"' + (isW ? '' : ' disabled') + ' />'
-      + '<span class="un">分</span>'
-      + '</div>'
-    )).join('');
-    box.hidden = false;
-  }
-
-  function saveMax() {
-    if (!canWrite()) return;
-    const next = {};
-    $$('#maxGrid input[data-subj]').forEach(el => {
-      const n = el.dataset.subj;
-      const v = Math.min(1000, Math.max(10, Math.floor(Number(el.value) || 100)));
-      next[n] = v;
-      el.value = v;
-    });
-    const btn = $('#btnSaveMax');
-    const old = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = '保存中…';
-    fetch('/api/subject-max', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subjectMax: next })
-    })
-      .then(r => r.json())
-      .then(j => {
-        if (j.code !== 0) throw new Error(j.msg || '保存失败');
-        subjectMax = j.data || next;
-        toast('科目满分已保存', 'success');
-      })
-      .catch(e => toast(e.message, 'error'))
-      .then(() => { btn.textContent = old; btn.disabled = false; });
-  }
-  $('#btnSaveMax').addEventListener('click', saveMax);
 
   // ===== 启动 =====
   function start() {
@@ -462,6 +410,9 @@
       renderActive();
     }
   }
+
+  // 工作台顶栏「刷新当前页」按钮依赖此钩子（embed.js 收到 icst-refresh 时调用）
+  window.cbEmbedRefresh = load;
 
   if (window.AUTH) {
     start();

@@ -47,33 +47,7 @@
     .cs-table input.cs-remark { min-width: 140px; }
     .cs-exmini { color: #9ca3af; font-size: 12px; padding: 0 4px; }
 
-    /* 考试科目满分设置 */
-    .cs-max-box {
-      margin-top: 18px; padding: 14px; background: #f8fafc;
-      border: 1px solid #e5e7eb; border-radius: 10px;
-    }
-    .cs-max-head {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
-    }
-    .cs-max-title { font-size: 15px; font-weight: 600; color: #111827; }
-    .cs-max-desc { margin-top: 4px; font-size: 12.5px; color: #6b7280; line-height: 1.6; }
-    .cs-max-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
-    .cs-max-item {
-      display: flex; align-items: center; gap: 8px; background: #fff;
-      border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px;
-    }
-    .cs-max-item .nm {
-      flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: #374151;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .cs-max-item input {
-      width: 72px; padding: 5px 7px; border: 1px solid #d1d5db;
-      border-radius: 6px; font-size: 13px; text-align: center;
-    }
-    .cs-max-item input:focus { border-color: #6366f1; outline: none; }
-    .cs-max-item .un { font-size: 12px; color: #9ca3af; }
-    .cs-max-empty { font-size: 13px; color: #9ca3af; }
+    .cs-table input.cs-max { min-width: 70px; text-align: center; }
   </style>
 </head>
 <body>
@@ -151,35 +125,22 @@
                 <th style="width:130px">类型</th>
                 <th style="width:120px">周课时</th>
                 <th style="width:130px">考核方式</th>
+                <th style="width:110px">满分</th>
                 <th>备注</th>
                 <th style="width:120px">操作</th>
               </tr>
             </thead>
             <tbody id="tbody">
-              <tr><td colspan="7" class="empty-tip">请先在「年级管理」创建年级</td></tr>
+              <tr><td colspan="8" class="empty-tip">请先在「年级管理」创建年级</td></tr>
             </tbody>
           </table>
-        </div>
-
-        <!-- 考试科目满分：课程计划中的课程即考试科目，在此统一设置各科满分 -->
-        <div class="cs-max-box" id="maxBox" hidden>
-          <div class="cs-max-head">
-            <div>
-              <div class="cs-max-title">考试科目满分</div>
-              <div class="cs-max-desc">
-                各年级课程计划中的课程即考试科目，均可录入成绩。此处按科目设置满分，未设置的科目默认 100 分。
-              </div>
-            </div>
-            <button type="button" class="btn btn-primary btn-sm" id="btnSaveMax">保存满分</button>
-          </div>
-          <div class="cs-max-grid" id="maxGrid"></div>
         </div>
 
         <p class="tt-tip" style="margin-top:14px">
           这里维护的是每个年级「应该上什么课」的清单。保存后，班级排课（<a href="/timetable.html">课程表</a>）时会按年级自动推荐科目；同名课程仅保留一个（按行先后）。
         </p>
         <p class="tt-tip" style="margin-top:6px">
-          课程同时也是<b>考试科目</b>：在课程计划里新增课程，成绩管理、成绩分析与分班参考成绩中会自动出现该科目（满分默认 100，可在上方「考试科目满分」中调整）。
+          课程同时也是<b>考试科目</b>：在课程计划里新增课程，成绩管理、成绩分析与分班参考成绩中会自动出现该科目。每行「满分」即该科目录分上限（默认 100，不同年级可不同）。
         </p>
         <p class="tt-tip" style="margin-top:6px;color:#b45309">
           注意：在「<a href="/grades.html">年级管理</a>」删除某个年级时，**会一并清除该年级保存过的课程计划与对应课表残留**（须先删除其下所有班级）。删除前请确认已无需要的课程计划。
@@ -221,6 +182,10 @@
             <option value="考查">考查</option>
             <option value="无">无</option>
           </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">满分</label>
+          <input type="number" id="eMax" min="10" max="1000" step="1" placeholder="该科目录分上限，默认 100" />
         </div>
         <div class="form-row">
           <label class="form-label">备注</label>

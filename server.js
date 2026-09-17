@@ -43,8 +43,7 @@ const ANNOUNCEMENTS_FILE = path.join(__dirname, 'data', 'announcements.json'); /
 const TRASH_FILE = path.join(__dirname, 'data', 'students_trash.json');        // 学生回收站（删除后软归档，可恢复）
 const NOTIFICATIONS_FILE = path.join(__dirname, 'data', 'notifications.json'); // 学生中心站内消息（各类事务变化通知）
 const TIMETABLES_FILE = path.join(__dirname, 'data', 'timetables.json');       // 课程表（按班级排课，教师/学生端只读查看）
-const COURSE_PLANS_FILE = path.join(__dirname, 'data', 'course-plans.json');    // 各年级课程计划（决定课表可排什么课）
-const SUBJECT_MAX_FILE = path.join(__dirname, 'data', 'subject-max.json');      // 各科目满分（课程管理页维护，供成绩录入使用）
+const COURSE_PLANS_FILE = path.join(__dirname, 'data', 'course-plans.json');    // 各年级课程计划（决定课表可排什么课），课程自带满分
 const AUDIT_FILE = path.join(__dirname, 'data', 'audit.json');                  // 操作审计日志
 const BACKUP_DIR = path.join(__dirname, 'data', 'backups');                     // 服务器本地自动 / 手动备份目录
 
@@ -72,7 +71,7 @@ const PERMISSION_MODULES = [
   { key: 'leaves',        name: '请假管理', apis: ['/api/leaves'] },
   { key: 'announcements', name: '通知公告', apis: ['/api/announcements'] },
   { key: 'timetables',    name: '课程表',   apis: ['/api/timetables'] },
-  { key: 'courses',       name: '课程管理', apis: ['/api/course-plans', '/api/subject-max'] },
+  { key: 'courses',       name: '课程管理', apis: ['/api/course-plans'] },
   { key: 'dorms',         name: '宿舍管理', apis: ['/api/dorms', '/api/dorm-apps'] }
 ];
 // 读取某角色的可写模块 key 列表（settings 缺失 / 字段异常时回退默认）
@@ -213,16 +212,8 @@ function writeCoursePlans(data) { atomicWriteJson(COURSE_PLANS_FILE, data || {})
 if (!fs.existsSync(COURSE_PLANS_FILE)) {
   writeCoursePlans(defaultCoursePlansFor(readGrades()));
 }
-// 科目满分：{ [科目名]: 满分 }。独立存放，避免教务写系统设置被权限闸门拦截
-function readSubjectMax() {
-  try {
-    const raw = JSON.parse(fs.readFileSync(SUBJECT_MAX_FILE, 'utf-8'));
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw;
-  } catch (e) { /* fall through */ }
-  return {};
-}
-function writeSubjectMax(data) { atomicWriteJson(SUBJECT_MAX_FILE, data || {}); }
-if (!fs.existsSync(SUBJECT_MAX_FILE)) fs.writeFileSync(SUBJECT_MAX_FILE, '{}', 'utf-8');
+// 科目满分现随课程计划（各年级课程自带 max 字段）一并保存，不再单独存储；
+// 见 normalizeCoursePlanEntry 的 max 字段与 readSubjects() 的跨年级汇总逻辑。
 if (!fs.existsSync(AUDIT_FILE)) fs.writeFileSync(AUDIT_FILE, '[]', 'utf-8');
 if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
@@ -354,27 +345,31 @@ const SUBJECT_KEY_MAP = {
   '信息技术': 'it', '通用技术': 'tech', '综合实践': 'practice', '劳动': 'labor',
   '理综': 'science', '文综': 'arts'
 };
-// 「课程管理」中各年级课程计划里出现过的全部科目名（按年级、课程顺序去重）
-function coursePlanSubjectNames() {
+// 「课程管理」中各年级课程计划里出现过的全部课程（按年级、课程顺序对同名课程去重）。
+// 同一课程在不同年级可设不同满分，全局列表取其中的最大值，避免任一年级录分时超出上限。
+function coursePlanSubjects() {
   const out = [];
-  const seen = {};
+  const byName = {};
   const all = readCoursePlans();
   readGrades().forEach(g => {
     (normalizeCoursePlan(all[g]).courses || []).forEach(c => {
       const n = String((c && c.name) || '').trim();
-      if (n && !seen[n]) { seen[n] = 1; out.push(n); }
+      if (!n) return;
+      const max = Math.min(1000, Math.max(10, Math.floor(Number(c.max) || 100)));
+      if (!byName[n]) { byName[n] = { name: n, max }; out.push(byName[n]); }
+      else if (max > byName[n].max) byName[n].max = max;
     });
   });
   return out;
 }
 // 科目的唯一来源是「课程管理」（各年级课程计划），系统设置不再单独维护科目列表：
 // 课程计划中出现过的课程即全部考试科目，因此「所有课程都能录成绩」。
-// 满分在「课程管理」按科目设置（存于 subject-max.json），未配置时为 100 分。
+// 满分由各年级课程自带（不同年级可不同），此处取其最大值作为全局默认值。
 function readSubjects() {
-  const maxMap = readSubjectMax();
   const list = [];
   const usedKey = {}, usedName = {};
-  coursePlanSubjectNames().forEach(n => {
+  coursePlanSubjects().forEach(item => {
+    const n = item.name;
     if (usedName[n]) return;
     let base = SUBJECT_KEY_MAP[n];
     if (!base) {
@@ -385,7 +380,7 @@ function readSubjects() {
     let key = base, i = 2;
     while (usedKey[key]) key = base + '_' + (i++);
     usedKey[key] = 1; usedName[n] = 1;
-    list.push({ key, name: n, max: Math.min(1000, Math.max(10, Number(maxMap[n]) || 100)) });
+    list.push({ key, name: n, max: item.max });
   });
   // 课程计划为空（全新系统）时兜底，避免成绩模块无科目可用
   return list.length ? list : DEFAULT_SUBJECTS.map(x => Object.assign({}, x));
@@ -541,8 +536,10 @@ function normalizeCoursePlanEntry(c) {
   const type = COURSE_TYPES.indexOf(c.type) !== -1 ? c.type : '必修';
   const hours = Math.max(0, Math.min(20, Math.floor(Number(c.weeklyHours) || 0)));
   const examType = COURSE_EXAM_TYPES.indexOf(c.examType) !== -1 ? c.examType : '考试';
+  // 满分随课程走、按年级分别设置（各年级课程与考试不同）；未填时按 100 处理
+  const max = Math.min(1000, Math.max(10, Math.floor(Number(c.max) || 100)));
   const remark = String(c.remark || '').trim().slice(0, 100);
-  return { name, type, weeklyHours: hours, examType, remark };
+  return { name, type, weeklyHours: hours, examType, max, remark };
 }
 function normalizeCoursePlan(raw) {
   if (!raw || typeof raw !== 'object') return { courses: [] };
@@ -4154,22 +4151,9 @@ async function handle(req, res) {
     return sendJson(res, 200, { code: 0, data: a, msg: '公告已更新' });
   }
 
-  // ---------- 科目满分（课程管理页维护；与课程计划同属「课程管理」模块权限）----------
-  if (pathname === '/api/subject-max' && req.method === 'GET') {
-    return sendJson(res, 200, { code: 0, data: readSubjectMax() });
-  }
-  if (pathname === '/api/subject-max' && req.method === 'PUT') {
-    const body = await readBody(req);
-    const src = (body && typeof body.subjectMax === 'object' && !Array.isArray(body.subjectMax)) ? body.subjectMax : {};
-    const out = {};
-    Object.keys(src).slice(0, 300).forEach(k => {
-      const name = String(k || '').trim().slice(0, 20);
-      if (!name) return;
-      out[name] = Math.min(1000, Math.max(10, Number(src[k]) || 100));
-    });
-    writeSubjectMax(out);
-    return sendJson(res, 200, { code: 0, data: out, msg: '科目满分已保存' });
-  }
+  // 科目满分已整合进课程计划（各年级课程自带 max 字段），由 /api/course-plans 维护，
+  // 通过 readSubjects() 汇总为全校科目列表，不再单独提供 /api/subject-max。
+
 
   // ---------- 课程计划（各年级课程清单）----------
   if (pathname === '/api/course-plans' && req.method === 'GET') {
