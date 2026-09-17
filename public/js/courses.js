@@ -23,7 +23,8 @@
   let plans = {};                        // { 高一: { courses: [...] } }
   let currentGrade = '';                 // 当前选中的年级
   let workingCourses = [];               // 当前年级的编辑缓冲（未保存改动）
-  let subjectsFromSettings = [];         // 从 /api/settings 拉取的科目候选
+  let subjectsFromSettings = [];         // 全校科目候选（来自各年级课程计划汇总）
+  let subjectMax = {};                   // 科目满分：{ [科目名]: 满分 }
 
   function toast(msg, type) {
     const el = $('#toast');
@@ -45,13 +46,14 @@
     return Promise.all([
       fetch(API).then(r => r.json()),
       fetch('/api/grades').then(r => r.json()),
-      fetch('/api/settings').then(r => r.json()).catch(() => ({ data: {} }))
-    ]).then(([planRes, gradeRes, setRes]) => {
+      fetch('/api/subject-max').then(r => r.json()).catch(() => ({ data: {} }))
+    ]).then(([planRes, gradeRes, maxRes]) => {
       grades = (gradeRes && gradeRes.data) || [];
       plans = (planRes && planRes.data && planRes.data.plans) || {};
 
-      const subs = (setRes && setRes.data && setRes.data.subjects) || [];
-      subjectsFromSettings = subs.map(x => String((x && x.name) || '').trim()).filter(Boolean);
+      subjectMax = (maxRes && maxRes.data && typeof maxRes.data === 'object') ? maxRes.data : {};
+      // 科目候选 = 各年级课程计划中出现的全部课程（课程即考试科目）
+      subjectsFromSettings = allSubjectNames();
 
       // 默认选中第一个年级
       if (!grades.length) {
@@ -63,9 +65,23 @@
       }
       renderGradeBar();
       renderActive();
+      renderMax();
     }).catch((e) => {
       toast('加载失败：' + (e && e.message ? e.message : '网络异常'), 'error');
     });
+  }
+
+  // 汇总各年级课程计划中出现过的全部科目名（去重）。课程即考试科目，故这也是全校科目清单
+  function allSubjectNames() {
+    const out = [];
+    const seen = {};
+    grades.forEach(g => {
+      ((plans[g] && plans[g].courses) || []).forEach(c => {
+        const n = String((c && c.name) || '').trim();
+        if (n && !seen[n]) { seen[n] = 1; out.push(n); }
+      });
+    });
+    return out;
   }
 
   function clonePlan(list) {
@@ -327,8 +343,11 @@
         plans[currentGrade] = { courses: cleaned };
         workingCourses = clonePlan(cleaned);
         toast('「' + currentGrade + '」的课程计划已保存', 'success');
+        // 课程变动会改变全校科目清单，同步刷新满分设置区
+        subjectsFromSettings = allSubjectNames();
         renderGradeBar();
         renderActive();
+        renderMax();
       })
       .catch(e => toast(e.message, 'error'))
       .then(() => { btn.textContent = oldText; btn.disabled = false; });
@@ -379,6 +398,59 @@
     subDirtyColor();
     toast('已添加 ' + added + ' 门新课程，点击「保存课程计划」后生效', 'success');
   }
+
+  // ===== 考试科目满分 =====
+  function renderMax() {
+    const box = $('#maxBox');
+    const grid = $('#maxGrid');
+    if (!box || !grid) return;
+    const names = allSubjectNames();
+    const isW = canWrite();
+    $('#btnSaveMax').disabled = !isW || !names.length;
+    if (!names.length) {
+      grid.innerHTML = '<span class="cs-max-empty">尚未配置任何课程。保存课程计划后，可在此为各科设置满分。</span>';
+      box.hidden = false;
+      return;
+    }
+    grid.innerHTML = names.map(n => (
+      '<div class="cs-max-item">'
+      + '<span class="nm" title="' + esc(n) + '">' + esc(n) + '</span>'
+      + '<input type="number" min="10" max="1000" step="1" data-subj="' + esc(n) + '"'
+      + ' value="' + (Number(subjectMax[n]) || 100) + '"' + (isW ? '' : ' disabled') + ' />'
+      + '<span class="un">分</span>'
+      + '</div>'
+    )).join('');
+    box.hidden = false;
+  }
+
+  function saveMax() {
+    if (!canWrite()) return;
+    const next = {};
+    $$('#maxGrid input[data-subj]').forEach(el => {
+      const n = el.dataset.subj;
+      const v = Math.min(1000, Math.max(10, Math.floor(Number(el.value) || 100)));
+      next[n] = v;
+      el.value = v;
+    });
+    const btn = $('#btnSaveMax');
+    const old = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '保存中…';
+    fetch('/api/subject-max', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subjectMax: next })
+    })
+      .then(r => r.json())
+      .then(j => {
+        if (j.code !== 0) throw new Error(j.msg || '保存失败');
+        subjectMax = j.data || next;
+        toast('科目满分已保存', 'success');
+      })
+      .catch(e => toast(e.message, 'error'))
+      .then(() => { btn.textContent = old; btn.disabled = false; });
+  }
+  $('#btnSaveMax').addEventListener('click', saveMax);
 
   // ===== 启动 =====
   function start() {

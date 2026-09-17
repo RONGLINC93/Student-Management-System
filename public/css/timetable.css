@@ -14,31 +14,31 @@
 /* ---- 网格容器：卡片化，强化与页面背景的边界 ---- */
 .tt-wrap {
   overflow-x: auto; -webkit-overflow-scrolling: touch;
-  border: 1px solid #e3e9f2; border-radius: 14px; background: #fff;
+  border: 1px solid #e5ecd9; border-radius: 14px; background: #fdf9e7;
   box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 10px 26px -20px rgba(16, 24, 40, .45);
 }
 table.tt-tbl { width: 100%; min-width: 760px; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
-.tt-tbl th, .tt-tbl td { border-right: 1px solid #eceff5; border-bottom: 1px solid #eceff5; }
+.tt-tbl th, .tt-tbl td { border-right: 1px solid #e9efdf; border-bottom: 1px solid #e9efdf; }
 .tt-tbl tr > *:last-child { border-right: 0; }
 .tt-tbl tbody tr:last-child > * { border-bottom: 0; }
 
 /* ---- 表头 / 节次列 ---- */
 .tt-tbl thead th {
-  background: #f4f7fb; color: #475569; font-weight: 700; font-size: 12px;
+  background: #dff0e6; color: #2f5c43; font-weight: 700; font-size: 12px;
   padding: 11px 8px; text-align: center; white-space: nowrap; letter-spacing: .02em;
 }
 .tt-tbl thead th.tt-corner { border-top-left-radius: 13px; }
 .tt-tbl thead th:last-child { border-top-right-radius: 13px; }
-.tt-tbl tbody th.tt-period { width: 100px; background: #fafbfd; text-align: center; padding: 10px 6px; vertical-align: middle; }
+.tt-tbl tbody th.tt-period { width: 100px; background: #edf8f1; text-align: center; padding: 10px 6px; vertical-align: middle; }
 .tt-tbl tbody th.tt-period b { display: block; font-size: 12.5px; color: #334155; font-weight: 700; }
 .tt-tbl tbody th.tt-period span { display: block; margin-top: 3px; font-size: 11px; font-weight: 400; color: #94a3b8; }
 
 /* ---- 单元格 ---- */
-.tt-tbl td.tt-cell { height: 72px; padding: 5px 6px; vertical-align: top; background: #fff; }
+.tt-tbl td.tt-cell { height: 78px; padding: 4px; vertical-align: top; background: #fffdf3; }
 .tt-tbl td.tt-cell.empty { text-align: center; vertical-align: middle; }
-.tt-add { display: inline-block; font-size: 16px; line-height: 1; color: #ccd4e0; transition: color .12s, transform .12s; }
+.tt-add { display: inline-block; font-size: 16px; line-height: 1; color: #d6d8c0; transition: color .12s, transform .12s; }
 .tt-tbl.tt-edit td.tt-cell { cursor: pointer; transition: background .12s; }
-.tt-tbl.tt-edit td.tt-cell:hover { background: #f7f9ff; }
+.tt-tbl.tt-edit td.tt-cell:hover { background: #fbf5d9; }
 .tt-tbl.tt-edit td.tt-cell.empty:hover .tt-add { color: var(--primary, #4f6df5); transform: scale(1.28); }
 
 /* ---- 课程卡片：8 套柔和配色，按科目名哈希分配，保证「同科目始终同色」 ---- */
@@ -48,22 +48,33 @@ table.tt-tbl { width: 100%; min-width: 760px; border-collapse: separate; border-
 .tt-c3 { --tt-bg: #fff7ed; --tt-bd: #fb923c; --tt-tx: #c2410c; --tt-mt: #ea580c; }
 .tt-c4 { --tt-bg: #fff1f2; --tt-bd: #fb7185; --tt-tx: #be123c; --tt-mt: #e11d48; }
 .tt-c5 { --tt-bg: #ecfeff; --tt-bd: #22d3ee; --tt-tx: #0e7490; --tt-mt: #0891b2; }
-.tt-c6 { --tt-bg: #fffbeb; --tt-bd: #fbbf24; --tt-tx: #b45309; --tt-mt: #d97706; }
+/* 原琥珀色与浅黄表格底过于接近，改为蓝绿(teal)以保证卡片可辨识 */
+.tt-c6 { --tt-bg: #f0fdfa; --tt-bd: #2dd4bf; --tt-tx: #0f766e; --tt-mt: #0d9488; }
 .tt-c7 { --tt-bg: #eef2ff; --tt-bd: #818cf8; --tt-tx: #4338ca; --tt-mt: #4f46e5; }
 
 .tt-it {
-  margin: 2px 0; padding: 6px 8px; border-radius: 8px;
+  margin: 0; padding: 7px 9px; border-radius: 9px; box-sizing: border-box;
   border-left: 3px solid var(--tt-bd, #a5b4fc); background: var(--tt-bg, #eef2ff);
+  display: flex; flex-direction: column; justify-content: center; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .07);
   transition: transform .12s ease, box-shadow .12s ease;
 }
-.tt-it + .tt-it { margin-top: 5px; }
+/* 该格只有一门课时撑满整格，视觉更饱满；多门课时自动分摊高度 */
+.tt-it:only-child { height: 100%; }
+.tt-it + .tt-it { margin-top: 4px; }
 .tt-tbl.tt-edit td.tt-cell:hover .tt-it { transform: translateY(-1px); box-shadow: 0 4px 10px -2px rgba(16, 24, 40, .18); }
-.tt-it .s { font-weight: 700; color: var(--tt-tx, #3730a3); font-size: 13px; line-height: 1.35; }
-.tt-it .m { margin-top: 3px; font-size: 11.5px; color: var(--tt-mt, #4f46e5); line-height: 1.5; word-break: break-all; opacity: .92; }
+.tt-it .s {
+  font-weight: 700; color: var(--tt-tx, #3730a3); font-size: 14px; line-height: 1.3;
+  letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tt-it .m {
+  margin-top: 4px; font-size: 11px; color: var(--tt-mt, #4f46e5); line-height: 1.4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .9;
+}
 
 /* ---- 上 / 下午 / 晚上 分组行（左侧色条区分时段）---- */
 .tt-tbl tbody tr.tt-sec th {
-  background: #f6f8fb; color: #334155; font-weight: 700; font-size: 12px;
+  background: #d3ecdc; color: #2c5541; font-weight: 700; font-size: 12px;
   text-align: left; padding: 7px 10px; letter-spacing: .08em;
   border-left: 3px solid var(--sec-c, #94a3b8);
 }
@@ -100,7 +111,8 @@ table.tt-tbl { width: 100%; min-width: 760px; border-collapse: separate; border-
 
 @media print {
   .app-header, .toolbar, .tt-bar, .tt-tip, .tt-alert, .tt-legend { display: none !important; }
-  .tt-wrap { border: 0; overflow: visible; box-shadow: none; }
+  .tt-wrap { border: 0; overflow: visible; box-shadow: none; background: #fff; }
+  .tt-tbl td.tt-cell, .tt-tbl thead th, .tt-tbl tbody th.tt-period, .tt-tbl tbody tr.tt-sec th { background: #fff; }
   table.tt-tbl { min-width: 0; font-size: 11px; }
   .tt-tbl td.tt-cell { height: auto; }
   .tt-tbl td.tt-cell.has-conflict { background: transparent; box-shadow: none; }

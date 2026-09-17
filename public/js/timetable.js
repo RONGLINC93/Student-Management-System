@@ -38,6 +38,19 @@
     if (a.role === 'admin') return true;
     return Array.isArray(a.writable) && a.writable.indexOf('timetables') !== -1;
   }
+  // ===== 班级记忆：记住上次排课的班级，下次打开课程表自动选中 =====
+  // 用本地存储而非 /api/filters，避免教务等职位账号写偏好被权限闸门拦截
+  var REMEMBER_KEY = 'icbs:timetable:classId';
+  function rememberClass(id) {
+    try {
+      if (id) localStorage.setItem(REMEMBER_KEY, String(id));
+      else localStorage.removeItem(REMEMBER_KEY);
+    } catch (e) { /* 隐私模式 / 存储禁用时忽略 */ }
+  }
+  function rememberedClass() {
+    try { return localStorage.getItem(REMEMBER_KEY) || ''; } catch (e) { return ''; }
+  }
+
   function markDirty(v) {
     dirty = !!v;
     var el = $('#ttDirty');
@@ -84,8 +97,11 @@
       var planRes = res[3] || {};
       gradePlans = (planRes && planRes.plans) || {};
       if (!classes.some(function (c) { return c.id === curId; })) {
+        // 恢复上次记忆的班级；该班已被删除/不在列表时退回第一个
+        var saved = rememberedClass();
+        var hit = saved && classes.filter(function (c) { return c.id === saved; })[0];
         var first = sortedClasses()[0];
-        curId = first ? first.id : '';
+        curId = hit ? hit.id : (first ? first.id : '');
       }
       markDirty(false);
       renderClassSelect();
@@ -725,7 +741,7 @@
     $('#classSel').addEventListener('change', function () {
       var next = this.value;
       if (!next || next === curId) { if (!next) this.value = curId; return; }
-      var go = function () { curId = next; markDirty(false); render(); loadTermToInput(); fillSubjectList(); };
+      var go = function () { curId = next; rememberClass(next); markDirty(false); render(); loadTermToInput(); fillSubjectList(); };
       if (dirty) {
         confirmDlg('当前班级有未保存的排课改动，切换班级将丢弃这些改动。', { title: '放弃未保存的改动？', okText: '放弃并切换', danger: true })
           .then(function (ok) { if (ok) go(); else $('#classSel').value = curId; });
