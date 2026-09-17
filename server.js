@@ -42,6 +42,7 @@ const LEAVES_FILE = path.join(__dirname, 'data', 'leaves.json');               /
 const ANNOUNCEMENTS_FILE = path.join(__dirname, 'data', 'announcements.json'); // 通知公告（面向全校 / 年级 / 班级）
 const TRASH_FILE = path.join(__dirname, 'data', 'students_trash.json');        // 学生回收站（删除后软归档，可恢复）
 const NOTIFICATIONS_FILE = path.join(__dirname, 'data', 'notifications.json'); // 学生中心站内消息（各类事务变化通知）
+const TIMETABLES_FILE = path.join(__dirname, 'data', 'timetables.json');       // 课程表（按班级排课，教师/学生端只读查看）
 const AUDIT_FILE = path.join(__dirname, 'data', 'audit.json');                  // 操作审计日志
 const BACKUP_DIR = path.join(__dirname, 'data', 'backups');                     // 服务器本地自动 / 手动备份目录
 
@@ -68,6 +69,7 @@ const PERMISSION_MODULES = [
   { key: 'conduct',       name: '考勤操行', apis: ['/api/attendance', '/api/conduct'] },
   { key: 'leaves',        name: '请假管理', apis: ['/api/leaves'] },
   { key: 'announcements', name: '通知公告', apis: ['/api/announcements'] },
+  { key: 'timetables',    name: '课程表',   apis: ['/api/timetables'] },
   { key: 'dorms',         name: '宿舍管理', apis: ['/api/dorms', '/api/dorm-apps'] }
 ];
 // 读取某角色的可写模块 key 列表（settings 缺失 / 字段异常时回退默认）
@@ -105,10 +107,24 @@ const DEFAULT_SETTINGS = {
   // 职位权限（系统设置 → 职位权限）：教务（staff）/ 宿管（dorm）可管理的模块 key
   // 默认：教务可管学籍与教学（不含请假、宿舍——请假审批归班主任，宿舍归宿管）；宿管仅宿舍
   positionPermissions: {
-    staff: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements'],
+    staff: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables'],
     dorm: ['dorms']
   }
 };
+
+// 课程表：默认节次（学校可按需在「课程表 → 节次设置」中调整）与星期字典
+const DEFAULT_TIMETABLE_PERIODS = [
+  { label: '第1节', time: '08:00-08:45' },
+  { label: '第2节', time: '08:55-09:40' },
+  { label: '第3节', time: '10:00-10:45' },
+  { label: '第4节', time: '10:55-11:40' },
+  { label: '第5节', time: '14:00-14:45' },
+  { label: '第6节', time: '14:55-15:40' },
+  { label: '第7节', time: '16:00-16:45' },
+  { label: '第8节', time: '16:55-17:40' }
+];
+const TIMETABLE_WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const TIMETABLE_MAX_PERIODS = 12;
 
 // 默认考试科目（语文 / 数学 / 英语 / 理综，兼容旧版系统的分班参考成绩）
 const DEFAULT_SUBJECTS = [
@@ -158,6 +174,7 @@ if (!fs.existsSync(SETTINGS_FILE)) {
   const f = { teachers: TEACHERS_FILE, exams: EXAMS_FILE, attendance: ATTENDANCE_FILE, conduct: CONDUCT_FILE, dormitories: DORMS_FILE, dormApps: DORM_APPS_FILE, leaves: LEAVES_FILE, announcements: ANNOUNCEMENTS_FILE, trash: TRASH_FILE }[name];
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf-8');
 });
+if (!fs.existsSync(TIMETABLES_FILE)) fs.writeFileSync(TIMETABLES_FILE, JSON.stringify(defaultTimetables(), null, 2), 'utf-8');
 if (!fs.existsSync(AUDIT_FILE)) fs.writeFileSync(AUDIT_FILE, '[]', 'utf-8');
 if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
@@ -428,6 +445,170 @@ const writeTrash = l => writeJsonFile(TRASH_FILE, l);
 const readNotifications = () => readJsonFile(NOTIFICATIONS_FILE, []);
 const writeNotifications = l => writeJsonFile(NOTIFICATIONS_FILE, l);
 
+// ===== 课程表（按班级排课，教师 / 学生端只读查看）=====
+// 数据结构：{ term, periods: [{label,time}], days: [1..7], tables: { [classId]: { classId, className, grade, slots, updatedAt } } }
+// slots 的键为「星期-节次」（如 "1-3" 表示周一第 3 节），值 { subject, teacherNo, teacher, room }
+function defaultTimetables() {
+  return {
+    term: '',
+    periods: DEFAULT_TIMETABLE_PERIODS.map(p => ({ label: p.label, time: p.time })),
+    days: [1, 2, 3, 4, 5],
+    tables: {}
+  };
+}
+function normalizeTimetablePeriods(raw) {
+  const arr = Array.isArray(raw) ? raw : [];
+  const out = [];
+  for (let i = 0; i < arr.length && out.length < TIMETABLE_MAX_PERIODS; i++) {
+    const p = arr[i] || {};
+    out.push({
+      label: String(p.label || '').trim().slice(0, 12) || ('第' + (out.length + 1) + '节'),
+      time: String(p.time || '').trim().slice(0, 20)
+    });
+  }
+  return out.length ? out : DEFAULT_TIMETABLE_PERIODS.map(p => ({ label: p.label, time: p.time }));
+}
+function normalizeTimetableDays(raw) {
+  const arr = Array.isArray(raw) ? raw : [];
+  const set = new Set();
+  arr.forEach(d => {
+    const n = Number(d);
+    if (n >= 1 && n <= 7) set.add(n);
+  });
+  const out = Array.from(set).sort((a, b) => a - b);
+  return out.length ? out : [1, 2, 3, 4, 5];
+}
+// 单元格规范化：科目与教师皆为空视为未排课（删除该键）
+function normalizeTimetableSlot(raw) {
+  const o = (raw && typeof raw === 'object') ? raw : {};
+  const subject = String(o.subject || '').trim().slice(0, 20);
+  const teacher = String(o.teacher || '').trim().slice(0, 20);
+  if (!subject && !teacher) return null;
+  return {
+    subject,
+    teacherNo: String(o.teacherNo || '').trim().slice(0, 30),
+    teacher,
+    room: String(o.room || '').trim().slice(0, 20)
+  };
+}
+function normalizeTimetableSlots(raw) {
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  const out = {};
+  Object.keys(src).forEach(k => {
+    const m = /^([1-7])-(\d{1,2})$/.exec(k);
+    if (!m) return;
+    const day = Number(m[1]);
+    const period = Number(m[2]);
+    if (period < 1 || period > TIMETABLE_MAX_PERIODS) return;
+    const slot = normalizeTimetableSlot(src[k]);
+    if (slot) out[day + '-' + period] = slot;
+  });
+  return out;
+}
+function readTimetables() {
+  try {
+    return normalizeTimetables(JSON.parse(fs.readFileSync(TIMETABLES_FILE, 'utf-8')));
+  } catch (e) {
+    return defaultTimetables();
+  }
+}
+// 任意来源（数据文件 / 备份导入）→ 标准课表结构
+function normalizeTimetables(v) {
+  const base = defaultTimetables();
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return base;
+  {
+    const tables = {};
+    (v.tables && typeof v.tables === 'object' && !Array.isArray(v.tables)) ? Object.keys(v.tables).forEach(id => {
+      const t = v.tables[id] || {};
+      tables[id] = {
+        classId: String(t.classId || id),
+        className: String(t.className || '').trim().slice(0, 40),
+        grade: String(t.grade || '').trim().slice(0, 20),
+        slots: normalizeTimetableSlots(t.slots),
+        updatedAt: String(t.updatedAt || '')
+      };
+    }) : null;
+    return {
+      term: String(v.term || '').trim().slice(0, 40),
+      periods: normalizeTimetablePeriods(v.periods),
+      days: normalizeTimetableDays(v.days),
+      tables
+    };
+  }
+}
+function writeTimetables(t) {
+  atomicWriteJson(TIMETABLES_FILE, t);
+}
+// 课表设置视图（供前端渲染）
+function timetableMeta(t) {
+  return { term: t.term, periods: t.periods, days: t.days, weekdays: TIMETABLE_WEEKDAYS };
+}
+// 按班级课表视图（合并班级/年级信息，班级已删除时标记 invalid）
+function timetableClassView(t, classId) {
+  const cls = readClasses().find(c => c.id === classId) || null;
+  const saved = t.tables[classId] || null;
+  return {
+    classId,
+    className: cls ? cls.name : ((saved && saved.className) || '（班级已删除）'),
+    grade: cls ? (cls.grade || '') : ((saved && saved.grade) || ''),
+    headTeacher: cls ? (cls.headTeacher || '') : '',
+    exists: !!cls,
+    slots: saved ? saved.slots : {},
+    updatedAt: saved ? saved.updatedAt : ''
+  };
+}
+// 教师个人的全部任课安排（跨班级扫描）
+function teacherTimetableOf(tea) {
+  const t = readTimetables();
+  const no = String((tea && tea.teacherNo) || '').trim();
+  const name = String((tea && tea.name) || '').trim();
+  const entries = [];
+  const classes = readClasses();
+  Object.keys(t.tables).forEach(cid => {
+    const tab = t.tables[cid];
+    const hit = {};
+    Object.keys(tab.slots || {}).forEach(k => {
+      const s = tab.slots[k];
+      const byNo = no && s.teacherNo && s.teacherNo === no;
+      const byName = name && s.teacher === name;
+      if (byNo || byName) hit[k] = s;
+    });
+    if (!Object.keys(hit).length) return;
+    const cls = classes.find(c => c.id === cid);
+    entries.push({
+      classId: cid,
+      className: cls ? cls.name : (tab.className || '（班级已删除）'),
+      grade: cls ? (cls.grade || '') : (tab.grade || ''),
+      slots: hit
+    });
+  });
+  entries.sort((a, b) => String(a.grade + a.className).localeCompare(String(b.grade + b.className), 'zh-Hans-CN', { numeric: true }));
+  return Object.assign(timetableMeta(t), { entries });
+}
+// 排课冲突检测：同一教师 / 同一教室在同一时间被排进了多个班级
+function timetableConflicts(t) {
+  const map = {};
+  const add = (day, period, type, key, name, info) => {
+    const sk = day + '-' + period + '|' + type + '|' + key;
+    if (!map[sk]) map[sk] = { day, period, type: type === 'teacher' ? '教师冲突' : '教室冲突', name, classes: [] };
+    map[sk].classes.push(info);
+  };
+  Object.keys(t.tables).forEach(cid => {
+    const tab = t.tables[cid];
+    Object.keys(tab.slots || {}).forEach(k => {
+      const m = /^([1-7])-(\d{1,2})$/.exec(k);
+      if (!m) return;
+      const day = Number(m[1]), period = Number(m[2]);
+      const s = tab.slots[k];
+      const info = { classId: cid, className: tab.className || '', subject: s.subject || '' };
+      if (s.teacherNo) add(day, period, 'teacher', 'no:' + s.teacherNo, s.teacher || s.teacherNo, info);
+      else if (s.teacher) add(day, period, 'teacher', 'name:' + s.teacher, s.teacher, info);
+      if (s.room) add(day, period, 'room', s.room, s.room, info);
+    });
+  });
+  return Object.keys(map).map(k => map[k]).filter(x => x.classes.length > 1);
+}
+
 // ===== 数据备份（手动下载导出 + 服务器本地自动备份）=====
 // 全量备份载荷：集中在此处维护，保证「下载导出 / 手动备份 / 自动备份」内容一致
 function buildBackupPayload() {
@@ -448,6 +629,7 @@ function buildBackupPayload() {
     dormApps: readDormApps(),
     leaves: readLeaves(),
     announcements: readAnnouncements(),
+    timetables: readTimetables(),
     trash: readTrash(),
     notifications: readNotifications()
   };
@@ -1319,6 +1501,7 @@ const AUDIT_MODULES = [
   ['/api/conduct', '操行管理'],
   ['/api/leaves', '请假管理'],
   ['/api/announcements', '通知公告'],
+  ['/api/timetables', '课程表'],
   ['/api/dorm-apps', '宿舍管理 · 入住申请审核'],
   ['/api/dorms', '宿舍管理'],
   ['/api/allocate', '智能分班'],
@@ -3674,6 +3857,7 @@ async function handle(req, res) {
     if (Array.isArray(body.leaves)) writeLeaves(body.leaves);
     if (Array.isArray(body.announcements)) writeAnnouncements(body.announcements);
     if (Array.isArray(body.trash)) writeTrash(body.trash);
+    if (body.timetables && typeof body.timetables === 'object' && !Array.isArray(body.timetables)) writeTimetables(normalizeTimetables(body.timetables));
     if (Array.isArray(body.notifications)) writeNotifications(body.notifications);
     liveBoard = null;
     return sendJson(res, 200, { code: 0, msg: '恢复完成', classes: body.classes.length, students: body.students.length });
@@ -3782,6 +3966,131 @@ async function handle(req, res) {
     a.updatedAt = new Date().toISOString();
     writeAnnouncements(list);
     return sendJson(res, 200, { code: 0, data: a, msg: '公告已更新' });
+  }
+
+  // ---------- 课程表（后台：课表设置 / 按班级排课 / 复制 / 冲突检测）----------
+  if (pathname === '/api/timetables' && req.method === 'GET') {
+    const t = readTimetables();
+    const classes = readClasses();
+    const tables = classes.map(c => timetableClassView(t, c.id));
+    Object.keys(t.tables).forEach(cid => {
+      if (!classes.some(c => c.id === cid)) tables.push(timetableClassView(t, cid)); // 班级已删除的残留课表
+    });
+    return sendJson(res, 200, { code: 0, data: Object.assign(timetableMeta(t), { tables, conflicts: timetableConflicts(t) }) });
+  }
+  if (pathname === '/api/timetables/meta' && req.method === 'PUT') {
+    const body = await readBody(req);
+    const t = readTimetables();
+    if (body.term !== undefined) t.term = String(body.term || '').trim().slice(0, 40);
+    if (body.periods !== undefined) t.periods = normalizeTimetablePeriods(body.periods);
+    if (body.days !== undefined) t.days = normalizeTimetableDays(body.days);
+    // 节次 / 星期缩短后清理越界单元格，避免出现看不见的脏数据
+    const daysSet = new Set(t.days);
+    Object.keys(t.tables).forEach(cid => {
+      const slots = t.tables[cid].slots || {};
+      Object.keys(slots).forEach(k => {
+        const m = /^([1-7])-(\d{1,2})$/.exec(k);
+        if (!m || !daysSet.has(Number(m[1])) || Number(m[2]) > t.periods.length) delete slots[k];
+      });
+    });
+    writeTimetables(t);
+    return sendJson(res, 200, { code: 0, data: timetableMeta(t), msg: '课表设置已保存' });
+  }
+  if (pathname === '/api/timetables/copy' && req.method === 'POST') {
+    const body = await readBody(req);
+    const t = readTimetables();
+    const classes = readClasses();
+    const from = String(body.from || '');
+    if (!classes.some(c => c.id === from)) return sendJson(res, 400, { code: 1, msg: '请选择有效的来源班级' });
+    const src = t.tables[from];
+    if (!src || !Object.keys(src.slots || {}).length) return sendJson(res, 400, { code: 1, msg: '来源班级还没有排课，无法复制' });
+    let ids = Array.isArray(body.to) ? body.to.map(String) : [];
+    if (!ids.length && body.grade) ids = classes.filter(c => (c.grade || '') === String(body.grade)).map(c => c.id);
+    ids = ids.filter(id => id && id !== from && classes.some(c => c.id === id));
+    if (!ids.length) return sendJson(res, 400, { code: 1, msg: '请选择要复制到的目标班级' });
+    if (body.overwrite === false) {
+      ids = ids.filter(id => !t.tables[id] || !Object.keys(t.tables[id].slots || {}).length);
+    }
+    if (!ids.length) return sendJson(res, 400, { code: 1, msg: '目标班级均已有课表，如需覆盖请勾选「覆盖已有课表」' });
+    const now = new Date().toISOString();
+    ids.forEach(id => {
+      const cls = classes.find(c => c.id === id);
+      t.tables[id] = {
+        classId: id,
+        className: cls.name,
+        grade: cls.grade || '',
+        slots: JSON.parse(JSON.stringify(src.slots)),
+        updatedAt: now
+      };
+    });
+    writeTimetables(t);
+    return sendJson(res, 200, {
+      code: 0,
+      data: { copied: ids, conflicts: timetableConflicts(t) },
+      msg: '已复制到 ' + ids.length + ' 个班级'
+    });
+  }
+  const ttClassMatch = pathname.match(/^\/api\/timetables\/class\/([^/]+)$/);
+  if (ttClassMatch && req.method === 'PUT') {
+    const classId = decodeURIComponent(ttClassMatch[1]);
+    const cls = readClasses().find(c => c.id === classId);
+    if (!cls) return sendJson(res, 404, { code: 1, msg: '班级不存在或已被删除' });
+    const body = await readBody(req);
+    const t = readTimetables();
+    const daysSet = new Set(t.days);
+    const slots = {};
+    const raw = normalizeTimetableSlots(body.slots);
+    Object.keys(raw).forEach(k => {
+      const parts = k.split('-');
+      if (!daysSet.has(Number(parts[0])) || Number(parts[1]) > t.periods.length) return;
+      slots[k] = raw[k];
+    });
+    const now = new Date().toISOString();
+    t.tables[classId] = {
+      classId,
+      className: cls.name,
+      grade: cls.grade || '',
+      slots,
+      updatedAt: now
+    };
+    writeTimetables(t);
+    return sendJson(res, 200, {
+      code: 0,
+      data: { classId, slots, updatedAt: now, conflicts: timetableConflicts(t) },
+      msg: '「' + cls.name + '」的课表已保存'
+    });
+  }
+  if (ttClassMatch && req.method === 'DELETE') {
+    const classId = decodeURIComponent(ttClassMatch[1]);
+    const t = readTimetables();
+    if (!t.tables[classId]) return sendJson(res, 404, { code: 1, msg: '该班级尚未排课' });
+    delete t.tables[classId];
+    writeTimetables(t);
+    return sendJson(res, 200, { code: 0, msg: '该班级课表已清空' });
+  }
+
+  // ---------- 教师端：我的课表（只读，按教师工号/姓名跨班级汇总）----------
+  if (pathname === '/api/teacher/timetable' && req.method === 'GET') {
+    const t = authTeacher(req);
+    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    const tea = findTeacherOfAuth(t);
+    if (!tea) return sendJson(res, 404, { code: 1, msg: '教师档案不存在或已被删除，请联系管理员' });
+    const data = teacherTimetableOf(tea);
+    data.teacher = { name: tea.name || '', teacherNo: tea.teacherNo || '', subject: tea.subject || '' };
+    return sendJson(res, 200, { code: 0, data });
+  }
+
+  // ---------- 学生端：我的课表（只读，按本人所在班级展示）----------
+  if (pathname === '/api/student/timetable' && req.method === 'GET') {
+    const s = authStudent(req);
+    if (!s) return sendJson(res, 401, { code: 1, msg: '请先登录学生中心' });
+    const stu = findStudentByNo(s.username);
+    if (!stu) return sendJson(res, 404, { code: 1, msg: '学生档案不存在或已被删除，请联系管理员' });
+    const t = readTimetables();
+    const view = stu.classId
+      ? timetableClassView(t, stu.classId)
+      : { classId: '', className: '', grade: '', exists: false, slots: {}, updatedAt: '' };
+    return sendJson(res, 200, { code: 0, data: Object.assign(timetableMeta(t), view) });
   }
 
   // ---------- 请假管理（后台：列表 / 代登记 / 编辑 / 删除 / 审批）----------
@@ -4151,7 +4460,7 @@ async function handle(req, res) {
   const PROTECTED_PAGES = ['/index.html', '/dashboard.html', '/students.html',
     '/classes.html', '/grades.html', '/allocate.html', '/settings.html',
     '/teachers.html', '/exams.html', '/conduct.html', '/dorm.html',
-    '/analysis.html', '/leaves.html', '/announcements.html'];
+    '/analysis.html', '/leaves.html', '/announcements.html', '/timetable.html'];
   const ADMIN_ONLY_PAGES = ['/settings.html'];
   // 学生自助端页面（独立会话，走 icbs_stu_auth）
   const STUDENT_PAGES = ['/student.html'];

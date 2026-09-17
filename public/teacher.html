@@ -6,7 +6,11 @@
   <meta name="author" content="RONGLINC (chenronglin1993@hotmail.com)" />
   <link rel="icon" type="image/png" href="/favicon.png" />
   <title>教师中心 · 学生管理系统</title>
+  <link rel="stylesheet" href="/css/timetable.css" />
   <style>
+    /* 我的课表：卡片内自适应收紧表格间距 */
+    #ttBody .tt-tbl { min-width: 640px; }
+    #ttBody .tt-tbl td.tt-cell { height: auto; min-height: 56px; }
     :root {
       --brand: #6366f1;
       --brand-2: #8b5cf6;
@@ -242,6 +246,17 @@
       </div>
     </div>
 
+    <!-- 我的课表：按教师在教务处排课记录中自动汇总，只读展示 -->
+    <div class="card" id="ttCard">
+      <div class="card-head">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>我的课表 · 本学期待授课程</h3>
+        <span class="cnt" id="ttCnt"></span>
+      </div>
+      <div class="card-body" id="ttBody">
+        <div class="empty">正在加载…</div>
+      </div>
+    </div>
+
     <div class="cols">
       <!-- 左列：班级花名册 -->
       <div>
@@ -401,6 +416,7 @@
     <footer>学生管理系统 · 教师服务门户 · 作者：RONGLINC</footer>
   </main>
 
+  <script src="/js/timetable-view.js"></script>
   <script>
     (function () {
       'use strict';
@@ -467,6 +483,8 @@
           $('heroSub').textContent = '您的教师档案已被移除或未找到，请联系管理员核对。';
           $('rosterBody').innerHTML = '<div class="empty">暂无可用数据</div>';
           $('leaveBody').innerHTML = '<div class="empty">暂无可用数据</div>';
+          $('ttCnt').textContent = '';
+          $('ttBody').innerHTML = '<div class="empty">暂无可用数据</div>';
           return;
         }
         if (ME.must) $('forceCover').style.display = 'flex';
@@ -501,6 +519,39 @@
 
         renderRoster('');
         loadLeaves();
+        loadTimetable();
+      }
+
+      // ===== 我的课表（由教务处排课结果自动汇总，只读）=====
+      function loadTimetable() {
+        fetch('/api/teacher/timetable').then(function (r) {
+          if (r.status === 401) { location.href = '/tlogin.html'; return null; }
+          return r.json();
+        }).then(function (j) {
+          if (!j) return;
+          var body = $('ttBody');
+          if (j.code !== 0) {
+            body.innerHTML = '<div class="empty">' + esc(j.msg || '课表加载失败') + '</div>';
+            return;
+          }
+          var d = j.data || {};
+          var total = 0;
+          (d.entries || []).forEach(function (e) { total += Object.keys(e.slots || {}).length; });
+          $('ttCnt').textContent = (d.term ? d.term + ' · ' : '') + '共 ' + total + ' 节'
+            + ((d.entries || []).length ? ' · ' + d.entries.length + ' 个班级' : '');
+          if (window.renderTimetableGrid) {
+            window.renderTimetableGrid(body, d, {
+              showClass: true,
+              showTeacher: false,
+              showRoom: true,
+              emptyText: '教务处还没有安排您的课程，请稍后再查看。'
+            });
+          } else {
+            body.innerHTML = '<div class="empty">课表组件加载失败，请刷新页面重试</div>';
+          }
+        }).catch(function () {
+          $('ttBody').innerHTML = '<div class="empty">网络异常，课表加载失败</div>';
+        });
       }
 
       // ===== 班级花名册 =====

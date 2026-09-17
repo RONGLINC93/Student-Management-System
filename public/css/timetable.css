@@ -1,0 +1,64 @@
+/* ============================================================
+   课程表（教务排课页 / 教师端「我的课表」/ 学生端「我的课表」共用）
+   只读网格：.tt-wrap + table.tt-tbl
+   可编辑网格：在 .tt-tbl 上追加 .tt-edit
+   ============================================================ */
+.tt-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 4px 0 10px; }
+.tt-bar-l { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.tt-bar-l b { font-size: 15px; color: var(--text, #1f2937); }
+.tt-sub { font-size: 12.5px; color: var(--text-light, #6b7280); }
+.tt-dirty { font-size: 12.5px; font-weight: 600; color: #b45309; }
+.tt-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-light, #6b7280); }
+.tt-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+.tt-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #eef1f4; border-radius: 12px; }
+table.tt-tbl { width: 100%; min-width: 720px; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
+.tt-tbl th, .tt-tbl td { border-right: 1px solid #eef1f4; border-bottom: 1px solid #eef1f4; }
+.tt-tbl tr > *:last-child { border-right: 0; }
+.tt-tbl tbody tr:last-child > * { border-bottom: 0; }
+.tt-tbl thead th { background: #f8f9fd; color: #6b7280; font-weight: 600; font-size: 12px; padding: 9px 8px; text-align: center; white-space: nowrap; }
+.tt-tbl tbody th.tt-period { width: 96px; background: #f8f9fd; text-align: center; padding: 8px 6px; font-weight: 600; }
+.tt-tbl tbody th.tt-period b { display: block; font-size: 12.5px; color: #374151; }
+.tt-tbl tbody th.tt-period span { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: #9ca3af; }
+.tt-tbl td.tt-cell { height: 66px; padding: 7px 8px; vertical-align: top; }
+.tt-tbl td.tt-cell.empty { color: #d1d5db; }
+.tt-tbl.tt-edit td.tt-cell { cursor: pointer; transition: background .12s; }
+.tt-tbl.tt-edit td.tt-cell:hover { background: #f5f7ff; }
+.tt-add { font-size: 17px; line-height: 1; }
+.tt-it + .tt-it { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #eef1f4; }
+.tt-it .s { font-weight: 600; color: #1f2937; font-size: 13px; }
+.tt-it .m { margin-top: 2px; font-size: 11.5px; color: #6b7280; line-height: 1.5; word-break: break-all; }
+.tt-tbl td.tt-cell.has-conflict { background: #fff7ed; box-shadow: inset 0 0 0 1px #fdba74; }
+
+.tt-empty { text-align: center; color: #6b7280; font-size: 13px; line-height: 1.9; padding: 30px 14px; }
+.tt-tip { margin: 10px 0 0; font-size: 12.5px; color: #9ca3af; line-height: 1.7; }
+.tt-alert { margin: 0 0 10px; padding: 10px 13px; border-radius: 10px; font-size: 12.8px; line-height: 1.75; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+.tt-alert b { color: #b45309; }
+.tt-warn { margin: 0 0 12px; padding: 9px 12px; border-radius: 9px; font-size: 12.5px; line-height: 1.7; background: #fef3c7; border: 1px solid #fde68a; color: #92400e; }
+.tt-quick { display: flex; gap: 8px; flex-wrap: wrap; }
+.tt-chip { border: 1px solid #dde3fd; background: #eef2ff; color: #4f46e5; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; }
+.tt-chip:hover { background: #e0e7ff; }
+.tt-days { display: flex; gap: 14px; flex-wrap: wrap; }
+.tt-days label, .tt-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text, #1f2937); cursor: pointer; user-select: none; }
+.tt-days input, .tt-check input { width: 16px; height: 16px; accent-color: var(--primary, #4f6df5); cursor: pointer; }
+.tt-periods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tt-period-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1.2fr); gap: 8px; align-items: center; }
+.tt-period-row .idx { font-size: 12px; color: #9ca3af; text-align: center; }
+.tt-period-row input { padding: 7px 9px; font-size: 13px; border: 1px solid #d1d5db; border-radius: 8px; outline: none; min-width: 0; }
+.tt-period-row input:focus { border-color: var(--primary, #4f6df5); box-shadow: 0 0 0 3px rgba(79, 109, 245, .13); }
+.tt-picker { max-height: 230px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; }
+.tt-picker label { display: flex; align-items: center; gap: 7px; font-size: 13px; padding: 3px 0; cursor: pointer; }
+.tt-picker input { width: 15px; height: 15px; accent-color: var(--primary, #4f6df5); }
+
+@media (max-width: 700px) {
+  .tt-periods { grid-template-columns: 1fr; }
+  .tt-picker { grid-template-columns: 1fr; }
+}
+
+@media print {
+  .app-header, .toolbar, .tt-bar, .tt-tip, .tt-alert, .tt-legend { display: none !important; }
+  .tt-wrap { border: 0; overflow: visible; }
+  table.tt-tbl { min-width: 0; font-size: 11px; }
+  .tt-tbl td.tt-cell { height: auto; }
+  .tt-tbl td.tt-cell.has-conflict { background: transparent; box-shadow: none; }
+}
