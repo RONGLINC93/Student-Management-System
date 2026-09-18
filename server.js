@@ -2138,6 +2138,46 @@ async function handle(req, res) {
     });
   }
 
+  // 重置为「初始默认密码」（管理端）：学生 = 学号，教师 = 身份证号后 6 位，
+  // 并回到首次登录的强制改密状态。须放在通用 /api/users/:username PUT 之前拦截，
+  // 否则尾段会被当作用户名处理。管理员 / 查看模式账号没有初始密码，只能走「重设密码」。
+  const userPwdReset = pathname.match(/^\/api\/users\/([^/]+)\/password-reset$/);
+  if (userPwdReset && req.method === 'PUT') {
+    const me = authUser(req);
+    if (!me) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
+    if (me.role !== ROLES.ADMIN) return sendJson(res, 403, { code: 1, msg: '账号管理仅限管理员' });
+    const target = decodeURIComponent(userPwdReset[1]);
+    const list = readUsers();
+    const idx = list.findIndex(x => x.u === target);
+    if (idx === -1) {
+      return sendJson(res, 404, { code: 1, msg: '账号不存在，请先让该用户登录一次以自动建档，或改用「重设密码」直接设置新密码' });
+    }
+    const cur = list[idx];
+    let initPwd = '';
+    let desc = '';
+    if (cur.role === ROLES.STUDENT) {
+      if (!findStudentByNo(cur.u)) {
+        return sendJson(res, 404, { code: 1, msg: `未查询到学号「${cur.u}」的学生档案，无法重置为初始密码` });
+      }
+      initPwd = cur.u;                 // 学生初始密码 = 学号
+      desc = `学号「${initPwd}」`;
+    } else if (cur.role === ROLES.TEACHER) {
+      initPwd = teacherInitPassword(findTeacherByNo(cur.u)); // 教师初始密码 = 身份证号后 6 位
+      if (!initPwd) {
+        return sendJson(res, 400, { code: 1, msg: '该教师档案未登记身份证号（或不足 6 位），无法确定初始密码，请改用「重设密码」设置新密码' });
+      }
+      desc = '身份证号后 6 位';
+    } else {
+      return sendJson(res, 400, { code: 1, msg: '管理员 / 查看模式账号没有初始密码，请使用「重设密码」设置新密码' });
+    }
+    cur.salt = crypto.randomBytes(16).toString('hex');
+    cur.hash = hashPassword(initPwd, cur.salt);
+    cur.must = true;                   // 重置后再次登录需强制设置个人密码
+    cur.updatedAt = new Date().toISOString();
+    writeUsers(list);
+    return sendJson(res, 200, { code: 0, msg: `密码已重置为初始密码（${desc}），该用户下次登录需重新设置个人密码` });
+  }
+
   if (pathname === '/api/users' && req.method === 'POST') {
     const me = authUser(req);
     if (!me) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });

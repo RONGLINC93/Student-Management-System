@@ -75,7 +75,7 @@
       padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px;
       background: #fff; font-size: 12px; color: var(--text); max-width: 130px; width: 100%;
     }
-    .acc-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .acc-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
     .acc-created { color: var(--text-light); font-size: 12px; }
     @media (max-width: 900px) {
       .acc-head { display: none; }
@@ -83,10 +83,28 @@
         grid-template-columns: 1fr 1fr; grid-auto-rows: auto; padding: 12px 14px; gap: 6px 12px;
       }
     }
+    /* 账号搜索 / 角色筛选 */
+    .acc-search { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .acc-search-box { position: relative; flex: 1 1 200px; min-width: 170px; }
+    .acc-search-box .set-input { padding-left: 32px; padding-right: 28px; }
+    .acc-search-box .set-input::-webkit-search-cancel-button { display: none; }
+    .acc-search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      width: 14px; height: 14px; color: var(--text-light); pointer-events: none;
+    }
+    .acc-search-clear {
+      position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+      width: 22px; height: 22px; border: 0; background: transparent; cursor: pointer;
+      color: var(--text-light); font-size: 17px; line-height: 1; border-radius: 6px;
+    }
+    .acc-search-clear:hover { background: rgba(127, 127, 127, .12); color: var(--text); }
+    .acc-role-filter { flex: 0 0 auto; width: auto; min-width: 130px; }
+    .acc-count { flex: 0 0 auto; margin-left: auto; font-size: 12px; color: var(--text-light); }
     .acc-empty { text-align: center; color: var(--text-light); font-size: 13px; padding: 18px 0; }
+    .acc-empty b { color: var(--text); }
     .acc-tip { font-size: 12px; color: var(--text-light); margin-top: 8px; line-height: 1.7; }
     /* 重设密码弹窗 */
-    #pwdMask .modal { max-width: 420px; }
+    #pwdMask .modal-footer .pwd-init { margin-right: auto; }
     .pwd-who { margin: 0 0 12px; font-size: 13px; color: var(--text-light); line-height: 1.7; word-break: break-all; }
     .pwd-who b { color: var(--text); }
     .pwd-eye { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-light); cursor: pointer; user-select: none; }
@@ -572,10 +590,25 @@
             </div>
             <button class="btn btn-primary btn-sm" id="btnAddAcc">添加账号</button>
           </div>
+          <div class="acc-search">
+            <div class="acc-search-box">
+              <svg class="acc-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+              <input type="search" id="accSearch" class="set-input" autocomplete="off" placeholder="搜索账号或昵称…" />
+              <button type="button" class="acc-search-clear" id="accSearchClear" title="清空" hidden>&times;</button>
+            </div>
+            <select id="accRoleFilter" class="set-input acc-role-filter">
+              <option value="">全部角色</option>
+              <option value="admin">管理员</option>
+              <option value="viewer">查看模式</option>
+              <option value="student">学生（自助端）</option>
+              <option value="teacher">教师（自助端）</option>
+            </select>
+            <span class="acc-count" id="accCount">加载中…</span>
+          </div>
           <div class="acc-zone" id="accZone">
             <div class="acc-empty" id="accEmpty">账号列表加载中…</div>
           </div>
-          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝；其「行政职务」命中下方「<a href="#roles" onclick="switchSec('roles');return false;">职位权限</a>」清单中的职务条目时即可登录管理后台，并仅可管理该条目勾选的模块（没命中的教师不能进入管理后台，只能在教师端使用）；职称不再参与权限判定，可管理的模块完全由职务条目决定。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），教师账号随教师首次登录「教师入口」自动创建（账号为工号、初始密码为身份证号后 6 位，首次登录强制修改密码），此处均可为其重设密码，但角色不可修改。</p>
+          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝；其「行政职务」命中下方「<a href="#roles" onclick="switchSec('roles');return false;">职位权限</a>」清单中的职务条目时即可登录管理后台，并仅可管理该条目勾选的模块（没命中的教师不能进入管理后台，只能在教师端使用）；职称不再参与权限判定，可管理的模块完全由职务条目决定。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），教师账号随教师首次登录「教师入口」自动创建（账号为工号、初始密码为身份证号后 6 位，首次登录强制修改密码），此处均可为其<b>重设密码</b>（管理员指定新密码）或<b>重置密码</b>（一键恢复初始默认密码：学生为学号、教师为身份证号后 6 位，重置后该用户下次登录需重新设置个人密码），但角色不可修改。</p>
         </div>
       </section>
 
@@ -719,6 +752,7 @@
         <p class="hr-tip" id="pwdTip"></p>
       </form>
       <div class="modal-footer">
+        <button type="button" class="btn btn-default pwd-init" id="pwdResetInit" title="恢复初始默认密码：学生为学号，教师为身份证号后 6 位">重置为初始密码</button>
         <button type="button" class="btn btn-default" id="pwdCancel">取消</button>
         <button type="button" class="btn btn-primary" id="pwdSave">保存</button>
       </div>
@@ -1518,6 +1552,8 @@
           : (u.role === 'teacher'
             ? '设为本人身份证号后 6 位，即可恢复「首次登录（初始密码）」强制改密状态。'
             : '密码需为 6～64 位，保存后立即生效。'));
+        // 自助账号（学生 / 教师）才有一键「重置为初始密码」，管理类账号无初始密码
+        $el('pwdResetInit').style.display = (u.role === 'student' || u.role === 'teacher') ? '' : 'none';
         $el('pwdNew').value = '';
         $el('pwdNew2').value = '';
         $el('pwdEye').checked = false;
@@ -1554,6 +1590,27 @@
         }).catch(function (e) { toast(e.message || '操作失败', 'err'); })
           .finally(function () { done(); });
       }
+      // 一键恢复初始默认密码：弹窗内按钮与列表行按钮共用这套确认 + 提交流程
+      async function resetInitPwd(u, btn) {
+        var isStu = u.role === 'student';
+        if (!(await ask(
+          '确定将「' + (u.nickname || u.username) + '（@' + u.username + '）」的登录密码重置为初始默认密码吗？\n' +
+          (isStu ? '学生初始密码为本人学号「' + u.username + '」。' : '教师初始密码为本人身份证号后 6 位。') +
+          '\n重置后该用户下次登录需重新设置个人密码。',
+          '重置为初始密码', '重置', true))) return;
+        var done = busyBtn(btn, '重置中…');
+        if (!done) return;
+        fetch('/api/users/' + encodeURIComponent(u.username) + '/password-reset', { method: 'PUT' })
+          .then(function (r) { return r.json(); }).then(function (j) {
+            if (j.code !== 0) throw new Error(j.msg || '重置失败');
+            toast(j.msg || '密码已重置', 'ok');
+            closePwdModal();
+          }).catch(function (e) { toast(e.message || '重置失败，请重试', 'err'); })
+          .finally(function () { done(); });
+      }
+      $el('pwdResetInit').addEventListener('click', function () {
+        if (pwdTarget) resetInitPwd(pwdTarget, $el('pwdResetInit'));
+      });
       $el('pwdSave').addEventListener('click', savePwd);
       $el('pwdCancel').addEventListener('click', closePwdModal);
       $el('pwdClose').addEventListener('click', closePwdModal);
@@ -1598,7 +1655,10 @@
           (isSelf ? selfNote : (u.role === 'admin' ? '可操作全部功能与数据' : '仅查看，不可修改')) +
           '</div>' +
           '<div class="acc-btns">' +
-          '<button class="btn-sm btn-edit acc-reset">重设密码</button>' +
+          '<button class="btn-sm btn-edit acc-reset" title="由管理员指定一个新密码（6～64 位）">重设密码</button>' +
+          (isSelf
+            ? '<button class="btn-sm btn-reset acc-init" title="一键恢复本人的初始默认密码：学生为学号，教师为身份证号后 6 位；重置后下次登录需重新设置个人密码">重置密码</button>'
+            : '') +
           (isSelf || isMe ? '' : '<button class="btn-sm btn-del acc-del">删除</button>') +
           '</div>';
 
@@ -1619,6 +1679,10 @@
           openPwdModal(u);
         });
 
+        // 重置为「初始默认密码」：学生 = 学号，教师 = 身份证号后 6 位（均由服务端计算，前端不接触身份证）
+        var initBtn = row.querySelector('.acc-init');
+        if (initBtn) initBtn.addEventListener('click', function () { resetInitPwd(u, initBtn); });
+
         var del = row.querySelector('.acc-del');
         if (del) del.addEventListener('click', async function () {
           if (!(await ask('确定删除账号「' + u.username + '」吗？', '删除账号', '删除', true))) return;
@@ -1631,25 +1695,84 @@
         return row;
       }
 
+      // 账号列表：数据只拉取一次并缓存，搜索关键词与角色筛选均为纯前端过滤，不再请求服务端
+      var accCache = [];
+      var accSearchTimer = null;
+
+      function accFiltered() {
+        var kw = String(($el('accSearch') && $el('accSearch').value) || '').trim().toLowerCase();
+        var rf = $el('accRoleFilter') ? $el('accRoleFilter').value : '';
+        return accCache.filter(function (u) {
+          if (rf && u.role !== rf) return false;
+          if (!kw) return true;
+          return String(u.username || '').toLowerCase().indexOf(kw) >= 0 ||
+            String(u.nickname || '').toLowerCase().indexOf(kw) >= 0;
+        });
+      }
+
+      function paintAccList(list) {
+        var zone = $el('accZone');
+        var total = accCache.length;
+        zone.innerHTML = '';
+        if ($el('accCount')) {
+          $el('accCount').textContent = list.length === total
+            ? ('共 ' + total + ' 个账号')
+            : ('筛选出 ' + list.length + ' / ' + total + ' 个账号');
+        }
+        if (!total) {
+          zone.innerHTML = '<div class="acc-empty">暂无账号</div>';
+          return;
+        }
+        if (!list.length) {
+          zone.innerHTML = '<div class="acc-empty">没有匹配的账号<br />' +
+            '<span style="font-size:12px">换个关键词，或把角色改回「全部角色」再试</span></div>';
+          return;
+        }
+        var head = document.createElement('div');
+        head.className = 'acc-head';
+        ['账号 / 昵称', '创建时间', '角色', '权限', '操作'].forEach(function (t) {
+          var d = document.createElement('div');
+          d.textContent = t;
+          head.appendChild(d);
+        });
+        zone.appendChild(head);
+        list.forEach(function (u) { zone.appendChild(accRow(u)); });
+      }
+
       function renderAccList() {
         fetch('/api/users').then(function (r) { return r.json(); }).then(function (j) {
-          var zone = $el('accZone');
-          zone.innerHTML = '';
-          if (j.code !== 0 || !j.data || !j.data.length) {
-            zone.innerHTML = '<div class="acc-empty">' + escU(j.msg || '暂无账号') + '</div>';
-            return;
-          }
-          var head = document.createElement('div');
-          head.className = 'acc-head';
-          ['账号 / 昵称', '创建时间', '角色', '权限', '操作'].forEach(function (t) {
-            var d = document.createElement('div');
-            d.textContent = t;
-            head.appendChild(d);
-          });
-          zone.appendChild(head);
-          j.data.forEach(function (u) { zone.appendChild(accRow(u)); });
-        }).catch(function () { toast('读取账号列表失败', 'err'); });
+          accCache = (j.code === 0 && Array.isArray(j.data)) ? j.data : [];
+          paintAccList(accFiltered());
+        }).catch(function () {
+          if ($el('accCount')) $el('accCount').textContent = '读取失败';
+          $el('accZone').innerHTML = '<div class="acc-empty">读取账号列表失败，请刷新重试</div>';
+          toast('读取账号列表失败', 'err');
+        });
       }
+
+      // 搜索 / 筛选：输入即过滤，Esc 或 × 快速清空
+      function syncAccSearchClear() {
+        var inp = $el('accSearch');
+        if (inp && $el('accSearchClear')) $el('accSearchClear').hidden = !inp.value;
+      }
+      function repaintAccSoon() {
+        clearTimeout(accSearchTimer);
+        accSearchTimer = setTimeout(function () { paintAccList(accFiltered()); }, 120);
+      }
+      $el('accSearch').addEventListener('input', function () { syncAccSearchClear(); repaintAccSoon(); });
+      $el('accSearch').addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        this.value = '';
+        syncAccSearchClear();
+        paintAccList(accFiltered());
+      });
+      $el('accSearchClear').addEventListener('click', function () {
+        $el('accSearch').value = '';
+        syncAccSearchClear();
+        paintAccList(accFiltered());
+        $el('accSearch').focus();
+      });
+      $el('accRoleFilter').addEventListener('change', function () { paintAccList(accFiltered()); });
 
       $el('btnAddAcc').addEventListener('click', function () {
         var name = $el('accUser').value.trim();
