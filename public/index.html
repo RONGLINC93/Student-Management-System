@@ -115,6 +115,17 @@
           <span>系统设置</span>
         </a>
 
+        <div class="menu-hidden-wrap" id="menuHiddenWrap" hidden>
+          <button class="menu-hidden-head" id="btnHiddenToggle" type="button" aria-expanded="false" title="展开/收起其它项目">
+            <svg class="mh-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <span>其它项目</span>
+            <i class="mh-count" id="menuHiddenCount">0</i>
+          </button>
+          <div class="menu-hidden-box" id="menuHiddenBox" hidden>
+            <div class="menu-hidden-empty" id="menuHiddenEmpty">拖到此处隐藏菜单</div>
+          </div>
+        </div>
+
         <div class="menu-title menu-title-gap">大屏展示</div>
         <a class="menu-item" href="/result.html" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -139,6 +150,14 @@
           <span>教师中心</span>
         </a>
       </nav>
+
+      <div class="aside-tools">
+        <button class="aside-pen" id="btnMenuSort" type="button" aria-pressed="false" title="调整菜单顺序" aria-label="调整菜单顺序">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </button>
+        <span class="aside-sort-tip" id="menuSortTip" hidden>上下拖拽调整顺序</span>
+        <button class="aside-sort-reset" id="btnMenuReset" type="button" hidden title="恢复默认顺序">默认</button>
+      </div>
 
       <div class="aside-foot"><span data-site-name>学生管理系统</span> · 后台工作台<br /><span data-app-version>v1.1.0</span><br />版权所有 &copy; 2026 <a href="https://github.com/RONGLINC93/Student-Management-System" target="_blank" rel="noopener">RONGLINC</a></div>
     </aside>

@@ -117,6 +117,160 @@ input, select, textarea, button { font-family: inherit; }
 .aside-foot a { color: inherit; text-decoration: none; }
 .aside-foot a:hover { color: rgba(255, 255, 255, .78); text-decoration: underline; }
 
+/* ---------- 侧边栏底部工具条：铅笔按钮进入菜单排序 ---------- */
+.aside-tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(255, 255, 255, .07);
+}
+.aside-pen {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .72);
+  cursor: pointer;
+  transition: background .18s, color .18s, box-shadow .18s;
+}
+.aside-pen svg { width: 15px; height: 15px; }
+.aside-pen:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+/* 排序态：按钮高亮表示“点击即完成” */
+.aside-pen.on {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(79, 109, 245, .45);
+}
+.aside-sort-tip {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, .58);
+}
+.aside-sort-tip[hidden] { display: none; }
+.aside-sort-reset {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, .62);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.aside-sort-reset:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.aside-sort-reset[hidden] { display: none; }
+
+/* 排序态下的菜单：功能模块可抓握拖拽，外链类菜单置灰不参与 */
+.admin-aside.sorting .menu-item[data-mod] {
+  cursor: grab;
+  touch-action: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22);
+}
+/* 右侧六点抓握图标：提示该项可上下拖动 */
+.admin-aside.sorting .menu-item[data-mod]::after {
+  content: '';
+  flex: none;
+  margin-left: auto;
+  width: 10px;
+  height: 16px;
+  background: currentColor;
+  opacity: .5;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='2' cy='3' r='1.3'/%3E%3Ccircle cx='8' cy='3' r='1.3'/%3E%3Ccircle cx='2' cy='8' r='1.3'/%3E%3Ccircle cx='8' cy='8' r='1.3'/%3E%3Ccircle cx='2' cy='13' r='1.3'/%3E%3Ccircle cx='8' cy='13' r='1.3'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='2' cy='3' r='1.3'/%3E%3Ccircle cx='8' cy='3' r='1.3'/%3E%3Ccircle cx='2' cy='8' r='1.3'/%3E%3Ccircle cx='8' cy='8' r='1.3'/%3E%3Ccircle cx='2' cy='13' r='1.3'/%3E%3Ccircle cx='8' cy='13' r='1.3'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
+}
+.admin-aside.sorting .menu-item[data-mod]:active { cursor: grabbing; }
+/* 拖拽中的菜单项：半透明 + 品牌色描边 */
+.admin-aside.sorting .menu-item.menu-dragging {
+  opacity: .6;
+  background: rgba(79, 109, 245, .28);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+.admin-aside.sorting .menu-item:not([data-mod]) { opacity: .35; pointer-events: none; }
+
+/* ---------- 已隐藏菜单分组（点击标题展开，排序态可直接拖入/拖出） ---------- */
+.menu-hidden-wrap { margin-top: 10px; }
+.menu-hidden-wrap[hidden] { display: none; }
+.menu-hidden-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .6);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background .18s, color .18s;
+}
+.menu-hidden-head:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.menu-hidden-head .mh-chevron { flex: none; width: 13px; height: 13px; transition: transform .18s; }
+.menu-hidden-head[aria-expanded="true"] .mh-chevron { transform: rotate(90deg); }
+.mh-count {
+  flex: none;
+  margin-left: auto;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .18);
+  font-size: 10px;
+  font-style: normal;
+  line-height: 16px;
+  text-align: center;
+}
+.menu-hidden-box { margin-top: 4px; }
+.menu-hidden-box[hidden] { display: none; }
+/* 拖拽悬停在隐藏区上时的落点高亮 */
+.menu-hidden-box.drop-hl {
+  border-radius: 10px;
+  background: rgba(79, 109, 245, .14);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+.menu-hidden-empty {
+  padding: 9px 10px;
+  border: 1px dashed rgba(255, 255, 255, .2);
+  border-radius: 9px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, .42);
+  text-align: center;
+}
+.menu-hidden-empty[hidden] { display: none; }
+
+/* 排序态下每个菜单项右侧的「隐藏 / 恢复」小按钮 */
+.menu-hide-btn {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, .68);
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.menu-hide-btn svg { width: 13px; height: 13px; }
+.menu-hide-btn:hover { background: rgba(255, 255, 255, .18); color: #fff; }
+.admin-aside.sorting .menu-item[data-mod] > .menu-hide-btn { display: flex; }
+
 /* ---------- 右侧主体 ---------- */
 .admin-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 

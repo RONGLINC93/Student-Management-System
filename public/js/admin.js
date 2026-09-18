@@ -1247,9 +1247,14 @@
     } catch (e) {}
   }
 
-  // 左侧菜单点击
+  // 左侧菜单点击（排序态下点击只用于拖拽，不打开功能页）
   document.querySelectorAll('.menu-item[data-mod]').forEach(function (item) {
-    item.addEventListener('click', function () { openTab(item.getAttribute('data-mod')); });
+    item.addEventListener('click', function (e) {
+      if (menuSortOn) return;
+      // 点“眼睛”按钮只是隐藏/恢复，不打开功能页
+      if (e.target && e.target.closest && e.target.closest('.menu-hide-btn')) return;
+      openTab(item.getAttribute('data-mod'));
+    });
   });
 
   // 顶栏：刷新当前页
@@ -1539,16 +1544,345 @@
   }
   if (asideClose) asideClose.addEventListener('click', closeAside);
   if (asideBackdrop) asideBackdrop.addEventListener('click', closeAside);
-  // 窄屏下点任一菜单项（打开功能页 / 外链）后收回抽屉
+  // 窄屏下点任一菜单项（打开功能页 / 外链）后收回抽屉（排序态下不收，避免拖到一半抽屉关闭）
   if (aside) {
     aside.addEventListener('click', function (e) {
-      var item = e.target && e.target.closest ? e.target.closest('.menu-item') : null;
-      if (item) closeAside();
+      if (menuSortOn) return;
+      var tgt = e.target && e.target.closest ? e.target : null;
+      var item = tgt ? tgt.closest('.menu-item') : null;
+      if (item && !(tgt.closest('.menu-hide-btn') || tgt.closest('.menu-hidden-head'))) closeAside();
     });
   }
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' || e.key === 'Esc') closeAside();
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      if (menuSortOn) { setMenuSort(false); return; }
+      closeAside();
+    }
   });
+
+  /* ===== 侧边栏菜单排序 / 隐藏（底部“铅笔”按钮） =====
+     点击铅笔进入排序态：
+       - 「功能模块」下的菜单项可上下拖拽换位，松手即生效；
+       - 每项右侧出现“眼睛”按钮：点击把该菜单移入「已隐藏菜单」分组（再点可移回）；
+       - 也可直接把菜单拖进「已隐藏菜单」分组隐藏，或从中拖回显示；
+     顺序记入 localStorage（sms.menu.order），隐藏项记入 sms.menu.hidden，
+     下次进入工作台自动恢复；再次点击铅笔或按 Esc 退出并保存；
+     「默认」按钮恢复出厂顺序并显示全部菜单。
+     排序只在「功能模块」组内进行，大屏/学生/教师入口等外链菜单不参与。 */
+  var MENU_ORDER_KEY = 'sms.menu.order';
+  var MENU_HIDDEN_KEY = 'sms.menu.hidden';
+  var SVG_EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var SVG_EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  var menuScrollEl = document.querySelector('.menu-scroll');
+  var btnMenuSort = $('#btnMenuSort');
+  var menuSortTip = $('#menuSortTip');
+  var btnMenuReset = $('#btnMenuReset');
+  var menuHiddenWrap = $('#menuHiddenWrap');      // 「已隐藏菜单」整块（含标题与容器）
+  var btnHiddenToggle = $('#btnHiddenToggle');    // 分组标题按钮（点击展开/收起）
+  var menuHiddenBox = $('#menuHiddenBox');        // 隐藏菜单的容器
+  var menuHiddenCount = $('#menuHiddenCount');    // 标题右侧的数量角标
+  var menuHiddenEmpty = $('#menuHiddenEmpty');    // 空态提示（排序态下提示可拖入）
+  var menuSortOn = false;        // 是否处于侧边栏排序态
+  var menuSortDrag = null;       // 当前拖拽的菜单项状态
+  var menuDefaultOrder = [];     // 出厂顺序（脚本加载时的 DOM 顺序）
+  var menuHiddenOpen = false;    // 「已隐藏菜单」分组是否展开
+
+  // 可排序（可见）的菜单项：nav 直接子级中带 data-mod 的功能模块菜单；
+  // 已隐藏的项位于 #menuHiddenBox 内、不是 nav 直接子级，故不计入
+  function sortableMenuItems() {
+    var list = [];
+    if (!menuScrollEl) return list;
+    var kids = menuScrollEl.children;
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i];
+      if (el.classList && el.classList.contains('menu-item') && el.getAttribute('data-mod')) list.push(el);
+    }
+    return list;
+  }
+
+  // 全部功能模块菜单（含隐藏区内的），用于拖拽命中判定与按钮注入
+  function allMenuItems() {
+    var list = [];
+    if (!menuScrollEl) return list;
+    var all = menuScrollEl.querySelectorAll('.menu-item[data-mod]');
+    for (var i = 0; i < all.length; i++) list.push(all[i]);
+    return list;
+  }
+
+  // 已隐藏的菜单项（隐藏容器内的菜单）
+  function hiddenItems() {
+    var list = [];
+    if (!menuHiddenBox) return list;
+    var kids = menuHiddenBox.children;
+    for (var i = 0; i < kids.length; i++) {
+      if (kids[i].classList && kids[i].classList.contains('menu-item')) list.push(kids[i]);
+    }
+    return list;
+  }
+
+  // 「功能模块」组末尾锚点：「已隐藏菜单」分组（排在它之前）；
+  // 无该分组时取第一个分组标题（大屏展示）
+  function menuGroupAnchor() {
+    if (!menuScrollEl) return null;
+    return menuHiddenWrap || menuScrollEl.querySelector('.menu-title-gap');
+  }
+
+  (function () {
+    var items = sortableMenuItems();
+    for (var i = 0; i < items.length; i++) menuDefaultOrder.push(items[i].getAttribute('data-mod'));
+  })();
+
+  // 取当前指针纵坐标落在哪个菜单项上（含隐藏区内的项，排除正在拖拽的那个）
+  function menuItemAt(y) {
+    var items = allMenuItems();
+    for (var i = 0; i < items.length; i++) {
+      var el = items[i];
+      if (menuSortDrag && el === menuSortDrag.el) continue;
+      var r = el.getBoundingClientRect();
+      if (y >= r.top && y <= r.bottom) return el;
+    }
+    return null;
+  }
+
+  function inRect(x, y, r) {
+    return !!r && r.width > 0 && r.height > 0 &&
+      x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }
+
+  // 拖到列表上下边缘时自动滚动，便于把菜单拖到视野外
+  function rollMenuScroll(y) {
+    if (!menuScrollEl) return;
+    var r = menuScrollEl.getBoundingClientRect();
+    if (y < r.top + 28) menuScrollEl.scrollTop -= 10;
+    else if (y > r.bottom - 28) menuScrollEl.scrollTop += 10;
+  }
+
+  // 隐藏 / 恢复：在「功能模块」组与「已隐藏菜单」容器之间来回搬运菜单项
+  function hideMenuItem(item) {
+    if (!item || !menuHiddenBox) return;
+    menuHiddenBox.appendChild(item);
+    syncHidden();
+    saveMenuState();
+  }
+  function unhideMenuItem(item) {
+    if (!item || !menuScrollEl) return;
+    menuScrollEl.insertBefore(item, menuGroupAnchor());
+    syncHidden();
+    saveMenuState();
+  }
+
+  // 展开 / 收起「已隐藏菜单」（排序态进入时自动展开，便于拖入拖出）
+  function setHiddenOpen(open) {
+    menuHiddenOpen = !!open;
+    if (menuHiddenBox) menuHiddenBox.hidden = !menuHiddenOpen;
+    if (btnHiddenToggle) btnHiddenToggle.setAttribute('aria-expanded', menuHiddenOpen ? 'true' : 'false');
+  }
+
+  // 同步隐藏分组的显示状态：数量角标、空态提示、分组显隐，以及各项按钮的图标与语义
+  function syncHidden() {
+    var n = hiddenItems().length;
+    if (menuHiddenCount) menuHiddenCount.textContent = String(n);
+    // 排序态恒显示（作为可拖入的落点），其余时候有隐藏项才显示
+    if (menuHiddenWrap) menuHiddenWrap.hidden = !(menuSortOn || n > 0);
+    if (menuHiddenEmpty) menuHiddenEmpty.hidden = n > 0;
+    var all = allMenuItems();
+    for (var i = 0; i < all.length; i++) {
+      var btn = all[i].querySelector('.menu-hide-btn');
+      if (!btn) continue;
+      var isHidden = all[i].parentNode === menuHiddenBox;
+      btn.innerHTML = isHidden ? SVG_EYE : SVG_EYE_OFF;
+      btn.title = isHidden ? '恢复显示该菜单' : '隐藏该菜单';
+      btn.setAttribute('aria-label', btn.title);
+    }
+  }
+
+  function saveMenuState() {
+    try {
+      var keys = [];
+      var items = sortableMenuItems();
+      for (var i = 0; i < items.length; i++) keys.push(items[i].getAttribute('data-mod'));
+      localStorage.setItem(MENU_ORDER_KEY, JSON.stringify(keys));
+      var hid = [];
+      var hs = hiddenItems();
+      for (var j = 0; j < hs.length; j++) hid.push(hs[j].getAttribute('data-mod'));
+      localStorage.setItem(MENU_HIDDEN_KEY, JSON.stringify(hid));
+    } catch (e) {}
+  }
+
+  // 按记忆顺序重排：记忆中有的按记忆顺序，记忆里没有的（后续新增功能）按原顺序排在其后
+  function applyMenuOrder(keys) {
+    if (!menuScrollEl || !keys || !keys.length) return;
+    var items = sortableMenuItems();
+    var ordered = [];
+    var used = {};
+    var i, j;
+    for (i = 0; i < keys.length; i++) {
+      for (j = 0; j < items.length; j++) {
+        if (!used[j] && items[j].getAttribute('data-mod') === keys[i]) {
+          used[j] = 1;
+          ordered.push(items[j]);
+          break;
+        }
+      }
+    }
+    for (j = 0; j < items.length; j++) if (!used[j]) ordered.push(items[j]);
+    var anchor = menuGroupAnchor();
+    for (i = 0; i < ordered.length; i++) menuScrollEl.insertBefore(ordered[i], anchor);
+  }
+
+  // 恢复上次记忆：先把记住的隐藏项搬进隐藏分组，再按记忆顺序重排可见项
+  function restoreMenuState() {
+    var hid = null;
+    try { hid = JSON.parse(localStorage.getItem(MENU_HIDDEN_KEY) || '[]'); } catch (e) { hid = null; }
+    if (Array.isArray(hid) && hid.length && menuHiddenBox) {
+      var all = allMenuItems();
+      for (var i = 0; i < hid.length; i++) {
+        for (var j = 0; j < all.length; j++) {
+          if (all[j].getAttribute('data-mod') === hid[i]) { menuHiddenBox.appendChild(all[j]); break; }
+        }
+      }
+    }
+    var keys = null;
+    try { keys = JSON.parse(localStorage.getItem(MENU_ORDER_KEY) || '[]'); } catch (e2) { keys = null; }
+    if (Array.isArray(keys)) applyMenuOrder(keys);
+    syncHidden();
+    setHiddenOpen(false);
+  }
+
+  function setMenuSort(on) {
+    menuSortOn = !!on;
+    if (aside) aside.classList.toggle('sorting', menuSortOn);
+    if (btnMenuSort) {
+      btnMenuSort.classList.toggle('on', menuSortOn);
+      btnMenuSort.title = menuSortOn ? '完成排序（保存菜单顺序）' : '调整菜单顺序';
+      btnMenuSort.setAttribute('aria-pressed', menuSortOn ? 'true' : 'false');
+    }
+    if (menuSortTip) {
+      menuSortTip.hidden = !menuSortOn;
+      menuSortTip.textContent = menuSortOn ? '拖拽排序 · 拖入隐藏区即隐藏' : '';
+    }
+    if (btnMenuReset) btnMenuReset.hidden = !menuSortOn;
+    if (menuSortOn) setHiddenOpen(true);   // 展开隐藏区，方便直接拖入拖出
+    syncHidden();
+    if (!menuSortOn) {
+      if (menuSortDrag) endMenuDrag();
+      if (!hiddenItems().length) setHiddenOpen(false);
+      saveMenuState();
+    }
+  }
+
+  function endMenuDrag() {
+    var d = menuSortDrag;
+    if (!d) return;
+    menuSortDrag = null;
+    d.el.classList.remove('menu-dragging');
+    document.body.style.cursor = '';
+    if (menuHiddenBox) menuHiddenBox.classList.remove('drop-hl');
+    syncHidden();
+    if (d.moved) saveMenuState();
+  }
+
+  if (btnMenuSort) {
+    btnMenuSort.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setMenuSort(!menuSortOn);
+    });
+  }
+  if (btnMenuReset) {
+    btnMenuReset.addEventListener('click', function (e) {
+      e.stopPropagation();
+      // 恢复出厂：隐藏项全部移回可见区，再按出厂顺序排列
+      var hs = hiddenItems();
+      for (var i = 0; i < hs.length; i++) menuScrollEl.insertBefore(hs[i], menuGroupAnchor());
+      applyMenuOrder(menuDefaultOrder);
+      try {
+        localStorage.removeItem(MENU_ORDER_KEY);
+        localStorage.removeItem(MENU_HIDDEN_KEY);
+      } catch (err) {}
+      syncHidden();
+      wbToast('已恢复默认菜单', 'ok');
+    });
+  }
+
+  // 给每个功能模块菜单注入「隐藏 / 恢复」小按钮（仅排序态显示）
+  (function () {
+    var all = allMenuItems();
+    for (var i = 0; i < all.length; i++) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'menu-hide-btn';
+      all[i].appendChild(btn);
+    }
+  })();
+
+  // 菜单区内的点击：眼睛按钮＝隐藏/恢复，分组标题＝展开/收起
+  if (menuScrollEl) {
+    menuScrollEl.addEventListener('click', function (e) {
+      if (!e.target || !e.target.closest) return;
+      var btn = e.target.closest('.menu-hide-btn');
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var it = btn.closest('.menu-item[data-mod]');
+        if (!it) return;
+        if (it.parentNode === menuHiddenBox) unhideMenuItem(it);
+        else hideMenuItem(it);
+        return;
+      }
+      if (e.target.closest('.menu-hidden-head')) setHiddenOpen(!menuHiddenOpen);
+    });
+  }
+
+  if (menuScrollEl) {
+    menuScrollEl.addEventListener('pointerdown', function (e) {
+      if (!menuSortOn || e.button !== 0 || menuSortDrag) return;
+      // 点“眼睛”按钮不算拖拽
+      if (e.target && e.target.closest && e.target.closest('.menu-hide-btn')) return;
+      var item = e.target && e.target.closest ? e.target.closest('.menu-item[data-mod]') : null;
+      if (!item) return;
+      menuSortDrag = { el: item, moved: false, startY: e.clientY };
+      item.classList.add('menu-dragging');
+      document.body.style.cursor = 'grabbing';
+      try { menuScrollEl.setPointerCapture(e.pointerId); } catch (err) {}
+      e.preventDefault();
+    });
+  }
+  document.addEventListener('pointermove', function (e) {
+    var d = menuSortDrag;
+    if (!d) return;
+    if (Math.abs(e.clientY - d.startY) > 2) d.moved = true;
+    var over = menuItemAt(e.clientY);
+    var inHidden = false;
+    if (over) {
+      // 越过目标项中线才换位，避免在边界处反复抖动；跨容器即完成隐藏/恢复
+      var r = over.getBoundingClientRect();
+      var after = e.clientY > r.top + r.height / 2;
+      var ref = after ? over.nextSibling : over;
+      if (ref !== d.el && d.el.nextSibling !== ref) over.parentNode.insertBefore(d.el, ref);
+      inHidden = over.parentNode === menuHiddenBox;
+    } else if (menuHiddenWrap && !menuHiddenWrap.hidden &&
+               inRect(e.clientX, e.clientY, menuHiddenWrap.getBoundingClientRect())) {
+      // 落在「已隐藏菜单」分组（标题 / 空态提示 / 组内空白）：移入即隐藏
+      if (d.el.parentNode !== menuHiddenBox) menuHiddenBox.appendChild(d.el);
+      inHidden = true;
+    } else {
+      // 拖到可见区上下方：置顶 / 置底（排在隐藏分组之前）
+      var items = sortableMenuItems();
+      var first = items[0];
+      var last = items[items.length - 1];
+      if (first && first !== d.el && e.clientY < first.getBoundingClientRect().top) {
+        first.parentNode.insertBefore(d.el, first);
+      } else if (last && last !== d.el && e.clientY > last.getBoundingClientRect().bottom) {
+        d.el.parentNode.insertBefore(d.el, menuGroupAnchor());
+      }
+    }
+    if (menuHiddenBox) menuHiddenBox.classList.toggle('drop-hl', inHidden);
+    rollMenuScroll(e.clientY);
+  });
+  document.addEventListener('pointerup', endMenuDrag);
+  document.addEventListener('pointercancel', endMenuDrag);
+
+  restoreMenuState();
 
   // 视口宽度在“左右分屏/上下堆叠”断点间切换时，重排选项卡条分栏
   var resizeTimer = null;
