@@ -382,12 +382,13 @@ function bindEvents() {
     else if (btn.dataset.act === 'del') delRec(rec.id, rec.teacherName);
   };
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
-  // 组织架构（侧边栏树）
+  // 组织架构（侧边栏树 + 模态框编辑）
   $('#btnAddDept').onclick = () => openDeptEditor('add');
-  $('#btnSaveDept').onclick = saveDept;
-  $('#deptReset').onclick = resetDept;
-  $('#deptEditorCancel').onclick = () => { $('#deptEditor').hidden = true; };
+  $('#deptEditorCancel').onclick = closeDeptModal;
   $('#deptEditorSave').onclick = saveDeptEditor;
+  $('#deptModalClose').onclick = closeDeptModal;
+  $('#deptModal').onclick = (e) => { if (e.target === $('#deptModal')) closeDeptModal(); };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#deptModal') && $('#deptModal').classList.contains('show')) closeDeptModal(); });
   $('#deptTree').addEventListener('click', (e) => {
     // 折叠 / 展开
     const tg = e.target.closest('.ttoggle[data-toggle]');
@@ -544,7 +545,7 @@ function renderDeptTree() {
     '</div>';
   if (!deptCache.length) {
     html += writable
-      ? '<div class="hr-tip" style="margin-top:8px">还没有部门，点击右上角「添加部门」创建（如：校长室、教务处、总务处…）。</div>'
+      ? '<div class="hr-tip" style="margin-top:8px">还没有部门，点击左侧「添加根部门」创建（如：校长室、教务处、总务处…）。</div>'
       : '<div class="hr-tip" style="margin-top:8px">暂无部门数据。</div>';
   }
   host.innerHTML = html;
@@ -596,10 +597,10 @@ async function openDeptEditor(mode, opts) {
     $('#deptDesc').value = '';
     leaderSel.value = '';
   }
-  editor.hidden = false;
+  $('#deptModal').classList.add('show');
   $('#deptName').focus();
 }
-function saveDeptEditor() {
+async function saveDeptEditor() {
   const editor = $('#deptEditor');
   const mode = editor.dataset.mode;
   const editId = editor.dataset.editId;
@@ -620,21 +621,23 @@ function saveDeptEditor() {
   } else {
     deptCache.push({ id: 'dep_' + Date.now().toString(36), name, parentId, leaderId, leaderType, leaderName, desc });
   }
-  editor.hidden = true;
-  renderDeptTree();
+  closeDeptModal();
+  await commitDept();
 }
-function delDept(id) {
+async function delDept(id) {
   const sub = collectSubtree(id);
   const name = deptNameById(id);
   const cnt = sub.length;
   if (!window.confirm('确定删除部门「' + name + '」' + (cnt > 1 ? '及其下 ' + (cnt - 1) + ' 个子部门' : '') + '？')) return;
   deptCache = deptCache.filter(d => sub.indexOf(d.id) === -1);
   renderDeptTree();
+  await commitDept();
 }
-async function saveDept() {
-  if (!canWrite()) { toast('无保存权限', 'error'); return; }
-  const done = busyBtn($('#btnSaveDept'), '保存中…');
-  if (!done) return;
+// 把整个部门列表即时提交到服务端（新增/编辑/删除共用）
+async function commitDept() {
+  if (!canWrite()) { toast('无保存权限', 'error'); return false; }
+  const done = busyBtn($('#deptEditorSave'), '保存中…');
+  if (!done) return false;
   try {
     const payload = deptCache.map(d => ({
       id: d.id, name: d.name, parentId: d.parentId || '',
@@ -642,15 +645,13 @@ async function saveDept() {
     }));
     const res = await fetch(DEPT_API, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const json = await res.json();
-    if (json.code !== 0) { toast(json.msg || '保存失败', 'error'); return; }
+    if (json.code !== 0) { toast(json.msg || '保存失败', 'error'); return false; }
     deptCache = json.data || deptCache;
     toast(json.msg || '组织架构已保存', 'success');
     renderDeptTree();
     await loadTeachers();
-  } catch (e) { toast('保存失败：' + e.message, 'error'); }
+    return true;
+  } catch (e) { toast('保存失败：' + e.message, 'error'); return false; }
   finally { done(); }
 }
-function resetDept() {
-  if (!window.confirm('放弃未保存的部门改动，并从服务器重新加载组织架构？')) return;
-  loadDept().then(renderDeptTree);
-}
+function closeDeptModal() { const m = $('#deptModal'); if (m) m.classList.remove('show'); }

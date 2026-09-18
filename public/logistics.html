@@ -190,7 +190,7 @@
             <input type="text" id="fPost" list="postList" maxlength="30" placeholder="如：保安队长 / 食堂厨师" />
           </div>
           <div class="form-row"><label class="form-label">所属部门</label>
-            <input type="text" id="fDepartment" list="deptList" maxlength="30" placeholder="如：总务处" />
+            <select id="fDepartment" class="set-input"><option value="">（未分配部门）</option></select>
           </div>
           <div class="form-row"><label class="form-label">用工性质</label>
             <select id="fEmployType"></select>
@@ -233,15 +233,6 @@
             <input type="text" id="fRemark" maxlength="200" placeholder="如：负责夜间巡查、持有特种设备操作证等（选填）" />
           </div>
         </div>
-        <datalist id="deptList">
-          <option value="总务处"></option>
-          <option value="后勤处"></option>
-          <option value="安保处"></option>
-          <option value="食堂"></option>
-          <option value="宿舍管理中心"></option>
-          <option value="物业"></option>
-          <option value="校医室"></option>
-        </datalist>
         <datalist id="postList">
           <option value="保安"></option>
           <option value="保安队长"></option>

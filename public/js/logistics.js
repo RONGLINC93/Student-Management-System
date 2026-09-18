@@ -8,6 +8,8 @@ const OFF_DUTY = ['离职', '退休'];
 const DUE_DAYS = 30;   // 合同 / 健康证到期预警阈值（天）
 
 let staff = [];
+let deptCache = [];
+const DEPT_API = '/api/departments';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -68,6 +70,28 @@ function initOptions() {
   fillSelect($('#fEmployType'), EMPLOY_TYPES);
   fillSelect($('#fShift'), SHIFTS, '（未指定班次）');
   fillSelect($('#catFilter'), CATEGORIES);
+}
+// 拉取组织架构部门（与人事管理共用 /api/departments），供「所属部门」联动下拉
+async function loadDept() {
+  try {
+    const res = await fetch(DEPT_API);
+    const json = await res.json();
+    deptCache = (json && json.code === 0 && Array.isArray(json.data)) ? json.data : [];
+  } catch (e) { deptCache = []; }
+}
+// 树形缩进填充「所属部门」下拉（value=部门名称，与后勤职工 department 字段一致）
+function fillDeptSelect() {
+  const sel = $('#fDepartment');
+  if (!sel) return;
+  const kidsOf = pid => deptCache.filter(d => (d.parentId || '') === pid);
+  let html = '<option value="">（未分配部门）</option>';
+  (function walk(pid, prefix) {
+    kidsOf(pid).forEach(d => {
+      html += '<option value="' + escapeHtml(d.name) + '">' + escapeHtml(prefix + d.name) + '</option>';
+      walk(d.id, prefix + '　');
+    });
+  })('', '');
+  sel.innerHTML = html;
 }
 
 // ===== 到期渲染 =====
@@ -187,6 +211,7 @@ function refreshDatalists() {
 
 // ===== 弹窗 =====
 function openModal(rec) {
+  fillDeptSelect();
   $('#modalTitle').textContent = rec ? '编辑后勤职工 · ' + (rec.name || '') : '添加后勤职工';
   $('#fId').value = rec ? (rec.id || '') : '';
   $('#fName').value = rec ? (rec.name || '') : '';
@@ -335,6 +360,7 @@ function init() {
   initOptions();
   bindEvents();
   loadList();
+  loadDept().then(fillDeptSelect);
 }
 init();
 // 登录态就绪后按「职位权限」重渲染一次（未授权时隐藏写操作入口）

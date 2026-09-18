@@ -106,6 +106,7 @@
     .dept-editor .form-label { flex: 0 0 92px; font-size: 13px; color: var(--text); }
     .dept-editor .set-input { flex: 1; }
     .dept-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .modal-body .dept-editor { margin-top: 0; border: 0; background: transparent; padding: 0; }
     .req { color: #e3493b; }
     .dept-row input.dept-desc { flex: 1; }
   </style>
@@ -153,34 +154,6 @@
         <p class="hr-tip">顶层为学校名称，其下按部门层级维护（支持多级：总务处 → 安保处 / 食堂）。每行右侧「⋯」可添加子部门 / 编辑 / 删除，改完点「保存组织架构」。部门权限在「系统设置 → 组织架构权限」配置，<b>子部门自动继承上级权限</b>。</p>
         <div id="deptTree" class="org-tree"></div>
 
-        <div id="deptEditor" class="dept-editor" hidden>
-          <div class="dept-editor-title" id="deptEditorTitle">添加部门</div>
-          <div class="form-row">
-            <label class="form-label">部门名称 <span class="req">*</span></label>
-            <input type="text" id="deptName" class="set-input" maxlength="30" placeholder="如：安保处" />
-          </div>
-          <div class="form-row">
-            <label class="form-label">上级部门</label>
-            <select id="deptParent" class="set-input"></select>
-          </div>
-          <div class="form-row">
-            <label class="form-label">部门负责人</label>
-            <select id="deptLeader" class="set-input"></select>
-          </div>
-          <div class="form-row">
-            <label class="form-label">描述</label>
-            <input type="text" id="deptDesc" class="set-input" maxlength="60" placeholder="选填" />
-          </div>
-          <div class="dept-editor-actions">
-            <button type="button" class="btn btn-default" id="deptEditorCancel">取消</button>
-            <button type="button" class="btn btn-primary" id="deptEditorSave">保存</button>
-          </div>
-        </div>
-
-        <div class="sidebar-foot">
-          <button type="button" class="btn btn-default" id="deptReset">重置</button>
-          <button type="button" class="btn btn-primary" id="btnSaveDept">保存组织架构</button>
-        </div>
       </aside>
       <div class="hr-main">
     <section class="stats">
@@ -292,6 +265,40 @@
           <button type="submit" class="btn btn-primary">保存</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 添加 / 编辑部门 模态框 -->
+  <div class="modal-mask" id="deptModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="deptEditorTitle">添加部门</h3>
+        <button class="modal-close" id="deptModalClose" type="button" aria-label="关闭"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div id="deptEditor">
+          <div class="form-row">
+            <label class="form-label">部门名称 <span class="req">*</span></label>
+            <input type="text" id="deptName" class="set-input" maxlength="30" placeholder="如：安保处" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">上级部门</label>
+            <select id="deptParent" class="set-input"></select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">部门负责人</label>
+            <select id="deptLeader" class="set-input"></select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">描述</label>
+            <input type="text" id="deptDesc" class="set-input" maxlength="60" placeholder="选填" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" id="deptEditorCancel">取消</button>
+        <button type="button" class="btn btn-primary" id="deptEditorSave">保存</button>
+      </div>
     </div>
   </div>
 
