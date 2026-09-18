@@ -109,12 +109,12 @@ const DEFAULT_DEPARTMENTS = [
   { id: 'dep_zwc',   name: '总务处',      desc: '', parentId: null },
   { id: 'dep_bgs',   name: '办公室',      desc: '', parentId: null },
   { id: 'dep_jks',   name: '教科室',      desc: '', parentId: null },
-  { id: 'dep_jyz',   name: '教研组',      desc: '', parentId: 'dep_jwc' },
-  { id: 'dep_njz',   name: '年级组',      desc: '', parentId: 'dep_jwc' },
+  { id: 'dep_jyz',   name: '教研组',      desc: '', parentId: null },
+  { id: 'dep_njz',   name: '年级组',      desc: '', parentId: null },
   { id: 'dep_ssgl',  name: '宿舍管理中心', desc: '', parentId: null },
   { id: 'dep_hq',    name: '后勤处',      desc: '', parentId: null },
-  { id: 'dep_aq',    name: '安保处',      desc: '', parentId: 'dep_zwc' },
-  { id: 'dep_st',    name: '食堂',        desc: '', parentId: 'dep_zwc' }
+  { id: 'dep_aq',    name: '安保处',      desc: '', parentId: null },
+  { id: 'dep_st',    name: '食堂',        desc: '', parentId: null }
 ];
 const ALL_MODULE_KEYS = PERMISSION_MODULES.map(m => m.key);
 // 单条职务权限规范化：职务名去空截断、模块走白名单过滤（身份已取消，不再保存 role）

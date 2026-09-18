@@ -42,7 +42,7 @@ function applyWriteScope() {
   if (canWrite()) return;
   const add = $('#btnAdd');
   if (add) add.style.display = 'none';
-  const deptBtn = $('#btnAddDept');
+  const deptBtn = $('#btnDeptSettings');
   if (deptBtn) deptBtn.style.display = 'none';
   document.querySelectorAll('.row-actions').forEach(el => { el.remove(); });
   const main = document.querySelector('main.container');
@@ -382,52 +382,24 @@ function bindEvents() {
     else if (btn.dataset.act === 'del') delRec(rec.id, rec.teacherName);
   };
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
-  // 组织架构（侧边栏树）
+  // 组织架构
+  $('#btnDeptSettings').onclick = openDeptModal;
+  $('#deptModalClose').onclick = closeDeptModal;
+  $('#deptModalCancel').onclick = closeDeptModal;
+  $('#deptModal').onclick = (e) => { if (e.target === $('#deptModal')) closeDeptModal(); };
   $('#btnAddDept').onclick = () => openDeptEditor('add');
   $('#btnSaveDept').onclick = saveDept;
-  $('#deptReset').onclick = resetDept;
   $('#deptEditorCancel').onclick = () => { $('#deptEditor').hidden = true; };
   $('#deptEditorSave').onclick = saveDeptEditor;
   $('#deptTree').addEventListener('click', (e) => {
-    // 折叠 / 展开
-    const tg = e.target.closest('.ttoggle[data-toggle]');
-    if (tg) {
-      const id = tg.getAttribute('data-toggle');
-      if (deptCollapsed.has(id)) deptCollapsed.delete(id); else deptCollapsed.add(id);
-      renderDeptTree();
-      return;
-    }
-    // 打开 / 关闭下拉菜单
-    const mb = e.target.closest('.tmenu-btn');
-    if (mb) {
-      e.stopPropagation();
-      const menu = mb.parentElement.querySelector('.tmenu');
-      const willOpen = menu.hidden;
-      closeAllMenus();
-      menu.hidden = !willOpen;
-      return;
-    }
-    // 菜单项：添加子部门 / 编辑 / 删除
-    const mi = e.target.closest('.tmenu [data-act]');
-    if (mi) {
-      e.stopPropagation();
-      const act = mi.dataset.act, id = mi.dataset.id || '';
-      closeAllMenus();
-      if (act === 'add') (id ? openDeptEditor('add-child', { id }) : openDeptEditor('add'));
-      else if (act === 'edit') openDeptEditor('edit', { id });
-      else if (act === 'del') delDept(id);
-      return;
-    }
-    // 点击行：选中高亮
-    const rw = e.target.closest('.trow');
-    if (rw) {
-      document.querySelectorAll('#deptTree .trow.selected').forEach(el => el.classList.remove('selected'));
-      rw.classList.add('selected');
-    }
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const act = b.dataset.act, id = b.dataset.id;
+    if (act === 'add') openDeptEditor('add-child', { id });
+    else if (act === 'edit') openDeptEditor('edit', { id });
+    else if (act === 'del') delDept(id);
   });
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('#deptTree .tmenu-wrap')) closeAllMenus();
-  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#deptModal') && $('#deptModal').classList.contains('show')) closeDeptModal(); });
 }
 
 window.cbEmbedRefresh = function () { loadTeachers().then(loadHR); };
@@ -435,15 +407,12 @@ window.cbEmbedRefresh = function () { loadTeachers().then(loadHR); };
 loadPerms().then(loadTeachers).then(() => {
   bindEvents();
   loadHR().then(applyWriteScope);
-  Promise.all([loadDept(), loadLeaders(), getSchoolName()]).then(renderDeptTree);
 });
 
 // ===== 组织架构（人事管理 → 组织架构；部门权限在系统设置配置）=====
 const DEPT_API = '/api/departments';
 let deptCache = [];        // 当前部门列表（扁平，含 parentId / leader*）
 let leaderOptions = [];    // 负责人候选：教师 + 后勤职工 {id, type, name, sub}
-let schoolNameCache = '学生管理系统';  // 组织架构树首层根名称（取自系统设置 schoolName）
-const deptCollapsed = new Set();       // 已折叠的节点 id（含虚拟根 '__root__'）
 function escAttr(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
@@ -477,81 +446,44 @@ function collectSubtree(id) {
   deptCache.filter(d => (d.parentId || '') === id).forEach(k => out.push(...collectSubtree(k.id)));
   return out;
 }
-// 获取学校名（组织架构树首层根）：优先 site.js 注入的 window.SITE，否则拉取公开设置
-function getSchoolName() {
-  if (window.SITE && window.SITE.schoolName) { schoolNameCache = String(window.SITE.schoolName); return Promise.resolve(); }
-  return fetch('/api/settings').then(r => r.json()).then(j => {
-    const d = j && j.data;
-    if (d && d.schoolName) schoolNameCache = String(d.schoolName);
-  }).catch(() => {});
-}
-// 关闭所有节点下拉菜单
-function closeAllMenus() {
-  document.querySelectorAll('#deptTree .tmenu').forEach(m => { m.hidden = true; });
-}
-const TREE_ICONS = {
-  building: '<svg class="tico building" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>',
-  staff: '<svg class="tico staff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  school: '<svg class="tico school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>',
-  more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>'
-};
 function renderDeptTree() {
   const host = $('#deptTree');
   if (!host) return;
-  const writable = canWrite();
-  const kidsOf = pid => deptCache.filter(d => (d.parentId || '') === pid);
-  const roots = kidsOf('');
-
-  function row(icon, name, meta, menu, hasKids, collapsed, nodeId) {
-    const toggle = hasKids
-      ? '<button type="button" class="ttoggle' + (collapsed ? ' collapsed' : '') + '" data-toggle="' + escAttr(nodeId) + '"></button>'
-      : '<span class="ttoggle leaf"></span>';
-    return '<div class="trow">' + toggle + icon +
-      '<span class="tname">' + escAttr(name) + '</span>' +
-      (meta ? '<span class="tmeta">' + escAttr(meta) + '</span>' : '') +
-      (menu || '') +
-    '</div>';
+  if (!deptCache.length) {
+    host.innerHTML = '<div class="hr-tip">暂无部门，点击下方「添加根部门」创建（如：校长室、教务处、总务处…）。</div>';
+    return;
   }
-  function menuHtml(items) {
-    return '<span class="tmenu-wrap">' +
-      '<button type="button" class="tmenu-btn" title="操作">' + TREE_ICONS.more + '</button>' +
-      '<div class="tmenu" hidden>' + items.map(it =>
-        '<button type="button" data-act="' + it.act + '" data-id="' + escAttr(it.id == null ? '' : it.id) + '">' + it.label + '</button>'
-      ).join('') + '</div>' +
-    '</span>';
-  }
+  const kidsOf = pid => deptCache.filter(d => (d.parentId || '') === (pid || ''));
   function node(d) {
     const children = kidsOf(d.id);
-    const collapsed = deptCollapsed.has(d.id);
-    const menu = writable ? menuHtml([
-      { act: 'add', id: d.id, label: '添加子部门' },
-      { act: 'edit', id: d.id, label: '编辑' },
-      { act: 'del', id: d.id, label: '删除' }
-    ]) : '';
-    let html = '<div class="tnode' + (collapsed ? ' collapsed' : '') + '">' +
-      row(children.length ? TREE_ICONS.building : TREE_ICONS.staff, d.name, d.leaderName || '', menu, children.length > 0, collapsed, d.id);
-    if (children.length) html += '<div class="tchildren">' + children.map(node).join('') + '</div>';
+    const leaderTxt = d.leaderName ? ('负责人：' + escAttr(d.leaderName)) : '未设负责人';
+    let html = '<div class="dept-node">' +
+      '<div class="dept-line">' +
+        '<span class="dept-name-t">' + escAttr(d.name) + '</span>' +
+        '<span class="dept-leader">' + leaderTxt + '</span>' +
+        (d.desc ? '<span class="dept-desc" title="' + escAttr(d.desc) + '">' + escAttr(d.desc) + '</span>' : '<span class="dept-desc"></span>') +
+        '<span class="dept-actions">' +
+          '<button type="button" data-act="add" data-id="' + escAttr(d.id) + '">添加子部门</button>' +
+          '<button type="button" data-act="edit" data-id="' + escAttr(d.id) + '">编辑</button>' +
+          '<button type="button" data-act="del" data-id="' + escAttr(d.id) + '">删除</button>' +
+        '</span>' +
+      '</div>';
+    if (children.length) html += '<div class="dept-children">' + children.map(c => node(c)).join('') + '</div>';
     html += '</div>';
     return html;
   }
-
-  // 首层根：学校名称（虚拟节点，其下挂所有顶级部门）
-  const rootCollapsed = deptCollapsed.has('__root__');
-  const rootMenu = writable ? menuHtml([{ act: 'add', id: '', label: '添加部门' }]) : '';
-  let html = '<div class="tnode tnode-root">' +
-    row(TREE_ICONS.school, schoolNameCache, '共 ' + deptCache.length + ' 个部门', rootMenu, roots.length > 0, rootCollapsed, '__root__') +
-    (roots.length ? '<div class="tchildren">' + roots.map(node).join('') + '</div>' : '') +
-    '</div>';
-  if (!deptCache.length) {
-    html += writable
-      ? '<div class="hr-tip" style="margin-top:8px">还没有部门，点击右上角「添加部门」创建（如：校长室、教务处、总务处…）。</div>'
-      : '<div class="hr-tip" style="margin-top:8px">暂无部门数据。</div>';
-  }
-  host.innerHTML = html;
+  host.innerHTML = kidsOf('').map(d => node(d)).join('');
 }
+async function openDeptModal() {
+  if (!canWrite()) { toast('当前账号无「组织架构」维护权限（需管理员或人事管理授权）', 'error'); return; }
+  await Promise.all([loadDept(), loadLeaders()]);
+  $('#deptEditor').hidden = true;
+  renderDeptTree();
+  $('#deptModal').classList.add('show');
+}
+function closeDeptModal() { const m = $('#deptModal'); if (m) m.classList.remove('show'); }
 // 打开编辑/新增表单：mode='add' 根部门；'add-child' 挂在 parentId 下；'edit' 编辑 existId
-async function openDeptEditor(mode, opts) {
-  if (!leaderOptions.length) { try { await loadLeaders(); } catch (e) {} }
+function openDeptEditor(mode, opts) {
   const editor = $('#deptEditor');
   const parentSel = $('#deptParent');
   const leaderSel = $('#deptLeader');
@@ -591,7 +523,7 @@ async function openDeptEditor(mode, opts) {
       if (lv) lv.selected = true; else leaderSel.value = '';
     } else leaderSel.value = '';
   } else {
-    $('#deptEditorTitle').textContent = (mode === 'add-child') ? '添加子部门' : '添加部门';
+    $('#deptEditorTitle').textContent = (mode === 'add-child') ? '添加子部门' : '添加根部门';
     $('#deptName').value = '';
     $('#deptDesc').value = '';
     leaderSel.value = '';
@@ -645,12 +577,8 @@ async function saveDept() {
     if (json.code !== 0) { toast(json.msg || '保存失败', 'error'); return; }
     deptCache = json.data || deptCache;
     toast(json.msg || '组织架构已保存', 'success');
-    renderDeptTree();
+    closeDeptModal();
     await loadTeachers();
   } catch (e) { toast('保存失败：' + e.message, 'error'); }
   finally { done(); }
-}
-function resetDept() {
-  if (!window.confirm('放弃未保存的部门改动，并从服务器重新加载组织架构？')) return;
-  loadDept().then(renderDeptTree);
 }

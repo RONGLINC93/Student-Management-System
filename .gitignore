@@ -1,4 +1,7 @@
 node_modules/
+# 临时冒烟测试目录（启动隔离实例用，非项目代码）
+tmp-smoke/
+tmp2/
 .trae/
 .playwright-cli/        # playwright-cli 工具的页面 DOM dump 缓存
 data/

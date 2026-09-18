@@ -1379,7 +1379,7 @@
 
       // ================= 二级侧边栏菜单：分组切换 =================
       // 科目设置已整合到「课程管理」，此处不再保留 subjects 分组
-      var NAV_KEYS = ['info', 'rules', 'data', 'audit', 'account', 'roles', 'deptroles', 'server'];
+      var NAV_KEYS = ['info', 'rules', 'data', 'audit', 'account', 'roles', 'server'];
       var curSec = NAV_KEYS[0];   // 当前分组（刷新时据此重载对应列表）
       function switchSec(key) {
         if (NAV_KEYS.indexOf(key) === -1) key = NAV_KEYS[0];
@@ -1411,7 +1411,7 @@
           });
         }
         // 支持 #rules / #data / #audit / #account / #server 直达指定分组
-        var m = /#(info|rules|data|audit|account|roles|deptroles|server)/.exec(location.hash || '');
+        var m = /#(info|rules|data|audit|account|server)/.exec(location.hash || '');
         switchSec(m ? m[1] : 'info');
       })();
 

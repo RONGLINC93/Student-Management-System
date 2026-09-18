@@ -1,0 +1,713 @@
+/* ============================================================
+   学生管理系统 · 后台工作台界面
+   ============================================================ */
+:root {
+  --brand: #4f6df5;
+  --brand-2: #7b5cf5;
+  --text: #1e293b;
+  --text-2: #64748b;
+  --text-3: #94a3b8;
+  --line: #e2e8f0;
+  --bg: #f1f5f9;
+  --danger: #ef4444;
+  /* 全站统一字体栈：必须与 css/style.css 中的 --font-sans 保持一致 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body.admin-body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--bg);
+  overflow: hidden;
+}
+/* 表单控件默认不继承字体，统一为与正文一致，与 css/style.css 保持同步 */
+input, select, textarea, button { font-family: inherit; }
+
+/* 100dvh：移动端浏览器地址栏伸缩时的高度更稳定（不支持时回退 100vh） */
+.admin-layout { display: flex; height: 100vh; height: 100dvh; }
+
+/* ---------- 左侧导航 ---------- */
+.admin-aside {
+  flex: none;
+  width: 230px;
+  background: linear-gradient(180deg, #252a55 0%, #1c1f3f 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+.brand-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(79, 109, 245, .4);
+}
+.brand-icon svg { width: 22px; height: 22px; }
+.brand-icon > .site-logo-img {
+  width: 40px; height: 40px; border-radius: 11px;
+  object-fit: contain; padding: 7px; box-sizing: border-box;
+}
+.brand-text { flex: 1; min-width: 0; }
+.brand-text strong { display: block; font-size: 15px; letter-spacing: .5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-text span { font-size: 12px; color: rgba(255, 255, 255, .55); }
+
+.menu-scroll {
+  flex: 1; overflow-y: auto; padding: 14px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.25) transparent;
+}
+.menu-scroll::-webkit-scrollbar { width: 5px; }
+.menu-scroll::-webkit-scrollbar-track { background: transparent; }
+.menu-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 3px; }
+.menu-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.4); }
+.menu-title {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, .4);
+  padding: 6px 10px;
+}
+.menu-title-gap { margin-top: 16px; }
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 3px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, .78);
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  transition: background .18s, color .18s;
+}
+.menu-item svg { width: 17px; height: 17px; flex: none; }
+.menu-item:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.menu-item { position: relative; }
+/* 侧边栏菜单通知角标（宿舍管理-待审核申请数 / 请假管理-待审批数），紧随菜单文字之后 */
+.menu-badge {
+  flex: none; margin-left: -3px;
+  min-width: 16px; height: 16px; padding: 0 5px; box-sizing: border-box;
+  border-radius: 999px; background: #f43f5e; color: #fff;
+  font-size: 10px; font-weight: 700; font-style: normal; line-height: 16px;
+  text-align: center; pointer-events: none;
+}
+.menu-badge[hidden] { display: none; }
+.aside-foot {
+  padding: 14px 16px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, .4);
+  border-top: 1px solid rgba(255, 255, 255, .07);
+}
+.aside-foot a { color: inherit; text-decoration: none; }
+.aside-foot a:hover { color: rgba(255, 255, 255, .78); text-decoration: underline; }
+
+/* ---------- 右侧主体 ---------- */
+.admin-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.admin-topbar {
+  height: 52px;
+  flex: none;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+.tb-title { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.tb-crumb, .tb-sep { color: var(--text-3); }
+.tb-title strong { font-size: 15px; color: var(--text); }
+
+.tb-actions { display: flex; gap: 8px; }
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--text-2);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .18s;
+}
+.icon-btn svg { width: 17px; height: 17px; }
+.icon-btn:hover { color: var(--brand); border-color: var(--brand); background: #eef2ff; }
+/* 官网入口图标（未配置官网时隐藏，避免 href="#" 误点） */
+.icon-btn[hidden] { display: none; }
+/* 顶栏账号胶囊（与 tb-actions 内图标按钮同高） */
+.tb-actions .auth-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  height: 34px;
+  padding: 0 5px 0 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: default;
+}
+.tb-actions .auth-chip > svg { width: 13px; height: 13px; flex: none; color: var(--text-3); }
+.tb-actions .auth-chip .auth-name {
+  max-width: 110px; overflow: hidden; text-overflow: ellipsis;
+  font-style: normal; font-weight: 600; color: var(--text);
+}
+.tb-actions .auth-chip .auth-role {
+  font-style: normal;
+  background: #eef2ff; color: var(--brand);
+  padding: 1px 8px; border-radius: 999px; font-size: 11px;
+}
+.tb-actions .auth-chip a.auth-exit {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  color: var(--text-3); text-decoration: none;
+}
+.tb-actions .auth-chip a.auth-exit svg { width: 12px; height: 12px; }
+.tb-actions .auth-chip a.auth-exit:hover { background: #eef2ff; color: var(--brand); }
+
+/* ---------- 选项卡 ---------- */
+.tab-bar {
+  flex: none;
+  display: flex;
+  background: #e9edf6;
+  border-bottom: 1px solid var(--line);
+  padding: 7px 12px 0;
+}
+.tab-bar > .tab-scroll { flex: 1 1 auto; min-width: 0; }
+.tab-scroll { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; }
+.tab-scroll::-webkit-scrollbar { height: 0; }
+.worktab {
+  display: flex;
+  flex: none;   /* 不随栏宽挤压：放不下时由 JS 收进“更多”下拉 */
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  max-width: 230px;
+  padding: 0 10px 0 13px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  color: var(--text-2);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color .15s;
+}
+.worktab:hover { color: var(--brand); }
+.worktab.active {
+  color: var(--brand);
+  font-weight: 600;
+  box-shadow: inset 0 2px 0 var(--brand);
+}
+.worktab .wt-icon { display: flex; flex: none; }
+.worktab .wt-icon svg { width: 14px; height: 14px; }
+.wt-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wt-close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 0;
+}
+.wt-close svg { width: 12px; height: 12px; }
+.wt-close:hover { background: #fee2e2; color: #dc2626; }
+.worktab.pinned .wt-close { display: none; }
+/* 拖拽排序：选项卡跟手浮动 */
+.worktab.dragging {
+  position: fixed;
+  z-index: 99;
+  margin: 0;
+  pointer-events: none;
+  cursor: grabbing;
+  opacity: .97;
+  box-shadow: 0 8px 20px rgba(30, 41, 82, .22);
+  transition: none;
+}
+/* 拖拽排序：落点位置的“虚拟目标”占位 */
+.worktab-slot {
+  flex: none;
+  height: 36px;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--brand);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: rgba(79, 70, 229, .08);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+}
+/* 跨栏拖放提示：主栏页签拖到右侧副栏时，整条副栏高亮为可落点 */
+.tab-bar.split .tab-side.drag-hl {
+  border-radius: 10px 10px 0 0;
+}
+
+/* ---------- 内容区（iframe） ---------- */
+.workbench { flex: 1; background: #fff; position: relative; overflow: hidden; }
+.work-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: none;
+  background: #f1f5f9;
+}
+.work-frame.active { display: block; }
+
+/* ---------- 选项卡条最右端：独立“并列”按钮（无背景无边框，hover/开启仅变色） ---------- */
+.tab-split-btn {
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color .18s;
+}
+.tab-split-btn svg { width: 16px; height: 16px; }
+.tab-split-btn:hover:not(:disabled) { color: var(--brand); }
+.tab-split-btn.on { color: var(--brand); }
+.tab-split-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 选项卡条最右端：页签操作“三个点”下拉（无背景无边框，hover/开启仅变色） */
+.tab-dots-btn {
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color .18s;
+}
+.tab-dots-btn svg { width: 17px; height: 17px; }
+.tab-dots-btn:hover,
+.tab-dots-btn.on { color: var(--brand); }
+
+.tab-menu {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(30, 41, 82, .18);
+}
+.tab-menu[hidden] { display: none; }
+.tab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab-menu-item svg { width: 14px; height: 14px; flex: none; }
+.tab-menu-item:hover:not(:disabled) { background: #eef2ff; color: var(--brand); }
+.tab-menu-item.danger:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
+.tab-menu-item:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 右侧副窗格组的页签：浅底与主栏区分；高亮只给本栏当前页（.active）。
+   两栏高亮互不干预——主栏高亮左窗格当前页，副栏高亮右窗格当前页 */
+.worktab.in-side:not(.active) { box-shadow: none; }
+
+/* 并列分屏时选项卡条也随窗格分为左/右两栏，各栏可容纳多个页签：
+   主栏（#tabScroll）承载左窗格组页签；副栏（#tabSide）承载右窗格组页签，
+   与右侧窗格对齐。仅左右分屏（宽屏 >=1100px）时启用；中/窄屏内容为上下堆叠时，
+   选项卡条还原为单条完整横栏（JS 负责收起分栏）。
+   最右端的独立“并列”按钮不属于任何一栏，始终停靠选项卡条最右端。 */
+.tab-side { display: none; overflow-y: hidden; }
+.tab-side::-webkit-scrollbar { height: 0; }
+.tab-bar.split { position: relative; }
+.tab-bar.split .tab-side {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 2px 0 6px; /* 越过两栏分隔条，副栏页签与右侧窗格起始对齐 */
+}
+.tab-bar.split #tabScroll {
+  flex: none;
+  width: calc(var(--split-ratio, 50%) - 3px);
+}
+/* 两栏之间的竖直分隔条，与内容区分隔条位置一致（随可调比例移动） */
+.tab-bar.split::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  bottom: 0;
+  left: calc(var(--split-ratio, 50%) - 3px);
+  width: 6px;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(#e6eaf4, #cbd3e8);
+  border-left: 1px solid #fff;
+  border-right: 1px solid #fff;
+}
+
+/* ---------- 并列显示（分屏自适应） ----------
+   主/副两个 iframe 都叠放在 .workbench 内，靠 .active 决定可见性；
+   根据视口宽度自动选择版式：
+     宽屏（>=1100px） 左右分屏：主左副右，中间竖直分隔条；
+     中屏（760-1099px）上下分屏：主上副下，中间水平分隔条；
+     窄屏（<760px）  退化为单窗格：仅显示主窗格（并列状态保留，
+                     窗口拉宽后自动恢复并列显示）。
+
+   重要：.work-frame 是 <iframe>（替换元素）。替换元素在 width/height 为
+   auto 时会按固有尺寸（iframe 默认 300px）渲染，而不是自动拉伸。因此
+   分屏时必须显式给出窗格宽度/高度（width / height），否则窗格会缩成
+   300px 并在右侧/下方留白。
+   分隔位置由根变量 --split-ratio 控制（默认 50%），JS 拖动分隔条实时改写；
+   左右分屏时它表示主窗格占宽比例，上下分屏时表示上窗格占高比例，
+   选项卡条的分栏宽度用同一变量，保证两栏与内容窗格始终对齐。 */
+:root { --split-ratio: 50%; }
+
+.workbench.split .work-frame.active.split-main {
+  left: 0; top: 0; bottom: 0;
+  width: calc(var(--split-ratio, 50%) - 3px); height: 100%;
+}
+.workbench.split .work-frame.active.split-ref {
+  left: calc(var(--split-ratio, 50%) + 3px); top: 0; bottom: 0;
+  width: calc(100% - var(--split-ratio, 50%) - 3px); height: 100%;
+}
+/* 两窗格之间的可拖拽分隔条（宽屏为竖直条；替代原装饰伪元素） */
+.wb-divider {
+  display: none;
+  position: absolute;
+  top: 0; bottom: 0;
+  left: var(--split-ratio, 50%);
+  width: 6px;
+  transform: translateX(-50%);
+  z-index: 6;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  background: linear-gradient(#e6eaf4, #cbd3e8);
+  border-left: 1px solid #fff;
+  border-right: 1px solid #fff;
+}
+.workbench.split .wb-divider { display: block; }
+.wb-divider:hover,
+.wb-divider.dragging {
+  background: linear-gradient(#cdd6f2, #9fb3e8);
+}
+.wb-divider.dragging { border-color: #eef2ff; }
+
+/* 中屏：左右分屏自动转为上下分屏，分隔条随之变为水平条 */
+@media (max-width: 1099px) {
+  .workbench.split .work-frame.active.split-main {
+    top: 0; left: 0; right: 0;
+    width: 100%; height: calc(var(--split-ratio, 50%) - 3px);
+  }
+  .workbench.split .work-frame.active.split-ref {
+    top: calc(var(--split-ratio, 50%) + 3px); left: 0; right: 0;
+    width: 100%; height: calc(100% - var(--split-ratio, 50%) - 3px);
+  }
+  .workbench.split .wb-divider {
+    top: var(--split-ratio, 50%);
+    bottom: auto; left: 0; right: 0;
+    width: auto; height: 6px;
+    transform: translateY(-50%);
+    cursor: row-resize;
+    background: linear-gradient(90deg, #e6eaf4, #cbd3e8);
+    border: 0;
+    border-top: 1px solid #fff;
+    border-bottom: 1px solid #fff;
+  }
+  .wb-divider:hover,
+  .wb-divider.dragging {
+    background: linear-gradient(90deg, #cdd6f2, #9fb3e8);
+  }
+}
+
+/* 窄屏：退化为单窗格，仅显示主窗格 */
+@media (max-width: 759px) {
+  .workbench.split .work-frame.active.split-main {
+    top: 0; bottom: 0; left: 0; right: 0;
+    width: 100%; height: 100%;
+  }
+  .workbench.split .work-frame.split-ref { display: none; }
+  .workbench.split .wb-divider { display: none; }
+}
+
+/* ---------- 选项卡溢出收拢（“更多”下拉） ----------
+   页签超出栏宽时，JS 给超出的页签加 .collapsed（display:none），
+   并把它们镜像成最右端“更多”按钮弹出的下拉菜单行。 */
+.worktab.collapsed { display: none; }
+
+.tab-more-btn {
+  display: none;
+  flex: none;
+  align-self: flex-end;
+  margin-left: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: #fff;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color .15s;
+}
+.tab-more-btn.show { display: inline-flex; }
+.tab-more-btn:hover { color: var(--brand); }
+.tab-more-btn svg { width: 14px; height: 14px; }
+.tab-more-count { font-size: 11px; line-height: 1; font-weight: 700; }
+
+.tab-more-menu {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  max-width: 260px;
+  max-height: 45vh;
+  overflow-y: auto;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(30, 41, 82, .18);
+}
+.tab-more-menu[hidden] { display: none; }
+
+.tab-more-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: grab;
+}
+.tab-more-item:active { cursor: grabbing; }
+.tab-more-item:hover { background: #eef2ff; color: var(--brand); }
+.tab-more-item.cur { background: #eef2ff; color: var(--brand); font-weight: 600; }
+/* 按住行上下拖拽＝调整被收起页签的相对顺序 */
+.tab-more-item.dragging { opacity: .45; cursor: grabbing; }
+.tab-more-item .tmi-icon { display: flex; flex: none; }
+.tab-more-item .tmi-icon svg { width: 14px; height: 14px; }
+.tab-more-item .tmi-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tab-more-item .tmi-close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  border-radius: 50%;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.tab-more-item .tmi-close svg { width: 12px; height: 12px; }
+.tab-more-item .tmi-close:hover { background: #fee2e2; color: #dc2626; }
+
+/* ============================================================
+   小屏适配（<=900px）
+   左侧导航由常驻栏改为「抽屉」：默认移出屏幕，经顶栏菜单按钮滑出，
+   点遮罩 / 关闭按钮 / 任一菜单项 / Esc 收回；视口拉宽后自动复位。
+   同时收紧顶栏与页签条的尺寸，保证窄屏下内容区仍完整可用。
+   断点 900px 与工作台分屏断点（1100 / 760px）相互独立、互不影响。
+   ============================================================ */
+
+/* 顶栏菜单按钮（仅窄屏显示） */
+.aside-toggle {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.aside-toggle svg { width: 19px; height: 19px; }
+.aside-toggle:hover { background: #eef2ff; color: var(--brand); }
+.aside-toggle:active { background: #e0e7ff; color: var(--brand); }
+
+/* 抽屉右上角关闭按钮（仅窄屏显示） */
+.aside-close {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .1);
+  color: rgba(255, 255, 255, .8);
+  cursor: pointer;
+}
+.aside-close svg { width: 15px; height: 15px; }
+.aside-close:hover { background: rgba(255, 255, 255, .22); color: #fff; }
+
+/* 抽屉遮罩：桌面端恒不可见，仅窄屏开抽屉时淡入 */
+.aside-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1290;
+  background: rgba(15, 23, 42, .48);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .26s ease, visibility .26s;
+  -webkit-tap-highlight-color: transparent;
+}
+.aside-backdrop.show { opacity: 1; visibility: visible; }
+
+@media (max-width: 900px) {
+  /* 侧栏抽屉化：脱离文档流浮在内容之上，内容区独占整屏 */
+  .admin-aside {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1300;
+    width: 250px;
+    max-width: 82vw;
+    transform: translateX(-100%);
+    transition: transform .26s ease;
+    box-shadow: 0 0 36px rgba(15, 23, 42, .45);
+  }
+  .admin-aside.open { transform: translateX(0); }
+  .menu-scroll { -webkit-overflow-scrolling: touch; }
+  .aside-toggle { display: flex; }
+  .aside-close { display: flex; }
+
+  /* 顶栏收紧：隐藏面包屑，标题可省略号收缩 */
+  .admin-topbar { height: 50px; padding: 0 10px; gap: 8px; }
+  .tb-title { flex: 1 1 auto; min-width: 0; gap: 6px; }
+  .tb-title strong {
+    min-width: 0;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tb-crumb, .tb-sep { display: none; }
+  .tb-actions { flex: none; gap: 6px; }
+  .icon-btn { width: 32px; height: 32px; border-radius: 8px; }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .tb-actions .auth-chip { height: 32px; max-width: 160px; padding: 0 4px 0 10px; }
+  .tb-actions .auth-chip .auth-name { max-width: 76px; }
+
+  /* 页签条收紧：单个页签更窄，一屏容纳更多页签 */
+  .tab-bar { padding: 6px 8px 0; }
+  .worktab { height: 34px; max-width: 170px; padding: 0 8px 0 11px; font-size: 12.5px; }
+  .worktab-slot { height: 34px; }
+  .worktab .wt-icon svg { width: 13px; height: 13px; }
+}
+
+/* 超窄屏（<=560px）：进一步精简顶栏，优先保证标题与页签可见 */
+@media (max-width: 560px) {
+  .admin-topbar { padding: 0 8px; }
+  .tb-actions .auth-chip .auth-name { max-width: 56px; font-size: 11px; }
+  .tb-actions .auth-chip .auth-role { display: none; }
+  .tb-actions .auth-chip a.auth-exit { width: 20px; height: 20px; }
+  .worktab { max-width: 140px; }
+}
+
+/* ===== 顶栏「刷新」的可见反馈 ===== */
+/* 刷新进行中：按钮图标旋转 */
+.icon-btn.spin svg { animation: wb-spin .7s linear infinite; }
+@keyframes wb-spin { to { transform: rotate(360deg); } }
+
+/* 工作台轻提示（刷新结果等非模态反馈） */
+.wb-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 12px);
+  max-width: calc(100% - 32px);
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #fff;
+  background: #334155;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, .18);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3000;
+  transition: opacity .18s, transform .18s;
+}
+.wb-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.wb-toast.ok { background: #16a34a; }
+.wb-toast.err { background: #dc2626; }
+

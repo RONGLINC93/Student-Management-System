@@ -1,0 +1,428 @@
+/* ============================================================
+   全局站点配置注入
+   所有页面引入本脚本后：
+   1. 拉取 /api/settings 并缓存到 window.SITE（{ schoolName,
+       logoDataUrl, schoolYear, slogan, schoolAddress, schoolPhone,
+       schoolWebsite, balanceGender, balanceSpecialty, ... }）；
+   2. 按配置应用到页面：
+      - 学校名称：替换 [data-site-name] 文本与标题中的“学生管理系统”
+      - 校徽：将 [data-site-logo] 处的默认图标替换为校徽图片
+      - 学年标签：写入 [data-site-year]（大屏副标题行胶囊）
+      - 校训/地址/电话/官网：写入 [data-site-meta]（大屏页脚）
+      - 官网：配置后显示 [data-site-web] 顶栏入口，指向学校官网
+      - 版本号：写入 [data-app-version]（服务端来自 package.json，唯一来源）
+   3. 完成后广播 cb-site-ready 事件，供工作台刷新标题等；
+   4. 收到 icst-active / icst-refresh / icst-settings 时静默重拉，
+      保证设置变更后在已打开的功能页中即时生效。
+   ============================================================ */
+(function () {
+  'use strict';
+
+  // ===== 全局 401 统一处理：会话失效时自动回到对应登录页 =====
+  // 包装 window.fetch（全站请求均走 fetch）；工作台功能页运行在 iframe 中，
+  // 失效时必须让顶层窗口跳转，避免只在 iframe 里显示登录页。
+  // 登录接口本身的 401 表示「账号 / 密码错误」，由各登录页自行提示，不拦截。
+  var __origFetch = window.fetch.bind(window);
+  var __authRedirecting = false;
+  function authRedirect() {
+    if (__authRedirecting) return;
+    var path = window.location.pathname || '';
+    if (path === '/login.html' || path === '/slogin.html') return; // 已在登录页
+    __authRedirecting = true;
+    var studentSide = path.indexOf('/student.html') !== -1;
+    var loginUrl = studentSide ? '/slogin.html' : '/login.html';
+    var topWin = window.top || window;
+    var cur = '/';
+    try { cur = topWin.location.pathname + topWin.location.search; } catch (e) {}
+    try {
+      topWin.location.href = loginUrl + '?next=' + encodeURIComponent(cur);
+    } catch (e) {
+      window.location.href = loginUrl; // 跨域等异常时退回当前窗口跳转
+    }
+  }
+  window.fetch = function (input, init) {
+    return __origFetch(input, init).then(function (resp) {
+      if (resp && resp.status === 401) {
+        var u = '';
+        try { u = typeof input === 'string' ? input : ((input && input.url) || ''); } catch (e) {}
+        if (u.indexOf('/api/login') === -1 && u.indexOf('/api/student/login') === -1) {
+          authRedirect();
+        }
+      }
+      return resp;
+    });
+  };
+
+  var DEFAULT_BRAND = '学生管理系统';
+
+  window.SITE = null;
+
+  // ===== 科目配置与成绩辅助（全站统一） =====
+  var DEFAULT_SUBJECTS = [
+    { key: 'chinese', name: '语文', max: 150 },
+    { key: 'math', name: '数学', max: 150 },
+    { key: 'english', name: '英语', max: 150 },
+    { key: 'science', name: '理综', max: 300 }
+  ];
+  window.SUBJECTS = DEFAULT_SUBJECTS.map(function (s) { return Object.assign({}, s); });
+
+  // 科目增删后供页面重建表格使用（订阅 cb-site-ready）
+  window.__subjectSeq = 0;
+
+  function refreshSubjects(s) {
+    var arr = (s && s.subjects && s.subjects.length) ? s.subjects : DEFAULT_SUBJECTS;
+    var list = arr.map(function (x) {
+      return {
+        key: String((x && x.key) || '').replace(/[^a-zA-Z0-9_]/g, '') || 'subject',
+        name: String((x && x.name) || '').trim() || '科目',
+        max: Math.max(10, Math.min(1000, Number(x && x.max) || 100))
+      };
+    }).filter(function (x) {
+      return !!x.key;
+    });
+    var seen = {};
+    list = list.filter(function (x) { if (seen[x.key]) return false; seen[x.key] = 1; return true; });
+    window.SUBJECTS = list;
+    window.__subjectSeq++;
+  }
+
+  // 读取学生某科成绩（无则返回 null）
+  function subjScore(stu, key) {
+    if (!stu || !stu.scores) return null;
+    var v = stu.scores[key];
+    return (v === '' || v === null || v === undefined) ? null : Number(v);
+  }
+  window.stuScore = subjScore;
+
+  // 总分（缺科按 0 计，兼容分班均衡；空白科不算入已考科数）
+  function subjTotal(stu) {
+    var sum = 0, hit = 0;
+    var list = window.SUBJECTS || [];
+    for (var i = 0; i < list.length; i++) {
+      var v = subjScore(stu, list[i].key);
+      if (v === null) continue;
+      sum += v;
+      hit++;
+    }
+    return { total: sum, count: hit };
+  }
+  window.subjTotal = subjTotal;
+
+  // 平均分（已考科目平均，无成绩科不计）
+  function subjAvgScore(stu) {
+    var r = subjTotal(stu);
+    return r.count ? r.total / r.count : 0;
+  }
+  window.subjAvg = subjAvgScore;
+
+  function load() {
+    return fetch('/api/settings')
+      .then(function (r) { return r.json(); })
+      .then(function (json) { window.SITE = json && json.data ? json.data : {}; })
+      .catch(function () { window.SITE = window.SITE || {}; });
+  }
+
+  // 学校名称：与默认占位名相同时保持页面原有文案，避免闪烁
+  function applyBrand(name) {
+    if (!name || name === DEFAULT_BRAND) return;
+    var els = document.querySelectorAll('[data-site-name]');
+    for (var i = 0; i < els.length; i++) els[i].textContent = name;
+    if (document.title.indexOf(DEFAULT_BRAND) !== -1) {
+      document.title = document.title.split(DEFAULT_BRAND).join(name);
+    }
+  }
+
+  // 校徽：替换页面上所有 [data-site-logo] 处的图标
+  function applyLogo(url) {
+    var hosts = document.querySelectorAll('svg[data-site-logo]');
+    for (var i = 0; i < hosts.length; i++) {
+      var svg = hosts[i];
+      var host = svg.parentElement;
+      if (!host) continue;
+      var img = null;
+      for (var c = 0; c < host.children.length; c++) {
+        var node = host.children[c];
+        if (node !== svg && String(node.className || '').indexOf('site-logo-img') !== -1) {
+          img = node;
+          break;
+        }
+      }
+      if (url) {
+        if (!img) {
+          img = document.createElement('img');
+          img.className = 'site-logo-img';
+          img.alt = '校徽';
+          host.insertBefore(img, svg);
+        }
+        img.src = url;
+        svg.style.display = 'none';
+      } else {
+        if (img && img.parentNode) img.parentNode.removeChild(img);
+        svg.style.display = '';
+      }
+    }
+  }
+
+  // 学年标签
+  function applyYear(str) {
+    var els = document.querySelectorAll('[data-site-year]');
+    for (var i = 0; i < els.length; i++) {
+      els[i].textContent = str || '';
+      els[i].style.display = str ? '' : 'none';
+    }
+  }
+
+  // HTML 转义（大屏页脚文本来自设置，避免特殊字符破坏结构）
+  function escHtml(t) {
+    var d = document.createElement('div');
+    d.textContent = t;
+    return d.innerHTML;
+  }
+
+  // 大屏页脚：校训 / 地址 / 电话 / 官网入口
+  function applyMeta(s) {
+    var parts = [];
+    if (s.slogan) parts.push(escHtml(s.slogan));
+    if (s.schoolAddress) parts.push(escHtml('地址：' + s.schoolAddress));
+    if (s.schoolPhone) parts.push(escHtml('联系电话：' + s.schoolPhone));
+    var web = String(s.schoolWebsite || '').trim();
+    var meta = document.querySelector('[data-site-meta]');
+    if (meta) {
+      meta.innerHTML = parts.join('　·　');
+      if (web) {
+        meta.appendChild(document.createTextNode('　·　'));
+        var a = document.createElement('a');
+        a.href = web;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.className = 'board-site-link';
+        a.textContent = '官网 ↗';
+        meta.appendChild(a);
+      }
+    }
+    var host = document.querySelector('[data-site-meta-host]');
+    if (host) host.style.display = (parts.length || web) ? '' : 'none';
+  }
+
+  // 官网入口：配置学校官网后显示（各功能页顶栏 / 后台工作台右上角）
+  function applyWeb(url) {
+    var els = document.querySelectorAll('[data-site-web]');
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (url) {
+        el.setAttribute('href', url);
+        el.removeAttribute('hidden');
+      } else {
+        el.removeAttribute('href');
+        el.setAttribute('hidden', '');
+      }
+    }
+  }
+
+  // 版本号：由 /api/settings 下发（唯一来源 package.json），写入 [data-app-version]。
+  // 取不到时保留 HTML 中的回退文案，不写入空串。
+  function applyVersion(v) {
+    v = String(v || '').trim().replace(/^v/i, '');
+    if (!v) return;
+    var els = document.querySelectorAll('[data-app-version]');
+    for (var i = 0; i < els.length; i++) els[i].textContent = 'v' + v;
+  }
+
+  function apply() {
+    var s = window.SITE || {};
+    refreshSubjects(s);
+    applyBrand(String(s.schoolName || '').trim());
+    applyLogo(s.logoDataUrl || '');
+    applyYear(String(s.schoolYear || '').trim());
+    applyMeta(s);
+    applyWeb(String(s.schoolWebsite || '').trim());
+    applyVersion(s.version);
+  }
+
+  function broadcast() {
+    try {
+      window.dispatchEvent(new CustomEvent('cb-site-ready', { detail: { settings: window.SITE || {} } }));
+    } catch (e) {}
+  }
+
+  window.siteApply = apply;
+  window.siteLoadSettings = function () {
+    return load().then(function () { apply(); broadcast(); });
+  };
+
+  // ===== 登录用户：顶栏账号展示 / 查看模式隐藏管理入口 =====
+  window.AUTH = null;
+
+  var IC_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+  var IC_LOGOUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>';
+
+  function renderAuthUI() {
+    var a = window.AUTH;
+    if (!a) return;
+
+    // 查看模式 / 职务账号（按职务授权的教师）：隐藏「系统设置 / 智能分班」等管理与写操作入口
+    // （工作台侧边栏菜单项用 data-mod 标识且无 href，需单独匹配 data-mod="allocate"）
+    if (a.role === 'viewer' || a.role === 'position') {
+      var hid = document.querySelectorAll(
+        'a[href*="settings"], a[href*="allocate"], .menu-item[data-mod="settings"], .menu-item[data-mod="allocate"], .dq-item[href*="settings"]'
+      );
+      for (var i = 0; i < hid.length; i++) hid[i].style.display = 'none';
+
+      // 智能分班页（直接输 URL 进入时）：禁用全部操作按钮，仅可查看
+      // 服务端对 /api/allocate 等写接口同样拦截，此处仅前端提示
+      if (location.pathname === '/allocate.html') {
+        var SEL = ['#btnShuffle', '#btnDeal', '#btnReset', '#floatShuffle', '#btnSettings'];
+        for (var j = 0; j < SEL.length; j++) {
+          var el = document.querySelector(SEL[j]);
+          if (el) el.style.display = 'none';
+        }
+        var ROLE_LBL = { viewer: '查看模式', position: '职务账号' };
+        var panel = document.querySelector('.control-right');
+        if (panel) {
+          var tip = document.createElement('span');
+          tip.className = 'ro-tip';
+          tip.style.cssText = 'align-self:center;font-size:13px;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:6px 12px';
+          tip.textContent = '当前账号（' + (ROLE_LBL[a.role] || a.role) + '）仅可查看，智能分班仅限管理员操作';
+          panel.appendChild(tip);
+        }
+      }
+    }
+
+    // 职务账号 / 查看模式：按「职位权限设置」（AUTH.writable）隐藏当前页面（未授权模块）的写操作按钮
+    // 服务端同样拦截写接口；页面 → 模块映射，未列出的页面（教师管理 / 总览 / 分析等）一律隐藏写按钮
+    // （查看模式 writable 恒为空，等价于所有页面只读）
+    if (a.role === 'viewer' || a.role === 'position') {
+      var PAGE_MODULE = {
+        '/students.html': 'students', '/classes.html': 'classes', '/grades.html': 'grades',
+        '/exams.html': 'exams', '/conduct.html': 'conduct', '/leaves.html': 'leaves',
+        '/announcements.html': 'announcements', '/dorm.html': 'dorms',
+        '/timetable.html': 'timetables', '/courses.html': 'courses', '/hr.html': 'hr',
+        '/logistics.html': 'logistics'
+      };
+      var pageMod = PAGE_MODULE[location.pathname] || '';
+      var writable = Array.isArray(a.writable) ? a.writable : [];
+      if (!pageMod || writable.indexOf(pageMod) === -1) {
+        document.body.classList.add('role-limited');
+        var st = document.createElement('style');
+        st.textContent = 'body.role-limited #btnAdd,body.role-limited .row-actions,body.role-limited .head-btn{display:none!important}';
+        document.head.appendChild(st);
+      }
+
+      // 学生档案页的混合权限：页内同时含「学生档案」与「宿舍管理」两类写操作，按授权分别隐藏，
+      // 避免可见但点击必 403（行内宿舍入口 / 批量分配宿舍属宿舍模块；批量分班 / 批量删除属学生档案模块）
+      if (location.pathname === '/students.html') {
+        var hideSel = [];
+        if (writable.indexOf('dorms') === -1) hideSel.push('.dorm-chip', '.dm-act', '[data-act="dorm"]', '#bulkDorm');
+        if (writable.indexOf('students') === -1) hideSel.push('#bulkAssign', '#bulkDelete');
+        if (hideSel.length) {
+          var stDorm = document.createElement('style');
+          stDorm.textContent = hideSel.join(',') + '{display:none!important}';
+          document.head.appendChild(stDorm);
+        }
+      }
+    }
+
+    // 顶栏（后台工作台右侧 / 单页顶部导航）插入账号胶囊
+    var host = document.querySelector('.tb-actions');
+    if (!host) host = document.querySelector('.nav');
+    if (!host) return;
+
+    var chip = document.createElement('span');
+    chip.className = 'auth-chip';
+    var ROLE_TITLE = { viewer: '查看模式', position: '职务账号' };
+    var ROLE_BADGE = { viewer: '查看', position: '职务账号' };
+    chip.title = '当前账号：' + a.username + '（' + (a.label || ROLE_TITLE[a.role] || '管理员') + '）';
+    chip.innerHTML =
+      IC_USER +
+      '<em class="auth-name"></em>' +
+      '<i class="auth-role">' + escHtml(a.label || ROLE_BADGE[a.role] || '管理') + '</i>' +
+      '<a class="auth-exit" href="/api/logout" title="退出登录">' + IC_LOGOUT + '</a>';
+    chip.querySelector('.auth-name').textContent = a.nickname || a.username;
+    host.appendChild(chip);
+  }
+
+  function loadAuth() {
+    return fetch('/api/auth/me')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        window.AUTH = (j && j.code === 0 && j.data) ? j.data : null;
+      })
+      .catch(function () { window.AUTH = null; })
+      .then(function () {
+        renderAuthUI();
+        try {
+          window.dispatchEvent(new CustomEvent('cb-auth-ready', { detail: { auth: window.AUTH } }));
+        } catch (e) {}
+      });
+  }
+  window.siteLoadAuth = loadAuth;
+
+  // ===== 小屏适配：顶栏导航折叠为下拉菜单 =====
+  // 窄屏（<=900px，与 style.css 断点一致）下顶部导航默认收起，
+  // 由顶栏右侧汉堡按钮展开；点导航项 / 页面空白 / Esc 收起，
+  // 视口拉宽到断点以上时自动复位。按钮由本脚本注入，页面无需改动。
+  var IC_MENU = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+  var IC_CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  var NARROW_W = 900;
+
+  function setupMobileNav() {
+    var inner = document.querySelector('.header-inner');
+    var nav = inner ? inner.querySelector('.nav') : null;
+    if (!inner || !nav || !nav.querySelector('.nav-item')) return;
+    if (inner.querySelector('.nav-toggle')) return;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'nav-toggle';
+    btn.setAttribute('aria-label', '展开导航菜单');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = IC_MENU;
+    inner.insertBefore(btn, nav);
+
+    function isOpen() { return nav.classList.contains('open'); }
+    function setOpen(open) {
+      open = !!open;
+      nav.classList.toggle('open', open);
+      btn.classList.toggle('on', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.setAttribute('aria-label', open ? '收起导航菜单' : '展开导航菜单');
+      btn.innerHTML = open ? IC_CLOSE : IC_MENU;
+    }
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setOpen(!isOpen());
+    });
+    // 点到任一导航项即收起（导航项通常跳转，视觉上更连贯）
+    nav.addEventListener('click', function (e) {
+      var item = e.target && e.target.closest ? e.target.closest('.nav-item') : null;
+      if (item) setOpen(false);
+    });
+    document.addEventListener('pointerdown', function (e) {
+      if (!isOpen()) return;
+      if (nav.contains(e.target) || btn.contains(e.target)) return;
+      setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' || e.key === 'Esc') setOpen(false);
+    });
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > NARROW_W && isOpen()) setOpen(false);
+    });
+  }
+
+  setupMobileNav();
+
+  // 工作台切换选项卡 / 手动刷新 / 系统设置保存后：静默重拉并应用
+  window.addEventListener('message', function (ev) {
+    if (!ev.data) return;
+    var t = ev.data.type;
+    if (t === 'icst-active' || t === 'icst-refresh' || t === 'icst-settings') {
+      window.siteLoadSettings();
+    }
+  });
+
+  // 启动加载
+  window.siteLoadSettings();
+  window.siteLoadAuth();
+})();

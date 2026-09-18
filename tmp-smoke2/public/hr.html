@@ -54,52 +54,17 @@
       .hr-table thead th { padding: 11px 12px; }
       .hr-table tbody td { padding: 9px 12px; }
     }
-    /* 组织架构侧边栏布局 */
-    .hr-layout { display: flex; gap: 18px; align-items: flex-start; }
-    .hr-sidebar {
-      flex: 0 0 300px; position: sticky; top: 18px; align-self: flex-start;
-      background: #fff; border: 1px solid var(--border); border-radius: 12px;
-      padding: 14px; max-height: calc(100vh - 45px); overflow: auto; overscroll-behavior: contain;
-    }
-    .hr-sidebar .sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-    .hr-sidebar .sidebar-title { font-size: 15px; font-weight: 700; margin: 0; }
-    .hr-sidebar .dept-tree { margin-top: 6px; }
-    .hr-sidebar .sidebar-foot { display: flex; gap: 8px; margin-top: 12px; }
-    .hr-sidebar .sidebar-foot .btn { flex: 1; }
-    .hr-main { flex: 1 1 auto; min-width: 0; }
-    @media (max-width: 900px) {
-      .hr-layout { flex-direction: column; }
-      .hr-sidebar { flex: 1 1 auto; width: 100%; position: static; max-height: none; }
-    }
-    /* 组织架构树 */
-    .org-tree { margin-top: 8px; font-size: 13.5px; user-select: none; }
-    .trow { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: 6px; min-height: 28px; position: relative; cursor: default; }
-    .trow:hover { background: #f1f5ff; }
-    .trow.selected { background: #e5ebff; }
-    .ttoggle { flex: 0 0 14px; width: 14px; height: 14px; border: 0; background: transparent; cursor: pointer; padding: 0; position: relative; }
-    .ttoggle::before { content: ''; position: absolute; left: 4px; top: 3px; border-left: 5px solid #94a3b8; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transform: rotate(90deg); transition: transform .12s ease; }
-    .ttoggle.collapsed::before { transform: rotate(0); }
-    .ttoggle.leaf::before { display: none; }
-    .tico { flex: 0 0 15px; width: 15px; height: 15px; }
-    .tico.building { color: var(--primary); }
-    .tico.staff { color: #9aa7b8; }
-    .tico.school { color: var(--primary); }
-    .tname { flex: 1 1 auto; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tmeta { flex: 0 0 auto; font-size: 12px; color: var(--text-light); max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tnode-root > .trow .tname { font-weight: 700; }
-    .tchildren { position: relative; margin-left: 8px; padding-left: 14px; }
-    .tchildren::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px dashed #cbd5e1; }
-    .tchildren > .tnode { position: relative; }
-    .tchildren > .tnode > .trow::before { content: ''; position: absolute; left: -14px; top: 14px; width: 12px; border-top: 1px dashed #cbd5e1; }
-    .tnode.collapsed > .tchildren { display: none; }
-    .tmenu-wrap { position: relative; flex: 0 0 auto; }
-    .tmenu-btn { border: 0; background: transparent; cursor: pointer; color: #94a3b8; width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
-    .tmenu-btn svg { width: 15px; height: 15px; }
-    .tmenu-btn:hover { background: #e2e8f0; color: #475569; }
-    .tmenu { position: absolute; right: 0; top: 24px; z-index: 30; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(15,23,42,.14); padding: 4px; min-width: 118px; display: flex; flex-direction: column; }
-    .tmenu[hidden] { display: none; }
-    .tmenu button { border: 0; background: transparent; text-align: left; padding: 7px 10px; border-radius: 6px; font-size: 13px; color: var(--text); cursor: pointer; white-space: nowrap; }
-    .tmenu button:hover { background: #f1f5f9; }
+    /* 组织架构 */
+    .dept-tree { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+    .dept-node { display: flex; flex-direction: column; }
+    .dept-line { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+    .dept-line .dept-name-t { font-weight: 600; }
+    .dept-line .dept-leader { font-size: 12px; color: var(--text-light); margin-left: 4px; }
+    .dept-line .dept-desc { font-size: 12px; color: var(--text-light); margin-left: auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dept-children { margin-left: 22px; border-left: 2px dashed var(--border); padding-left: 10px; display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+    .dept-actions { display: flex; gap: 4px; margin-left: 8px; flex: 0 0 auto; }
+    .dept-actions button { border: 0; background: transparent; cursor: pointer; color: var(--primary); font-size: 12px; padding: 3px 7px; border-radius: 6px; }
+    .dept-actions button:hover { background: rgba(79,109,245,.1); }
     .dept-editor { margin-top: 14px; border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #f7f8fc; }
     .dept-editor-title { font-weight: 600; margin-bottom: 10px; }
     .dept-editor .form-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -142,47 +107,6 @@
   </header>
 
   <main class="container">
-    <div class="hr-layout">
-      <aside class="hr-sidebar" id="orgSidebar">
-        <div class="sidebar-head">
-          <h3 class="sidebar-title">组织架构</h3>
-          <button type="button" class="btn btn-outline btn-sm" id="btnAddDept">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加部门
-          </button>
-        </div>
-        <p class="hr-tip">顶层为学校名称，其下按部门层级维护（支持多级：总务处 → 安保处 / 食堂）。每行右侧「⋯」可添加子部门 / 编辑 / 删除，改完点「保存组织架构」。部门权限在「系统设置 → 组织架构权限」配置，<b>子部门自动继承上级权限</b>。</p>
-        <div id="deptTree" class="org-tree"></div>
-
-        <div id="deptEditor" class="dept-editor" hidden>
-          <div class="dept-editor-title" id="deptEditorTitle">添加部门</div>
-          <div class="form-row">
-            <label class="form-label">部门名称 <span class="req">*</span></label>
-            <input type="text" id="deptName" class="set-input" maxlength="30" placeholder="如：安保处" />
-          </div>
-          <div class="form-row">
-            <label class="form-label">上级部门</label>
-            <select id="deptParent" class="set-input"></select>
-          </div>
-          <div class="form-row">
-            <label class="form-label">部门负责人</label>
-            <select id="deptLeader" class="set-input"></select>
-          </div>
-          <div class="form-row">
-            <label class="form-label">描述</label>
-            <input type="text" id="deptDesc" class="set-input" maxlength="60" placeholder="选填" />
-          </div>
-          <div class="dept-editor-actions">
-            <button type="button" class="btn btn-default" id="deptEditorCancel">取消</button>
-            <button type="button" class="btn btn-primary" id="deptEditorSave">保存</button>
-          </div>
-        </div>
-
-        <div class="sidebar-foot">
-          <button type="button" class="btn btn-default" id="deptReset">重置</button>
-          <button type="button" class="btn btn-primary" id="btnSaveDept">保存组织架构</button>
-        </div>
-      </aside>
-      <div class="hr-main">
     <section class="stats">
       <div class="stat-card"><div class="stat-num" id="statAll">0</div><div class="stat-label">异动记录</div></div>
       <div class="stat-card"><div class="stat-num" id="statYear">0</div><div class="stat-label">本年异动</div></div>
@@ -210,6 +134,10 @@
         </select>
       </div>
       <div class="toolbar-right">
+        <button class="btn btn-default" id="btnDeptSettings" type="button">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/><path d="M14 14h4"/></svg>
+          组织架构
+        </button>
         <button class="btn btn-default" id="btnExport" type="button">导出 CSV</button>
         <button class="btn btn-primary" id="btnAdd" type="button">
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -232,8 +160,6 @@
         </table>
       </div>
     </section>
-      </div>
-    </div>
   </main>
 
   <!-- 人事异动登记 / 编辑弹窗 -->
@@ -292,6 +218,53 @@
           <button type="submit" class="btn btn-primary">保存</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 组织架构弹窗 -->
+  <div class="modal-mask" id="deptModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3>组织架构</h3>
+        <button class="modal-close" id="deptModalClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <p class="hr-tip">维护学校组织架构（支持层级：如总务处 → 安保处 / 食堂）。教师档案「所属部门」命中某部门时，可在「系统设置 → 组织架构权限」为该部门配置后台可管理模块，<b>子部门自动继承上级部门权限</b>。点击「添加子部门」可挂在上级之下，点击「负责人」可为部门指定教师或后勤职工。</p>
+        <div id="deptTree" class="dept-tree"></div>
+        <button type="button" class="btn btn-outline btn-sm" id="btnAddDept" style="margin-top:8px">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加根部门
+        </button>
+
+        <!-- 部门编辑表单（新增 / 编辑共用） -->
+        <div id="deptEditor" class="dept-editor" hidden>
+          <div class="dept-editor-title" id="deptEditorTitle">添加部门</div>
+          <div class="form-row">
+            <label class="form-label">部门名称 <span class="req">*</span></label>
+            <input type="text" id="deptName" class="set-input" maxlength="30" placeholder="如：安保处" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">上级部门</label>
+            <select id="deptParent" class="set-input"></select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">部门负责人</label>
+            <select id="deptLeader" class="set-input"></select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">描述</label>
+            <input type="text" id="deptDesc" class="set-input" maxlength="60" placeholder="选填" />
+          </div>
+          <div class="dept-editor-actions">
+            <button type="button" class="btn btn-default" id="deptEditorCancel">取消</button>
+            <button type="button" class="btn btn-primary" id="deptEditorSave">保存</button>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="deptModalCancel">关闭</button>
+          <button type="button" class="btn btn-primary" id="btnSaveDept">保存组织架构</button>
+        </div>
+      </div>
     </div>
   </div>
 

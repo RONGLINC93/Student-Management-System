@@ -1,0 +1,19 @@
+{
+  "name": "Student-Management-System",
+  "version": "1.4.6",
+  "description": "学生管理系统 - 学籍/班级/成绩/教师/考勤/宿舍与智能分班",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "学生管理",
+    "教务",
+    "学籍",
+    "成绩",
+    "智能分班"
+  ],
+  "author": "RONGLINC <chenronglin1993@hotmail.com> (https://github.com/RONGLINC93)",
+  "license": "MIT"
+}
