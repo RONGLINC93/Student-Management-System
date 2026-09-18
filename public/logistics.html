@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="author" content="RONGLINC (chenronglin1993@hotmail.com)" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <title>学生管理系统 - 后勤/职工管理</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .table-scroll { max-height: 540px; max-height: calc(100vh - 350px); overflow: auto; overscroll-behavior: contain; }
+    .lg-table { width: 100%; min-width: 1180px; border-collapse: collapse; }
+    .lg-table thead th {
+      position: sticky; top: 0; z-index: 3;
+      background: #f8fafc; padding: 13px 14px; text-align: left;
+      font-size: 12.5px; letter-spacing: .3px; color: var(--text-light); font-weight: 600;
+      white-space: nowrap; border-bottom: 1px solid var(--border);
+    }
+    .lg-table tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13.5px; }
+    .lg-table tbody tr:last-child td { border-bottom: none; }
+    .lg-table tbody tr:hover td { background: #f8faff; }
+    .lg-off td { opacity: .62; }
+    .lg-name { display: block; font-weight: 600; color: var(--text); font-size: 14px; line-height: 1.3; }
+    .lg-sub { display: block; font-size: 12px; color: var(--text-light); margin-top: 1px; font-variant-numeric: tabular-nums; }
+    .lg-cell-sub { display: block; color: var(--text-light); font-size: 12px; margin-top: 1px; }
+    .lg-date { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .lg-phone { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    /* 岗位类别标签 */
+    .cat-tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; white-space: nowrap; border: 1px solid transparent; }
+    .cat-安保 { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+    .cat-保洁 { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+    .cat-食堂 { background: #fff7ed; border-color: #fed7aa; color: #b45309; }
+    .cat-维修 { background: #f5f3ff; border-color: #ddd6fe; color: #6d28d9; }
+    .cat-宿舍 { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
+    .cat-绿化 { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .cat-司机 { background: #f1f5f9; border-color: #e2e8f0; color: #475569; }
+    .cat-校医 { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .cat-其他 { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
+    /* 在职状态 */
+    .st-tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; white-space: nowrap; border: 1px solid transparent; }
+    .st-on { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+    .st-off { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .st-warn { background: #fff7e6; border-color: #fde68a; color: #b45309; }
+    /* 到期预警 */
+    .due-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .due-soon { color: #b45309; font-weight: 600; }
+    .due-over { color: #b91c1c; font-weight: 600; }
+    .due-flag {
+      display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; vertical-align: 1px;
+      background: #fef3c7; border: 1px solid #fde68a; color: #b45309;
+    }
+    .due-flag.over { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
+    .head-none { color: var(--text-light); font-size: 13px; }
+    .row-actions { gap: 6px; }
+    .row-actions .btn-sm { height: 27px; display: inline-flex; align-items: center; gap: 4px; }
+    .lg-tip {
+      margin: 2px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--text-light);
+      background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    }
+    .lg-tip.warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+
+    /* ===== 小屏适配 ===== */
+    @media (max-width: 900px) {
+      .table-scroll { max-height: 62vh; max-height: calc(100dvh - 300px); }
+      .lg-table thead th { padding: 11px 12px; }
+      .lg-table tbody td { padding: 9px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/><path d="M9 11h.01M15 11h.01"/></svg>
+        <div>
+          <h1 data-site-name>学生管理系统</h1>
+          <p class="subtitle">后勤 / 职工管理 · 安保 · 保洁 · 食堂 · 维修 · 宿舍 · 绿化</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/dashboard.html" class="nav-item">数据总览</a>
+        <a href="/students.html" class="nav-item">学生档案</a>
+        <a href="/classes.html" class="nav-item">班级管理</a>
+        <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/teachers.html" class="nav-item">教师管理</a>
+        <a href="/hr.html" class="nav-item">人事管理</a>
+        <a href="/logistics.html" class="nav-item active">后勤管理</a>
+        <a href="/exams.html" class="nav-item">成绩管理</a>
+        <a href="/conduct.html" class="nav-item">考勤操行</a>
+        <a href="/dorm.html" class="nav-item">宿舍管理</a>
+        <a href="/allocate.html" class="nav-item">智能分班</a>
+        <a href="/settings.html" class="nav-item">系统设置</a>
+        <a class="site-web" data-site-web hidden target="_blank" rel="noopener" title="打开学校官网">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span>官网</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="stats">
+      <div class="stat-card"><div class="stat-num" id="statAll">0</div><div class="stat-label">后勤职工总数</div></div>
+      <div class="stat-card"><div class="stat-num" id="statOn">0</div><div class="stat-label">在职（含试用 / 借调）</div></div>
+      <div class="stat-card"><div class="stat-num" id="statContract">0</div><div class="stat-label">合同 30 天内到期</div></div>
+      <div class="stat-card"><div class="stat-num" id="statHealth">0</div><div class="stat-label">健康证 30 天内到期</div></div>
+      <div class="stat-card"><div class="stat-num" id="statOut">0</div><div class="stat-label">外包 / 派遣</div></div>
+    </section>
+
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <input type="text" id="kw" class="search-input" placeholder="搜索姓名 / 工号 / 电话 / 岗位 / 单位 / 区域..." />
+        <select id="catFilter" class="grade-filter">
+          <option value="">全部岗位类别</option>
+        </select>
+        <select id="statusFilter" class="grade-filter">
+          <option value="">全部在职状态</option>
+          <option value="在职">在职</option>
+          <option value="试用">试用</option>
+          <option value="借调">借调</option>
+          <option value="停薪留职">停薪留职</option>
+          <option value="离职">离职</option>
+          <option value="退休">退休</option>
+        </select>
+        <select id="employFilter" class="grade-filter">
+          <option value="">全部用工性质</option>
+          <option value="在编">在编</option>
+          <option value="合同制">合同制</option>
+          <option value="劳务派遣">劳务派遣</option>
+          <option value="外包">外包</option>
+          <option value="临时">临时</option>
+          <option value="其他">其他</option>
+        </select>
+        <select id="dueFilter" class="grade-filter" title="按合同 / 健康证到期情况筛选">
+          <option value="">全部到期情况</option>
+          <option value="contract">合同即将到期 / 已过期</option>
+          <option value="health">健康证即将到期 / 已过期</option>
+        </select>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-default" id="btnExport" type="button">导出 CSV</button>
+        <button class="btn btn-primary" id="btnAdd" type="button">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          添加职工
+        </button>
+      </div>
+    </section>
+
+    <section class="table-wrap">
+      <div class="table-scroll">
+        <table class="lg-table">
+          <thead>
+            <tr>
+              <th style="min-width:170px">职工</th><th>性别</th><th style="min-width:130px">岗位</th>
+              <th style="min-width:140px">部门 / 单位</th><th>用工性质</th><th>班次</th>
+              <th style="min-width:130px">负责区域</th><th>联系电话</th><th>入职日期</th>
+              <th>合同到期</th><th>健康证到期</th><th>在职状态</th><th style="width:130px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="lgBody"><tr><td colspan="13" class="empty-tip">加载中...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- 后勤职工新增 / 编辑弹窗 -->
+  <div class="modal-mask" id="modalMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">添加后勤职工</h3>
+        <button class="modal-close" id="modalClose"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="modal-body" id="lgForm">
+        <input type="hidden" id="fId" />
+        <div class="form-grid">
+          <div class="form-row"><label class="form-label">姓名 <span class="req">*</span></label>
+            <input type="text" id="fName" maxlength="30" placeholder="如：张建国" />
+          </div>
+          <div class="form-row"><label class="form-label">工号</label>
+            <input type="text" id="fStaffNo" maxlength="30" placeholder="后勤序列工号（选填，不可重复）" />
+          </div>
+          <div class="form-row"><label class="form-label">性别</label>
+            <select id="fGender"><option value="男">男</option><option value="女">女</option></select>
+          </div>
+          <div class="form-row"><label class="form-label">岗位类别</label>
+            <select id="fCategory"></select>
+          </div>
+          <div class="form-row"><label class="form-label">具体岗位</label>
+            <input type="text" id="fPost" list="postList" maxlength="30" placeholder="如：保安队长 / 食堂厨师" />
+          </div>
+          <div class="form-row"><label class="form-label">所属部门</label>
+            <select id="fDepartment" class="set-input"><option value="">（未分配部门）</option></select>
+          </div>
+          <div class="form-row"><label class="form-label">用工性质</label>
+            <select id="fEmployType"></select>
+          </div>
+          <div class="form-row"><label class="form-label">外包 / 派遣单位</label>
+            <input type="text" id="fVendor" list="vendorList" maxlength="40" placeholder="劳务 / 外包公司（选填）" />
+          </div>
+          <div class="form-row"><label class="form-label">在职状态</label>
+            <select id="fStatus">
+              <option value="在职">在职</option>
+              <option value="试用">试用</option>
+              <option value="借调">借调</option>
+              <option value="停薪留职">停薪留职</option>
+              <option value="离职">离职</option>
+              <option value="退休">退休</option>
+            </select>
+          </div>
+          <div class="form-row"><label class="form-label">班次</label>
+            <select id="fShift"></select>
+          </div>
+          <div class="form-row"><label class="form-label">负责区域</label>
+            <input type="text" id="fArea" list="areaList" maxlength="60" placeholder="如：A 栋宿舍 / 食堂一楼" />
+          </div>
+          <div class="form-row"><label class="form-label">联系电话</label>
+            <input type="text" id="fPhone" maxlength="20" placeholder="手机号 / 座机" />
+          </div>
+          <div class="form-row"><label class="form-label">身份证号</label>
+            <input type="text" id="fIdCard" maxlength="18" placeholder="仅本地存档，列表脱敏展示" />
+          </div>
+          <div class="form-row"><label class="form-label">入职日期</label><input type="date" id="fJoinDate" /></div>
+          <div class="form-row"><label class="form-label">合同到期日</label><input type="date" id="fContractEnd" /></div>
+          <div class="form-row"><label class="form-label">健康证到期日</label><input type="date" id="fHealthCertEnd" /></div>
+          <div class="form-row"><label class="form-label">紧急联系电话</label>
+            <input type="text" id="fEmergencyPhone" maxlength="20" placeholder="家属联系电话（选填）" />
+          </div>
+          <div class="form-row form-row-full"><label class="form-label">家庭住址</label>
+            <input type="text" id="fAddress" maxlength="100" placeholder="省 / 市 / 区 / 详细地址（选填）" />
+          </div>
+          <div class="form-row form-row-full"><label class="form-label">备注</label>
+            <input type="text" id="fRemark" maxlength="200" placeholder="如：负责夜间巡查、持有特种设备操作证等（选填）" />
+          </div>
+        </div>
+        <datalist id="postList">
+          <option value="保安"></option>
+          <option value="保安队长"></option>
+          <option value="门卫"></option>
+          <option value="保洁员"></option>
+          <option value="保洁组长"></option>
+          <option value="食堂厨师"></option>
+          <option value="食堂服务员"></option>
+          <option value="食堂管理员"></option>
+          <option value="维修工"></option>
+          <option value="水电工"></option>
+          <option value="宿管"></option>
+          <option value="宿管员"></option>
+          <option value="绿化工"></option>
+          <option value="司机"></option>
+          <option value="校医"></option>
+        </datalist>
+        <datalist id="vendorList"></datalist>
+        <datalist id="areaList"></datalist>
+        <p class="lg-tip">后勤职工档案<b>独立于教师档案</b>：不参与教学统计、不进入课程表教师下拉与班主任候选，也不具备教师端 / 后台登录账号。合同到期与健康证到期在列表中自动预警（30 天内标黄、已过期标红）。</p>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="modalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/dialog.js"></script>
+  <script src="/js/site.js"></script>
+  <script src="/js/embed.js"></script>
+  <script src="/js/logistics.js"></script>
+</body>
+</html>

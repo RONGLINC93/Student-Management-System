@@ -7,7 +7,8 @@
 - **数据总览**（dashboard.html）：全校概况、分班进度、各班容量、学科均分、特长分布
 - **学生档案**（students.html）：学籍字段（档案编号 / 身份证 / 生日 / 民族户籍 / 住址 / 监护人等）+ 各科成绩、学籍状态（休学 / 转出 / 毕业等）与异动记录、误删回收站（可恢复 / 彻底删除），批量 CSV 导入导出
 - **班级 / 年级**（classes.html / grades.html）：容量设置、花名册、卡片拖拽排序、删除班级时学生自动退回未分班
-- **教师管理**（teachers.html）：教师档案、任教学科、班主任与班级联动（一个班级只对应一名班主任）
+- **教师管理**（teachers.html）：教师档案、任教学科、职称 / 行政职务 / 所属部门 / 在职状态、班主任与班级联动（一个班级只对应一名班主任），行内可直接登记人事异动
+- **人事管理**（hr.html）：教师人事异动台账（入职 / 转正 / 调岗 / 晋升 / 职称变动 / 借调 / 离职 / 退休），登记后自动同步教师档案的职务 / 部门 / 在职状态，离岗自动解除班主任并停用教师端登录，支持筛选与 CSV 导出
 - **成绩管理**（exams.html）：多场次考试、可配置科目成绩录入、班级均分 / 最高 / 排名统计、个人成绩单、批量载入档案成绩、成绩归档为档案成绩、CSV 导出
 - **考勤操行**（conduct.html）：按日考勤登记（全出勤快捷、逐人状态）、历史记录查询回填、奖惩与评语
 - **请假管理**（leaves.html）：学生在线请假 + 后台代登记，审批通过自动同步写入对应日期考勤（leave），支持统计、筛选与 CSV 导出
@@ -140,6 +141,7 @@ node build.js dev          # 生成 dist/Student-Management-System-<ver>-dev.zip
 │   ├── dormitories.json   # 宿舍房间与入住名单
 │   ├── leaves.json        # 请假申请（学生在线 / 后台登记 / 审批）
 │   ├── announcements.json # 通知公告（全校 / 年级 / 班级）
+│   ├── hr.json            # 人事异动记录（入职 / 调岗 / 离职 等）
 │   └── students_trash.json# 学生回收站（软删除归档，可恢复）
 ├── docs/screenshots/      # README 界面截图
 └── public/
@@ -150,6 +152,7 @@ node build.js dev          # 生成 dist/Student-Management-System-<ver>-dev.zip
     ├── classes.html    / js/classes.js
     ├── grades.html     / js/grades.js
     ├── teachers.html   / js/teachers.js
+    ├── hr.html         / js/hr.js          # 人事管理（异动台账）
     ├── exams.html      / js/exams.js
     ├── conduct.html    / js/conduct.js
     ├── dorm.html       / js/dorm.js

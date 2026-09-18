@@ -1,0 +1,2004 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="author" content="RONGLINC (chenronglin1993@hotmail.com)" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <title>学生管理系统 - 系统设置</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    
+    .set-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+    .set-head h2 { font-size: 20px; }
+    .set-head .dash-sub { color: var(--text-light); font-size: 13px; margin-top: 4px; }
+
+    .set-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      margin-bottom: 18px;
+    }
+    .set-card-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+    .set-card-icon {
+      width: 34px; height: 34px; flex-shrink: 0;
+      background: linear-gradient(135deg, #4f6df5, #7b5cf5);
+      color: #fff; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .set-card-icon svg { width: 18px; height: 18px; }
+    .set-card-title { font-size: 16px; font-weight: 700; }
+    .set-card-desc { font-size: 12px; color: var(--text-light); margin-top: 3px; }
+    .set-card-foot {
+      display: flex; justify-content: flex-end; gap: 10px;
+      margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border);
+    }
+    .set-field { margin-bottom: 18px; }
+    .set-field:last-child { margin-bottom: 0; }
+    .set-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .set-tip { font-size: 12px; color: var(--text-light); margin-top: 6px; line-height: 1.6; }
+    .set-label .badge { margin-left: 6px; vertical-align: 1px; }
+    .set-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .set-row .range-input { flex: 1; min-width: 220px; }
+    .set-split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 760px) { .set-split { grid-template-columns: 1fr; } }
+    .pw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    @media (max-width: 760px) { .pw-grid { grid-template-columns: 1fr; } }
+    .set-tag { font-size: 13px; color: var(--primary); font-weight: 700; min-width: 64px; }
+    .set-restore-tip { font-size: 12px; color: var(--text-light); margin-top: 10px; }
+    .set-toast {
+      position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%) translateY(20px);
+      background: #1f2937; color: #fff; font-size: 13px; padding: 10px 20px;
+      border-radius: 10px; box-shadow: var(--shadow-lg); opacity: 0;
+      transition: all .25s; pointer-events: none; z-index: 9999; max-width: 80vw;
+    }
+    .set-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .set-toast.ok { background: #16a34a; }
+    .set-toast.err { background: #dc2626; }
+    .muted-note { color: var(--text-light); font-size: 12px; }
+    /* 账号管理 */
+    .acc-zone { border: 1px solid var(--border); border-radius: 12px; margin-top: 12px; overflow: hidden; }
+    .acc-head, .acc-row {
+      display: grid; grid-template-columns: 1.1fr .95fr 1.05fr 1fr auto;
+      gap: 10px; align-items: center; padding: 9px 14px; font-size: 13px;
+    }
+    .acc-head {
+      background: #f8fafc; color: var(--text-light); font-size: 12px; font-weight: 700;
+    }
+    .acc-row + .acc-row { border-top: 1px dashed var(--border); }
+    .acc-me { color: var(--primary); font-size: 11px; border: 1px solid var(--primary); border-radius: 999px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; }
+    .acc-stu-role { color: #0f766e; font-size: 11px; background: #ccfbf1; border: 1px solid #5eead4; border-radius: 999px; padding: 0 7px; margin-left: 4px; vertical-align: 1px; white-space: nowrap; }
+    .acc-tea-role { color: #4338ca; font-size: 11px; background: #e0e7ff; border: 1px solid #a5b4fc; border-radius: 999px; padding: 0 7px; margin-left: 4px; vertical-align: 1px; white-space: nowrap; }
+    .acc-role-sel {
+      padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px;
+      background: #fff; font-size: 12px; color: var(--text); max-width: 130px; width: 100%;
+    }
+    .acc-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    .acc-created { color: var(--text-light); font-size: 12px; }
+    @media (max-width: 900px) {
+      .acc-head { display: none; }
+      .acc-row {
+        grid-template-columns: 1fr 1fr; grid-auto-rows: auto; padding: 12px 14px; gap: 6px 12px;
+      }
+    }
+    /* 账号搜索 / 角色筛选 */
+    .acc-search { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .acc-search-box { position: relative; flex: 1 1 200px; min-width: 170px; }
+    .acc-search-box .set-input { padding-left: 32px; padding-right: 28px; }
+    .acc-search-box .set-input::-webkit-search-cancel-button { display: none; }
+    .acc-search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      width: 14px; height: 14px; color: var(--text-light); pointer-events: none;
+    }
+    .acc-search-clear {
+      position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+      width: 22px; height: 22px; border: 0; background: transparent; cursor: pointer;
+      color: var(--text-light); font-size: 17px; line-height: 1; border-radius: 6px;
+    }
+    .acc-search-clear:hover { background: rgba(127, 127, 127, .12); color: var(--text); }
+    .acc-role-filter { flex: 0 0 auto; width: auto; min-width: 130px; }
+    .acc-count { flex: 0 0 auto; margin-left: auto; font-size: 12px; color: var(--text-light); }
+    .acc-empty { text-align: center; color: var(--text-light); font-size: 13px; padding: 18px 0; }
+    .acc-empty b { color: var(--text); }
+    .acc-tip { font-size: 12px; color: var(--text-light); margin-top: 8px; line-height: 1.7; }
+    /* 重设密码弹窗 */
+    #pwdMask .modal-footer .pwd-init { margin-right: auto; }
+    .pwd-who { margin: 0 0 12px; font-size: 13px; color: var(--text-light); line-height: 1.7; word-break: break-all; }
+    .pwd-who b { color: var(--text); }
+    .pwd-eye { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-light); cursor: pointer; user-select: none; }
+    .pwd-eye input { accent-color: var(--primary, #4f6df5); cursor: pointer; margin: 0; }
+    .hr-tip { margin: 4px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--text-light); background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+    /* 职位权限：模块复选框阵列 */
+    .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; margin-top: 4px; }
+    .perm-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; user-select: none; font-size: 13px; }
+    .perm-item:hover { border-color: var(--primary, #4f6df5); }
+    /* 职位权限：全角色权限总览表 */
+    .perm-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 13px; }
+    /* 组织架构权限区 */
+    .perm-overview { font-size: 13px; color: var(--text); margin: 2px 0 10px; }
+    .perm-overview b { color: var(--primary); }
+    .perm-empty { padding: 18px; text-align: center; color: var(--text-light); font-size: 13px; border: 1px dashed var(--border); border-radius: 8px; }
+    .perm-dept-name { font-weight: 600; font-size: 13.5px; }
+    .perm-dept-name small { font-weight: 400; color: var(--text-light); margin-left: 6px; }
+    .perm-inherit { color: var(--primary); opacity: .75; font-weight: 400; margin-left: 6px; }
+    .perm-table th, .perm-table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; line-height: 1.7; }
+    .perm-table th { background: rgba(127, 127, 127, .07); font-weight: 600; white-space: nowrap; }
+    .perm-table td:first-child { white-space: nowrap; font-weight: 600; }
+    .perm-table td small { color: var(--text-light); }
+    .perm-item input { accent-color: var(--primary, #4f6df5); cursor: pointer; }
+    /* 职位权限：职务清单编辑器 */
+    .perm-role {
+      border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #fff;
+    }
+    .perm-role-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .perm-role-head input[type="text"] {
+      flex: 1 1 180px; min-width: 140px; height: 34px; padding: 0 10px; font-size: 13px;
+      border: 1px solid var(--border); border-radius: 8px; background: #fff; color: inherit;
+    }
+    .perm-role-head select {
+      height: 34px; padding: 0 8px; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: inherit;
+    }
+    .perm-role-del {
+      height: 30px; padding: 0 10px; font-size: 12.5px; border: 1px solid #fecaca; color: #b91c1c;
+      background: #fff; border-radius: 8px; cursor: pointer;
+    }
+    .perm-role-del:hover { background: #fef2f2; }
+    .perm-role-mods { margin-top: 8px; }
+    .perm-role-tip { font-size: 12px; color: var(--text-light); margin-top: 6px; line-height: 1.6; }
+    .perm-role-tip b { color: #b45309; }
+    /* 学校信息：校徽与表单 */
+    .logo-setup { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+    .logo-preview {
+      width: 64px; height: 64px; border-radius: 14px; flex-shrink: 0;
+      background: linear-gradient(135deg, #4f6df5, #7b5cf5);
+      color: rgba(255,255,255,.9);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .logo-preview svg { width: 30px; height: 30px; }
+    .logo-preview img { width: 100%; height: 100%; object-fit: contain; background: #fff; box-sizing: border-box; }
+    .logo-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-width: 240px; flex: 1; }
+    .logo-actions .set-tip { flex-basis: 100%; margin-top: 0; }
+    .set-input {
+      width: 100%; padding: 9px 12px;
+      border: 1px solid var(--border); border-radius: 10px;
+      font-size: 14px; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .set-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,109,245,.12); }
+    textarea.set-input { resize: vertical; min-height: 64px; }
+    /* ===== 二级侧边栏菜单 ===== */
+    .set-page { display: flex; align-items: flex-start; gap: 18px; }
+    .set-aside {
+      width: 218px; flex: none; position: sticky; top: 12px;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 16px; padding: 12px; box-shadow: var(--shadow);
+    }
+    .set-aside-head { padding: 6px 6px 12px; border-bottom: 1px dashed var(--border); margin-bottom: 10px; }
+    .set-aside-head b { font-size: 15px; color: var(--text); display: block; }
+    .set-aside-head p { font-size: 12px; color: var(--text-light); margin: 4px 0 0; line-height: 1.6; }
+    .set-nav { display: flex; flex-direction: column; gap: 3px; }
+    .set-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 10px; cursor: pointer;
+      color: var(--text); font-size: 13.5px; font-weight: 600;
+      text-decoration: none; user-select: none;
+      border: 1px solid transparent;
+      transition: background .15s, color .15s;
+    }
+    .set-nav-item svg { width: 16px; height: 16px; flex: none; color: var(--text-light); transition: color .15s; }
+    .set-nav-item:hover { background: rgba(79,109,245,.08); }
+    .set-nav-item.active {
+      background: linear-gradient(135deg, rgba(79,109,245,.14), rgba(123,92,245,.1));
+      color: var(--primary);
+    }
+    .set-nav-item.active svg { color: var(--primary); }
+    .set-nav-item:focus-visible { outline: 2px solid rgba(79,109,245,.5); outline-offset: 1px; }
+    .set-body { flex: 1; min-width: 0; }
+    .set-card[hidden] { display: none; }
+    .set-body .set-card { animation: setCardIn .22s ease; }
+    @keyframes setCardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @media (max-width: 900px) {
+      .set-page { flex-direction: column; }
+      .set-aside { width: 100%; position: static; padding: 8px; }
+      .set-aside-head { display: none; }
+      .set-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: thin; }
+      .set-nav-item { white-space: nowrap; flex: none; padding: 8px 12px; }
+      .set-nav-item svg { width: 15px; height: 15px; }
+    }
+    /* 服务器管理：运行状态卡片与电源操作区 */
+    .srv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+    .srv-item {
+      background: #f8fafc; border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; min-width: 0;
+    }
+    .srv-item .srv-k { font-size: 12px; color: var(--text-light); margin-bottom: 6px; }
+    .srv-item .srv-v { font-size: 15px; font-weight: 700; word-break: break-all; }
+    .srv-item .srv-sub { font-size: 12px; color: var(--text-light); margin-top: 4px; word-break: break-all; }
+    .srv-bar { height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; margin-top: 8px; }
+    .srv-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #4f6df5, #7b5cf5); }
+    .srv-pill { font-size: 11px; border-radius: 999px; padding: 1px 8px; vertical-align: 1px; }
+    .srv-zone { border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+    .srv-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .srv-zone .set-tip { margin-top: 0; }
+    /* 自动备份列表 */
+    .bk-ctl { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+    .bk-ctl .bk-item { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text); }
+    .bk-ctl input[type="time"] { padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; font-size: 13px; }
+    .bk-ctl input[type="number"] { width: 76px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; font-size: 13px; }
+    .bk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .bk-table th, .bk-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+    .bk-table th { background: #f8fafc; color: var(--text-light); font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .bk-table td { vertical-align: middle; }
+    .bk-table .bk-name { font-family: Consolas, Menlo, monospace; font-size: 12px; word-break: break-all; }
+    .bk-table .bk-ops { white-space: nowrap; text-align: right; }
+    .bk-table .bk-ops .btn { margin-left: 6px; }
+    .bk-tag { display: inline-block; font-size: 11px; border-radius: 999px; padding: 1px 9px; }
+    .bk-tag.auto { background: rgba(18,184,134,.12); color: #0ca678; }
+    .bk-tag.manual { background: rgba(79,109,245,.12); color: #4f6df5; }
+    .bk-empty { padding: 24px; text-align: center; color: var(--text-light); font-size: 13px; }
+    .bk-head-row { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 8px; }
+    /* 操作审计日志 */
+    .au-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .au-bar input { flex: 1; min-width: 200px; }
+    .au-table-wrap { border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
+    .au-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+    .au-table th, .au-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+    .au-table th { background: #f8fafc; color: var(--text-light); font-size: 12px; font-weight: 600; }
+    .au-table tr:last-child td { border-bottom: none; }
+    .au-table td.path { font-family: Consolas, Menlo, monospace; font-size: 12px; color: var(--text-light); }
+    .au-method { display: inline-block; min-width: 44px; text-align: center; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 2px 6px; }
+    .au-method.POST { background: rgba(18,184,134,.12); color: #0ca678; }
+    .au-method.PUT, .au-method.PATCH { background: rgba(245,158,11,.14); color: #d97706; }
+    .au-method.DELETE { background: rgba(230,73,73,.12); color: #e64949; }
+    .au-role { font-size: 11px; color: var(--text-light); }
+    .au-pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 12px; font-size: 13px; color: var(--text-light); }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg class="logo-icon" data-site-logo viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <div>
+          <h1 data-site-name>学生管理系统</h1>
+          <p class="subtitle">系统设置 · 学校信息 / 分班规则 / 数据管理 / 账号与安全 / 服务器管理</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/dashboard.html" class="nav-item">数据总览</a>
+        <a href="/students.html" class="nav-item">学生档案</a>
+        <a href="/classes.html" class="nav-item">班级管理</a>
+        <a href="/grades.html" class="nav-item">年级管理</a>
+        <a href="/teachers.html" class="nav-item">教师管理</a>
+        <a href="/hr.html" class="nav-item">人事管理</a>
+        <a href="/logistics.html" class="nav-item">后勤管理</a>
+        <a href="/exams.html" class="nav-item">成绩管理</a>
+        <a href="/conduct.html" class="nav-item">考勤操行</a>
+        <a href="/dorm.html" class="nav-item">宿舍管理</a>
+        <a href="/allocate.html" class="nav-item">智能分班</a>
+        <a href="/settings.html" class="nav-item active">系统设置</a>
+        <a class="site-web" data-site-web hidden target="_blank" rel="noopener" title="打开学校官网">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span>官网</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="set-page">
+      <aside class="set-aside">
+        <div class="set-aside-head">
+          <b>系统设置</b>
+          <p>按分类管理：保存后即时生效，并自动通知已打开的工作台与功能页刷新</p>
+        </div>
+        <nav class="set-nav" id="setNav" aria-label="设置分类">
+          <a class="set-nav-item active" data-key="info" href="#info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            学校信息
+          </a>
+          <a class="set-nav-item" data-key="rules" href="#rules">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+            分班规则
+          </a>
+          <a class="set-nav-item" data-key="data" href="#data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            数据管理
+          </a>
+          <a class="set-nav-item" data-key="audit" href="#audit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            操作审计
+          </a>
+          <a class="set-nav-item" data-key="account" href="#account">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            账号与安全
+          </a>
+          <a class="set-nav-item" data-key="roles" href="#roles">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            职位权限
+          </a>
+          <a class="set-nav-item" data-key="deptroles" href="#deptroles">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/><path d="M14 14h4"/></svg>
+            组织架构权限
+          </a>
+          <a class="set-nav-item" data-key="server" href="#server">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            服务器管理
+          </a>
+        </nav>
+      </aside>
+      <div class="set-body">
+
+      <!-- 学校信息 -->
+      <section class="set-card" data-sec="info">
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">学校信息</div>
+            <div class="set-card-desc">学校名称、校徽、学年与联系信息 —— 展示于各页顶栏 / 工作台品牌 / 浏览器标题 / 分班结果大屏</div>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label">校徽 Logo</label>
+          <div class="logo-setup">
+            <div class="logo-preview" id="logoPreview"></div>
+            <div class="logo-actions">
+              <button type="button" class="btn btn-default btn-sm" id="btnPickLogo">选择图片上传</button>
+              <button type="button" class="btn btn-default btn-sm" id="btnClearLogo">移除校徽</button>
+              <input type="file" id="fileLogo" accept="image/*" style="display:none" />
+              <p class="set-tip">建议使用正方形 PNG（透明底更佳），上传后自动等比缩小到 300px 内，将替换各页面顶部、后台工作台与大屏的默认图标。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="set-split">
+          <div class="set-field">
+            <label class="set-label" for="setSchoolName">学校（机构）名称</label>
+            <input type="text" id="setSchoolName" class="set-input" maxlength="40" autocomplete="off" placeholder="如：第一中学" />
+            <p class="set-tip">填写后，各功能页顶部大字、工作台品牌与浏览器标签会一并更新；留空保持默认“学生管理系统”。</p>
+          </div>
+          <div class="set-field">
+            <label class="set-label" for="setSchoolYear">学年标签</label>
+            <input type="text" id="setSchoolYear" class="set-input" maxlength="30" autocomplete="off" placeholder="如：2026 年秋季" />
+            <p class="set-tip">如「2026 年秋季」，以胶囊形式显示在分班结果大屏的副标题处。</p>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label" for="setSlogan">校训 / 标语</label>
+          <textarea id="setSlogan" class="set-input" maxlength="200" placeholder="如：求真务实 · 立德树人"></textarea>
+        </div>
+
+        <div class="set-split">
+          <div class="set-field">
+            <label class="set-label" for="setAddress">学校地址</label>
+            <input type="text" id="setAddress" class="set-input" maxlength="200" autocomplete="off" placeholder="如：XX 市 XX 区 XX 路 100 号" />
+          </div>
+          <div class="set-field">
+            <label class="set-label" for="setPhone">联系电话</label>
+            <input type="text" id="setPhone" class="set-input" maxlength="40" autocomplete="off" placeholder="如：0571-88888888" />
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label" for="setWebsite">学校官网</label>
+          <input type="text" id="setWebsite" class="set-input" maxlength="200" autocomplete="off" placeholder="如：www.example.edu.cn" />
+          <p class="set-tip">填写的网址会以「官网」入口出现在<b>各功能页顶栏</b>与<b>后台工作台右上角</b>（新窗口打开），并同步显示在分班结果大屏页面底部；不填或删除即隐藏入口。保存时自动补全为 http/https。</p>
+        </div>
+
+        <p class="set-tip">校训 / 地址 / 电话会显示在<b>分班结果大屏</b>的页面底部一行，便于投屏展示时对外联系。</p>
+
+        <div class="set-card-foot">
+          <button class="btn btn-default btn-sm" id="btnResetName">恢复默认名称</button>
+          <button class="btn btn-primary btn-sm" id="btnSaveSchool">保存学校信息</button>
+        </div>
+      </section>
+
+      <!-- 分班规则 -->
+      <section class="set-card" data-sec="rules" hidden>
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">分班规则 · 综合均衡强度</div>
+            <div class="set-card-desc">仅影响分班页「综合均衡（成绩+性别+特长）」策略下的排序倾向</div>
+          </div>
+        </div>
+        <div class="set-split">
+          <div class="set-field">
+            <label class="set-label" for="setGenderW">性别均衡强度 <span class="badge" id="genderVal">1.5</span></label>
+            <input type="range" class="range-input" id="setGenderW" min="0" max="3" step="0.1" value="1.5" />
+            <p class="set-tip">数值越大，分班时越优先让每个班的男女生比例接近，建议 1～2。</p>
+          </div>
+          <div class="set-field">
+            <label class="set-label" for="setSpecW">特长均衡强度 <span class="badge" id="specVal">2</span></label>
+            <input type="range" class="range-input" id="setSpecW" min="0" max="3" step="0.1" value="2" />
+            <p class="set-tip">数值越大，越倾向于把“有特长”的学生打散到不同班级，建议 1～2。</p>
+          </div>
+        </div>
+        <div class="set-card-foot">
+          <button class="btn btn-primary btn-sm" id="btnSaveRule">保存分班规则</button>
+        </div>
+      </section>
+
+      <!-- 科目设置已整合到「课程管理」：课程计划中的课程即考试科目 -->
+
+      <!-- 数据管理 -->
+      <section class="set-card" data-sec="data" hidden>
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">数据备份与维护</div>
+            <div class="set-card-desc">导出 / 导入数据备份，导入示例年级 / 班级 / 宿舍 / 学生数据，集中管理「清空学生档案」「清空全部班级」等高危维护操作</div>
+          </div>
+        </div>
+        <div class="set-field">
+          <label class="set-label">备份与恢复</label>
+          <div class="set-row">
+            <button class="btn btn-default btn-sm" id="btnExport">导出数据备份</button>
+            <button class="btn btn-default btn-sm" id="btnPickImport">导入备份文件</button>
+            <input type="file" id="fileImport" accept=".json,application/json" style="display:none" />
+          </div>
+          <p class="set-tip">
+            导出得到一个 JSON 备份文件；换电脑 / 误删后可在“导入备份文件”中选择该文件一键恢复。
+            导入将 <b>覆盖</b> 当前全部数据，请谨慎操作。
+          </p>
+        </div>
+        <div class="set-field">
+          <label class="set-label">自动备份</label>
+          <div class="bk-ctl">
+            <span class="bk-item"><label><input type="checkbox" id="bkAuto" /> 每日自动备份到服务器</label></span>
+            <span class="bk-item">备份时间
+              <input type="time" id="bkTime" value="03:00" step="60" />
+            </span>
+            <span class="bk-item">保留
+              <input type="number" id="bkKeep" min="1" max="100" step="1" value="7" /> 份自动备份
+            </span>
+            <button class="btn btn-primary btn-sm" id="btnSaveBk">保存备份设置</button>
+            <button class="btn btn-default btn-sm" id="btnBkNow">立即备份一次</button>
+          </div>
+          <p class="set-tip">
+            开启后，服务每天到达设定时间时自动把全量数据备份到服务器 <b>data/backups</b> 目录；
+            服务停机跨过备份时刻时，启动后会自动补备份一份。仅<b>自动备份</b>按保留份数清理，手动备份永久保留。
+          </p>
+          <div class="bk-head-row">
+            <b style="font-size:13px">服务器上的备份</b>
+            <button class="btn btn-default btn-sm" id="btnBkRefresh">刷新列表</button>
+          </div>
+          <div class="au-table-wrap">
+            <table class="bk-table">
+              <thead>
+                <tr><th style="width:230px">备份文件</th><th style="width:80px">类型</th><th style="width:160px">生成时间</th><th style="width:90px">大小</th><th>操作</th></tr>
+              </thead>
+              <tbody id="bkTbody"><tr><td colspan="5" class="bk-empty">点击「刷新列表」加载服务器备份</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="set-field">
+          <label class="set-label">示例数据</label>
+          <div class="set-row">
+            <button class="btn btn-default btn-sm" id="btnDemoImport" title="依次追加写入示例年级 / 班级 / 宿舍 / 学生，已存在的自动跳过，可安全重复点击">导入示例数据</button>
+          </div>
+          <p class="set-tip">
+            一键写入体验用的示例数据，按 <b>年级 → 班级 → 宿舍 → 学生</b> 顺序执行：<b>3 个年级</b>（高一 / 高二 / 高三）、
+            <b>6 个班级</b>（每个年级 2 个班，容量 50）、<b>6 间宿舍</b>（1 号楼男生 101～103、2 号楼女生 101～103，4 人间）、
+            <b>12 名学生</b>（覆盖三个年级，含各科成绩与特长）。
+          </p>
+          <p class="set-tip">
+            全部为<b>追加</b>写入：已存在的年级 / 班级 / 房间会自动跳过，<b>不会覆盖或删除</b>已有数据；示例成绩按当前「<b>课程管理</b>」中的课程科目生成；
+            示例学生导入后为<b>未分班、未住宿</b>状态，可自行体验智能分班、宿舍分配与成绩统计。学生重复导入会产生同学号的多条档案，可用下方「清空学生档案」一次性移除。
+          </p>
+        </div>
+        <div class="set-field">
+          <label class="set-label">清空业务数据</label>
+          <div class="set-row">
+            <button class="btn btn-danger btn-sm" id="btnClearStudents" title="删除全部未分班学生档案、各班花名册、宿舍入住与操行记录；保留班级结构">清空学生档案</button>
+            <button class="btn btn-danger btn-sm" id="btnClearClasses" title="删除全部班级及其顺序与班主任配置；已分班学生退回未分班，学生档案保留">清空全部班级</button>
+          </div>
+          <p class="set-tip">两者均为<b>不可恢复</b>的高危操作：<b>清空学生档案</b> 将删除学生、各班花名册及宿舍 / 操行记录，但保留班级结构；<b>清空全部班级</b> 将删除班级本身，已分班学生退回未分班，学生档案保留。操作前建议先「导出数据备份」。</p>
+        </div>
+        <div class="set-card-foot">
+          <span class="muted-note" style="margin-right:auto">版本 <span data-app-version>v1.1.0</span> · 作者 RONGLINC</span>
+          <button class="btn btn-default btn-sm" id="btnDataManage">刷新状态</button>
+        </div>
+      </section>
+
+      <!-- 操作审计 -->
+      <section class="set-card" data-sec="audit" hidden>
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">操作审计日志</div>
+            <div class="set-card-desc">记录后台与学生端的新增 / 修改 / 删除操作（不含密码等敏感内容），最多保留最近 3000 条</div>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <div class="au-bar">
+            <input type="text" class="set-input" id="auKw" placeholder="按操作人 / 模块 / 路径 / IP 搜索" autocomplete="off" />
+            <button class="btn btn-primary btn-sm" id="btnAuSearch">查询</button>
+            <button class="btn btn-default btn-sm" id="btnAuRefresh">刷新</button>
+            <button class="btn btn-danger btn-sm" id="btnAuClear">清空日志</button>
+          </div>
+          <div class="au-table-wrap">
+            <table class="au-table">
+              <thead>
+                <tr><th style="width:158px">时间</th><th style="width:150px">操作人</th><th style="width:64px">动作</th><th style="width:170px">模块</th><th>路径</th><th style="width:120px">IP</th></tr>
+              </thead>
+              <tbody id="auTbody"><tr><td colspan="6" class="bk-empty">日志加载中…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="au-pager">
+            <span id="auInfo">共 0 条</span>
+            <button class="btn btn-default btn-sm" id="btnAuPrev">上一页</button>
+            <span id="auPage">1 / 1</span>
+            <button class="btn btn-default btn-sm" id="btnAuNext">下一页</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 账号与安全 -->
+      <section class="set-card" data-sec="account" hidden>
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">账号与安全</div>
+            <div class="set-card-desc">修改登录密码；管理员可在此新增 / 管理系统登录账号与权限</div>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label">修改当前账号密码</label>
+          <div class="pw-grid">
+            <div class="set-field">
+              <label class="set-label" for="pwOld">当前密码</label>
+              <input type="password" id="pwOld" class="set-input" autocomplete="current-password" maxlength="64" placeholder="输入当前登录密码" />
+            </div>
+            <div class="set-field">
+              <label class="set-label" for="pwNew">新密码（6～64 位）</label>
+              <input type="password" id="pwNew" class="set-input" autocomplete="new-password" maxlength="64" placeholder="设置新密码" />
+            </div>
+            <div class="set-field">
+              <label class="set-label" for="pwNew2">确认新密码</label>
+              <input type="password" id="pwNew2" class="set-input" autocomplete="new-password" maxlength="64" placeholder="再次输入新密码" />
+            </div>
+          </div>
+          <div class="set-card-foot" style="margin-top:4px">
+            <button class="btn btn-primary btn-sm" id="btnSavePwd">保存新密码</button>
+          </div>
+        </div>
+
+        <div class="set-field" id="accAdminZone">
+          <label class="set-label">账号管理 <span class="badge">管理员</span></label>
+          <div class="set-row" style="align-items:flex-end">
+            <div style="flex:1;min-width:150px">
+              <label class="set-label" for="accUser">账号</label>
+              <input type="text" id="accUser" class="set-input" maxlength="20" autocomplete="off" placeholder="2～20 位中英文 / 数字" />
+            </div>
+            <div style="flex:1;min-width:150px">
+              <label class="set-label" for="accRole">角色</label>
+              <select id="accRole" class="set-input">
+                <option value="admin">管理员（完整权限）</option>
+                <option value="viewer">查看模式（只读）</option>
+              </select>
+            </div>
+            <div style="flex:1;min-width:160px">
+              <label class="set-label" for="accPwd">初始密码</label>
+              <input type="password" id="accPwd" class="set-input" maxlength="64" autocomplete="new-password" placeholder="6～64 位" />
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnAddAcc">添加账号</button>
+          </div>
+          <div class="acc-search">
+            <div class="acc-search-box">
+              <svg class="acc-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+              <input type="search" id="accSearch" class="set-input" autocomplete="off" placeholder="搜索账号或昵称…" />
+              <button type="button" class="acc-search-clear" id="accSearchClear" title="清空" hidden>&times;</button>
+            </div>
+            <select id="accRoleFilter" class="set-input acc-role-filter">
+              <option value="">全部角色</option>
+              <option value="admin">管理员</option>
+              <option value="viewer">查看模式</option>
+              <option value="student">学生（自助端）</option>
+              <option value="teacher">教师（自助端）</option>
+            </select>
+            <span class="acc-count" id="accCount">加载中…</span>
+          </div>
+          <div class="acc-zone" id="accZone">
+            <div class="acc-empty" id="accEmpty">账号列表加载中…</div>
+          </div>
+          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝；其「行政职务」命中下方「<a href="#roles" onclick="switchSec('roles');return false;">职位权限</a>」清单中的职务条目时即可登录管理后台，并仅可管理该条目勾选的模块（没命中的教师不能进入管理后台，只能在教师端使用）；职称不再参与权限判定，可管理的模块完全由职务条目决定。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），教师账号随教师首次登录「教师入口」自动创建（账号为工号、初始密码为身份证号后 6 位，首次登录强制修改密码），此处均可为其<b>重设密码</b>（管理员指定新密码）或<b>重置密码</b>（一键恢复初始默认密码：学生为学号、教师为身份证号后 6 位，重置后该用户下次登录需重新设置个人密码），但角色不可修改。</p>
+        </div>
+      </section>
+
+      <!-- 职位权限 -->
+      <section class="set-card" data-sec="roles" hidden>
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">职位权限</div>
+            <div class="set-card-desc">查看全部角色的权限总览，配置「教务 / 宿管」职位教师登录管理后台后可管理的模块，保存后即时生效（已打开的页面需刷新）</div>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label">角色权限总览 <span class="badge">全部登录角色的权限一览</span></label>
+          <table class="perm-table">
+            <thead>
+              <tr><th>角色</th><th>获得方式</th><th>可管理（读写）</th><th>备注</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>管理员</td>
+                <td>管理员入口登录（初始账号 admin）</td>
+                <td>全部业务模块：学生档案、班级管理、年级管理、成绩管理、考勤操行、请假、通知公告、宿舍管理、课程表、课程管理、人事管理</td>
+                <td>另享管理员专属功能：教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、系统设置、账号与安全；固定权限，不可配置</td>
+              </tr>
+              <tr>
+                <td>查看模式</td>
+                <td>管理员入口登录</td>
+                <td>无（全部模块仅可查看）</td>
+                <td>仅可查看各页与大屏，所有修改 / 删除操作被拒绝；固定权限，不可配置</td>
+              </tr>
+              <tr>
+                <td>职务账号</td>
+                <td>教师档案「行政职务」命中下方清单中对应的职务条目，即获得该条目勾选的可管理模块；管理员入口用工号登录</td>
+                <td id="ovPosition">加载中…</td>
+                <td>每个职务单独配置，见下方清单；未列入清单的职务无后台权限（仅教师端）</td>
+              </tr>
+              <tr>
+                <td>班主任 / 科任教师</td>
+                <td>教师入口登录</td>
+                <td>教师端功能：成绩录入、请假审批、操行评定等</td>
+                <td>不进入管理后台</td>
+              </tr>
+              <tr>
+                <td>学生</td>
+                <td>学生入口登录（账号 / 初始密码为学号）</td>
+                <td>学生端功能：查看本人信息、成绩、请假申请等</td>
+                <td>不进入管理后台</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label">职务权限清单 <span class="badge">教师按「行政职务」精确匹配条目</span></label>
+          <div id="permRoles"></div>
+          <div style="margin-top:8px">
+            <button type="button" class="btn btn-outline btn-sm" id="btnAddPermRole">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加职务
+            </button>
+          </div>
+        </div>
+        <div class="set-card-foot" style="margin-top:4px">
+          <button class="btn btn-primary btn-sm" id="btnSavePerms">保存职位权限</button>
+          <button class="btn btn-outline btn-sm" id="btnResetPerms">恢复默认</button>
+        </div>
+        <p class="acc-tip">权限由「职务」驱动：教师档案中的<b>行政职务</b>与下方清单里的职务名<b>完全一致</b>时命中该条目，即获得该条目勾选的可管理模块；没命中的教师不能登录管理后台（只能在教师端使用）。职称不再参与权限判定，可管理哪些模块完全由职务条目决定。条目<b>可增删改</b>，同名职务只保留一条；未勾选的模块仅可查看。<b>人事管理</b>已开放配置，可授予人事类岗位（如人事专员、办公室主任）：因异动登记会改写教师的「行政职务」，而职务即权限来源，获此授权者可通过调岗 / 晋升间接调整他人后台权限，请按需谨慎勾选并留痕。教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、账号与安全、系统设置本身（内含本职位权限清单，开放即等于可自助提权）始终仅限管理员，不开放配置。默认条目：教务主任、教务、教务处主任（可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管、宿管员、宿舍管理员（仅宿舍）。历史档案里把职责关键字写在职称或非标准职务上的教师，仍按旧关键字兜底授权（登录后在顶栏标注「遗留」），建议在此补一条同名职务后让其重新登录。职务即权限来源：办理调岗 / 晋升等人事异动改变职务时，会同步改变其后台权限，登记时需显式确认并留痕。权限变更保存后立即生效，新登录或刷新后的会话按新权限展示操作按钮，服务端始终以本设置硬拦截未授权的写请求。</p>
+      </section>
+
+      <!-- 组织架构权限 -->
+      <section class="set-card" data-sec="deptroles" hidden>
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/><path d="M14 14h4"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">组织架构权限</div>
+            <div class="set-card-desc">按「部门」配置后台可管理模块，与职务权限取并集；教师档案「所属部门」命中部门后叠加对应权限，<b>子部门自动继承上级部门权限</b></div>
+          </div>
+        </div>
+        <div class="set-field">
+          <label class="set-label">组织架构权限清单 <span class="badge">教师按「所属部门」精确匹配，与职务权限并集</span></label>
+          <div class="perm-overview">已授权模块覆盖（各部门及其上级并集）：<b id="ovDept">加载中…</b></div>
+          <div id="permDeptRoles"></div>
+        </div>
+        <div class="set-card-foot" style="margin-top:4px">
+          <button class="btn btn-primary btn-sm" id="btnSaveDeptPerms">保存组织架构权限</button>
+        </div>
+        <p class="acc-tip">权限由<b>「职务」与「部门」共同决定，取并集</b>：教师档案中「行政职务」命中职务权限清单、<b>或</b>「所属部门」命中下方部门清单，即获得各自勾选的可管理模块，两者叠加。部门清单来自「人事管理 → 组织架构」（支持层级：如总务处 → 安保处 / 食堂）；此处为每个部门勾选可管理模块。处于下级的部门会<b>自动继承其全部上级部门</b>已勾选的模块（无需重复勾选）。未勾选任何模块的部门，其教师若职务也未授权，则登录后台后全部仅可查看。教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、账号与安全、系统设置本身始终仅限管理员，不开放配置。</p>
+      </section>
+
+      <!-- 服务器管理 -->
+      <section class="set-card" data-sec="server" hidden>
+        <div class="set-card-head">
+          <span class="set-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          </span>
+          <div>
+            <div class="set-card-title">服务器管理</div>
+            <div class="set-card-desc">查看本服务运行状态，必要时重启服务</div>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label">运行状态 <span class="badge" id="srvEnvBadge">读取中…</span></label>
+          <div class="srv-grid" id="srvInfo"></div>
+          <div class="srv-actions" style="margin-top:12px">
+            <button type="button" class="btn btn-default btn-sm" id="btnSrvRefresh">刷新状态</button>
+          </div>
+        </div>
+
+        <div class="set-field">
+          <label class="set-label">服务控制</label>
+          <div class="srv-zone">
+            <p class="set-tip">
+              重启服务会结束当前 Node 进程并重新启动，约 <b id="srvDelayText">1</b> 秒后自动恢复，期间所有页面会短暂无法访问。
+              仅操作本服务，不会影响服务器操作系统。
+            </p>
+            <div class="srv-actions" style="margin-top:12px">
+              <button type="button" class="btn btn-primary btn-sm" id="btnRestartService">重启服务</button>
+            </div>
+            <div class="set-row" style="margin-top:14px">
+              <label class="set-label" style="margin:0" for="srvRestartDelay">重启延迟</label>
+              <input type="number" id="srvRestartDelay" class="set-input" style="max-width:96px" min="0" max="30" step="1" />
+              <span class="muted-note">秒（0～30）</span>
+              <button type="button" class="btn btn-default btn-sm" id="btnSaveSrvCfg">保存</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="set-card-foot">
+          <span class="muted-note" style="margin-right:auto">数据目录：<span id="srvDataDir">—</span></span>
+          <span class="muted-note">仅操作本服务</span>
+        </div>
+      </section>
+      </div><!-- /.set-body -->
+    </div>
+  </main>
+
+  <!-- 账号重设密码弹窗（模态框，替代浏览器原生 prompt） -->
+  <div class="modal-mask" id="pwdMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="pwdTitle">重设密码</h3>
+        <button class="modal-close" id="pwdClose" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="modal-body" id="pwdForm">
+        <div class="form-row">
+          <p class="pwd-who" id="pwdWho"></p>
+          <label class="form-label" for="pwdNew">新密码 <span class="req">*</span></label>
+          <input type="password" id="pwdNew" maxlength="64" autocomplete="new-password" placeholder="6～64 位" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="pwdNew2">确认新密码 <span class="req">*</span></label>
+          <input type="password" id="pwdNew2" maxlength="64" autocomplete="new-password" placeholder="再次输入新密码" />
+        </div>
+        <div class="form-row">
+          <label class="pwd-eye"><input type="checkbox" id="pwdEye" /> 显示密码</label>
+        </div>
+        <p class="hr-tip" id="pwdTip"></p>
+      </form>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default pwd-init" id="pwdResetInit" title="恢复初始默认密码：学生为学号，教师为身份证号后 6 位">重置为初始密码</button>
+        <button type="button" class="btn btn-default" id="pwdCancel">取消</button>
+        <button type="button" class="btn btn-primary" id="pwdSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="set-toast" id="setToast"></div>
+
+  <script src="/js/dialog.js"></script>
+  <script src="/js/site.js"></script>
+  <script src="/js/embed.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var S = null; // 当前设置
+      var logoDraft = ''; // 当前校徽 dataURL（保存后写入设置）
+      var toastEl = document.getElementById('setToast');
+      var toastTimer = null;
+      function toast(msg, type) {
+        toastEl.textContent = msg;
+        toastEl.className = 'set-toast show ' + (type === 'err' ? 'err' : type === 'ok' ? 'ok' : '');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toastEl.className = 'set-toast'; }, 2600);
+      }
+      var $el = function (id) { return document.getElementById(id); };
+      function fmt(v) { return Math.round(Number(v) * 10) / 10; }
+
+      // 校徽预览（占位图标 / 已选图片）
+      var LOGO_PLACEHOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>';
+      function renderLogo() {
+        var box = $el('logoPreview');
+        box.innerHTML = '';
+        if (logoDraft) {
+          var im = document.createElement('img');
+          im.src = logoDraft;
+          im.alt = '校徽预览';
+          box.appendChild(im);
+        } else {
+          box.innerHTML = LOGO_PLACEHOLDER;
+        }
+      }
+
+      // 上传校徽：等比缩小后存为 PNG dataURL
+      function readLogoFile(file) {
+        if (!/^image\//.test(file.type)) { toast('请选择图片文件', 'err'); return; }
+        if (file.size > 2 * 1024 * 1024) { toast('图片不能超过 2MB', 'err'); return; }
+        var objUrl = URL.createObjectURL(file);
+        var im = new Image();
+        im.onload = function () {
+          var MAX = 300;
+          var scale = Math.min(1, MAX / Math.max(im.naturalWidth, im.naturalHeight));
+          var w = Math.max(1, Math.round(im.naturalWidth * scale));
+          var h = Math.max(1, Math.round(im.naturalHeight * scale));
+          var cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          var ctx = cv.getContext('2d');
+          ctx.drawImage(im, 0, 0, w, h);
+          var data = cv.toDataURL('image/png');
+          URL.revokeObjectURL(objUrl);
+          if (data.length > 850000) { toast('图片处理后仍过大，请换一张更小的图片', 'err'); return; }
+          logoDraft = data;
+          renderLogo();
+          toast('已选择新校徽，点击「保存学校信息」后全局生效');
+        };
+        im.onerror = function () { URL.revokeObjectURL(objUrl); toast('无法读取该图片', 'err'); };
+        im.src = objUrl;
+      }
+
+      function fill(s) {
+        S = s || {};
+        $el('setSchoolName').value = S.schoolName || '学生管理系统';
+        $el('setSchoolYear').value = S.schoolYear || '';
+        $el('setSlogan').value = S.slogan || '';
+        $el('setAddress').value = S.schoolAddress || '';
+        $el('setPhone').value = S.schoolPhone || '';
+        $el('setWebsite').value = S.schoolWebsite || '';
+        logoDraft = S.logoDataUrl || '';
+        renderLogo();
+        $el('setGenderW').value = fmt(S.balanceGender != null ? S.balanceGender : 1.5);
+        $el('genderVal').textContent = $el('setGenderW').value;
+        $el('setSpecW').value = fmt(S.balanceSpecialty != null ? S.balanceSpecialty : 2);
+        $el('specVal').textContent = $el('setSpecW').value;
+        // 科目已整合到「课程管理」，此处不再初始化本地科目草稿
+        // 自动备份设置
+        var bk = S.backup || {};
+        $el('bkAuto').checked = !!bk.auto;
+        $el('bkTime').value = bk.time || '03:00';
+        $el('bkKeep').value = Number(bk.keep) || 7;
+        // 职位权限设置
+        renderPerms(S.positionPermissions);
+        initDeptPerms(S);
+      }
+
+      // ================= 组织架构权限（与职务权限并集生效）=================
+      function initDeptPerms(S) {
+        var host = $el('permDeptRoles');
+        function renderDeptPerms(depts, deptPerms) {
+          var map = {};
+          (deptPerms && deptPerms.depts ? deptPerms.depts : []).forEach(function (d) {
+            map[String(d.name || '').trim().toLowerCase()] = d.modules || [];
+          });
+          if (!depts.length) {
+            host.innerHTML = '<div class="perm-empty">暂无部门。请先到「人事管理 → 组织架构」维护部门（含层级），再回来为部门配置可管理模块。</div>';
+            $el('ovDept').textContent = '—';
+            return;
+          }
+          var kidsOf = function (pid) { return depts.filter(function (d) { return (d.parentId || '') === (pid || ''); }); };
+          function node(dep, depth) {
+            var mods = map[String(dep.name || '').trim().toLowerCase()] || [];
+            var nameHtml = esc(dep.name) + (dep.desc ? ' <small>' + esc(dep.desc) + '</small>' : '');
+            var indent = depth ? ' style="margin-left:' + (depth * 22) + 'px"' : '';
+            var children = kidsOf(dep.id);
+            var html = '<div class="perm-role perm-dept" data-name="' + esc(dep.name) + '"' + indent + '>' +
+              '<div class="perm-role-head"><span class="perm-dept-name">' + nameHtml + (depth ? ' <small class="perm-inherit">（继承上级权限）</small>' : '') + '</span></div>' +
+              '<div class="perm-grid perm-role-mods">' +
+                PERM_MODULES.map(function (m) {
+                  var on = mods.indexOf(m.key) !== -1;
+                  return '<label class="perm-item"><input type="checkbox" data-mod="' + m.key + '"' + (on ? ' checked' : '') + '><span>' + m.name + '</span></label>';
+                }).join('') +
+              '</div>' +
+              '<div class="perm-role-tip"></div>' +
+            '</div>';
+            if (children.length) html += children.map(function (c) { return node(c, depth + 1); }).join('');
+            return html;
+          }
+          host.innerHTML = kidsOf('').map(function (d) { return node(d, 0); }).join('');
+          syncDeptOverview();
+        }
+        function collectDeptPerms() {
+          var out = { v: 1, depts: [] };
+          document.querySelectorAll('#permDeptRoles .perm-dept').forEach(function (row) {
+            var name = String(row.dataset.name || '').trim();
+            if (!name) return;
+            var mods = [];
+            row.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { if (cb.checked) mods.push(cb.getAttribute('data-mod')); });
+            out.depts.push({ id: 'dep_perm_' + name, name: name, modules: mods });
+          });
+          return out;
+        }
+        function syncDeptOverview() {
+          var p = collectDeptPerms();
+          var all = {};
+          p.depts.forEach(function (d) { d.modules.forEach(function (k) { all[k] = 1; }); });
+          $el('ovDept').textContent = modNames(Object.keys(all)) || '无（各部门均仅可查看）';
+          document.querySelectorAll('#permDeptRoles .perm-dept').forEach(function (row) {
+            var tip = row.querySelector('.perm-role-tip');
+            var n = row.querySelectorAll('input[type="checkbox"]:checked').length;
+            tip.innerHTML = n ? ('可管理 ' + n + ' 个模块') : '<b>未勾选任何模块</b>，该部门教师（职务也未授权时）登录后台后全部仅可查看';
+          });
+        }
+        host.addEventListener('input', syncDeptOverview);
+        host.addEventListener('change', syncDeptOverview);
+        $el('btnSaveDeptPerms').addEventListener('click', function () {
+          save({ deptPermissions: collectDeptPerms() }, '组织架构权限已保存');
+        });
+        fetch('/api/departments').then(function (r) { return r.json(); }).then(function (j) {
+          renderDeptPerms((j && j.code === 0 && Array.isArray(j.data)) ? j.data : [], S.deptPermissions);
+        }).catch(function () { renderDeptPerms([], S.deptPermissions); });
+      }
+
+      // ================= 职位权限（教务 / 宿管可管理模块）=================
+      // 与服务端 PERMISSION_MODULES / DEFAULT_SETTINGS.positionPermissions 保持一致
+      var PERM_MODULES = [
+        { key: 'students',      name: '学生档案' },
+        { key: 'classes',       name: '班级管理' },
+        { key: 'grades',        name: '年级管理' },
+        { key: 'exams',         name: '成绩管理' },
+        { key: 'conduct',       name: '考勤操行' },
+        { key: 'leaves',        name: '请假管理' },
+        { key: 'announcements', name: '通知公告' },
+        { key: 'timetables',    name: '课程表' },
+        { key: 'courses',       name: '课程管理' },
+        { key: 'dorms',         name: '宿舍管理' },
+        { key: 'hr',            name: '人事管理' },
+        { key: 'logistics',     name: '后勤/职工管理' }
+      ];
+      // 默认模块模板（「恢复默认」与本地预览用，不再与身份绑定）
+      var PERM_DEFAULTS = {
+        teaching: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables', 'courses'],
+        dorm: ['dorms']
+      };
+      // 默认职务条目（与服务端 DEFAULT_POSITION_ROLES 一致，用于「恢复默认」的本地预览）
+      var PERM_DEFAULT_ROLES = [
+        { id: 'pr_jwzr', name: '教务主任', modules: PERM_DEFAULTS.teaching.slice() },
+        { id: 'pr_jw', name: '教务', modules: PERM_DEFAULTS.teaching.slice() },
+        { id: 'pr_jwczr', name: '教务处主任', modules: PERM_DEFAULTS.teaching.slice() },
+        { id: 'pr_sg', name: '宿管', modules: PERM_DEFAULTS.dorm.slice() },
+        { id: 'pr_sgy', name: '宿管员', modules: PERM_DEFAULTS.dorm.slice() },
+        { id: 'pr_ssgly', name: '宿舍管理员', modules: PERM_DEFAULTS.dorm.slice() }
+      ];
+
+      function modNames(keys) {
+        var names = PERM_MODULES.filter(function (m) { return keys.indexOf(m.key) !== -1; }).map(function (m) { return m.name; });
+        return names.length ? names.join('、') : '无（全部模块仅可查看）';
+      }
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      function newRoleId() { return 'pr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6); }
+
+      // 渲染职务清单编辑器：每行 = 职务名 + 可管理模块（不用再选身份，身份即职务本身）
+      function renderPerms(pp) {
+        var list = (pp && Array.isArray(pp.roles) && pp.roles.length) ? pp.roles : PERM_DEFAULT_ROLES;
+        var host = $el('permRoles');
+        host.innerHTML = list.map(function (r) {
+          return '<div class="perm-role" data-id="' + esc(r.id) + '">' +
+            '<div class="perm-role-head">' +
+              '<input type="text" class="pr-name" value="' + esc(r.name) + '" placeholder="职务名（须与教师档案「行政职务」完全一致）" maxlength="20" />' +
+              '<button type="button" class="perm-role-del">删除</button>' +
+            '</div>' +
+            '<div class="perm-grid perm-role-mods">' +
+              PERM_MODULES.map(function (m) {
+                var on = (r.modules || []).indexOf(m.key) !== -1;
+                return '<label class="perm-item"><input type="checkbox" data-mod="' + m.key + '"' +
+                  (on ? ' checked' : '') + '><span>' + m.name + '</span></label>';
+              }).join('') +
+            '</div>' +
+            '<div class="perm-role-tip"></div>' +
+          '</div>';
+        }).join('');
+        syncPermOverview();
+      }
+
+      function addPermRole() {
+        var box = document.createElement('div');
+        box.className = 'perm-role';
+        box.dataset.id = newRoleId();
+        box.innerHTML =
+          '<div class="perm-role-head">' +
+            '<input type="text" class="pr-name" value="" placeholder="职务名（须与教师档案「行政职务」完全一致）" maxlength="20" />' +
+            '<button type="button" class="perm-role-del">删除</button>' +
+          '</div>' +
+          '<div class="perm-grid perm-role-mods">' +
+            PERM_MODULES.map(function (m) {
+              return '<label class="perm-item"><input type="checkbox" data-mod="' + m.key + '"><span>' + m.name + '</span></label>';
+            }).join('') +
+          '</div>' +
+          '<div class="perm-role-tip"></div>';
+        $el('permRoles').appendChild(box);
+        box.querySelector('.pr-name').focus();
+      }
+
+      // 收集当前清单（职务名 + 模块）；同步刷新总览与逐行提示
+      function collectPerms() {
+        var out = { v: 2, roles: [] };
+        document.querySelectorAll('#permRoles .perm-role').forEach(function (row) {
+          var name = String(row.querySelector('.pr-name').value || '').trim();
+          if (!name) return;
+          var mods = [];
+          row.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+            if (cb.checked) mods.push(cb.getAttribute('data-mod'));
+          });
+          out.roles.push({ id: row.dataset.id || newRoleId(), name: name, modules: mods });
+        });
+        return out;
+      }
+
+      // 总览：所有职务条目覆盖的模块并集（同名职务以清单为准）
+      function syncPermOverview() {
+        var p = collectPerms();
+        var all = {}, dup = {};
+        p.roles.forEach(function (r) {
+          var key = r.name.toLowerCase();
+          if (dup[key]) return;
+          dup[key] = 1;
+          r.modules.forEach(function (k) { all[k] = 1; });
+        });
+        $el('ovPosition').textContent = modNames(Object.keys(all));
+        // 逐行提示：重名 / 空模块
+        var seen = {};
+        document.querySelectorAll('#permRoles .perm-role').forEach(function (row) {
+          var name = String(row.querySelector('.pr-name').value || '').trim();
+          var tip = row.querySelector('.perm-role-tip');
+          if (!name) { tip.innerHTML = '<b>未填写职务名</b>，该行不会被保存'; return; }
+          var key = name.toLowerCase();
+          if (seen[key]) { tip.innerHTML = '<b>职务名重复</b>，同名只保留第一条'; return; }
+          seen[key] = 1;
+          var n = row.querySelectorAll('input[type="checkbox"]:checked').length;
+          tip.innerHTML = n ? '可管理 ' + n + ' 个模块' : '<b>未勾选任何模块</b>，命中该职务的教师登录后台后全部仅可查看';
+        });
+      }
+      $el('permRoles').addEventListener('input', syncPermOverview);
+      $el('permRoles').addEventListener('change', syncPermOverview);
+      $el('permRoles').addEventListener('click', async function (e) {
+        if (!e.target.classList || !e.target.classList.contains('perm-role-del')) return;
+        var row = e.target.closest('.perm-role');
+        if (!row) return;
+        var name = String(row.querySelector('.pr-name').value || '').trim();
+        if (name && !(await ask('确定删除职务「' + name + '」的权限配置吗？\n删除后该职务的教师将无法登录管理后台。', '删除职务', '删除', true))) return;
+        row.remove();
+        syncPermOverview();
+      });
+      $el('btnAddPermRole').addEventListener('click', function () { addPermRole(); syncPermOverview(); });
+
+      $el('btnSavePerms').addEventListener('click', function () {
+        var p = collectPerms();
+        if (!p.roles.length) { toast('至少需要保留一条职务配置', 'err'); return; }
+        var blank = p.roles.filter(function (r) { return !r.name; }).length;
+        save({ positionPermissions: p }, '职位权限已保存' + (blank ? '（已忽略 ' + blank + ' 条未填职务名的配置）' : ''));
+      });
+      $el('btnResetPerms').addEventListener('click', async function () {
+        if (!(await ask('确定恢复职位权限为默认配置吗？\n默认：教务 / 教务主任 / 教务处主任（教务身份，可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管 / 宿管员 / 宿舍管理员（宿管身份，仅宿舍）。', '恢复默认职位权限', '恢复', true))) return;
+        save({ positionPermissions: null }, '已恢复默认职位权限');
+      });
+
+      function load() {
+        return fetch('/api/settings').then(function (r) { return r.json(); }).then(function (j) {
+          fill(j.data || {});
+        }).catch(function () { toast('读取设置失败', 'err'); });
+      }
+
+      function save(body, okMsg) {
+        return fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '保存失败');
+          toast(okMsg || '设置已保存', 'ok');
+          fill(j.data || {});
+          // 立即应用到自己页面顶栏/标题，并通知父级工作台刷新品牌与标题
+          if (typeof window.siteLoadSettings === 'function') window.siteLoadSettings();
+          try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'icst-settings', url: location.pathname }, location.origin); } catch (e) {}
+        }).catch(function (e) { toast(e.message || '保存失败', 'err'); });
+      }
+
+      // 确认统一走模态框（dialog.js 的 confirmDlg），组件不可用时回退原生 confirm。
+      // 返回 Promise（异步），调用方需 await。
+      function ask(msg, title, okText, danger) {
+        if (typeof window.confirmDlg === 'function') {
+          return window.confirmDlg(msg, { title: title || '操作确认', okText: okText || '确定', danger: !!danger });
+        }
+        try { return Promise.resolve(!!window.confirm(msg)); } catch (e) { return Promise.resolve(true); }
+      }
+
+      // 学校信息：保存（名称/校徽/学年/校训/地址/电话）
+      $el('btnSaveSchool').addEventListener('click', function () {
+        save({
+          schoolName: $el('setSchoolName').value.trim() || '学生管理系统',
+          schoolYear: $el('setSchoolYear').value.trim(),
+          slogan: $el('setSlogan').value.trim(),
+          schoolAddress: $el('setAddress').value.trim(),
+          schoolPhone: $el('setPhone').value.trim(),
+          schoolWebsite: $el('setWebsite').value.trim(),
+          logoDataUrl: logoDraft
+        }, '学校信息已保存');
+      });
+      $el('btnResetName').addEventListener('click', function () {
+        $el('setSchoolName').value = '学生管理系统';
+        toast('已恢复默认名称，点击「保存学校信息」生效');
+      });
+      $el('btnPickLogo').addEventListener('click', function () { $el('fileLogo').click(); });
+      $el('fileLogo').addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        this.value = '';
+        if (file) readLogoFile(file);
+      });
+      $el('btnClearLogo').addEventListener('click', async function () {
+        if (!logoDraft) { toast('当前没有校徽可移除'); return; }
+        if (!(await ask('确认移除已设置的校徽吗？（保存后生效）', '移除校徽', '移除', true))) return;
+        logoDraft = '';
+        renderLogo();
+      });
+
+      // 滑块实时数值
+      $el('setGenderW').addEventListener('input', function () { $el('genderVal').textContent = this.value; });
+      $el('setSpecW').addEventListener('input', function () { $el('specVal').textContent = this.value; });
+      $el('btnSaveRule').addEventListener('click', function () {
+        save({
+          balanceGender: Number($el('setGenderW').value),
+          balanceSpecialty: Number($el('setSpecW').value)
+        }, '分班规则已保存');
+      });
+
+      // 导出备份
+      $el('btnExport').addEventListener('click', function () {
+        fetch('/api/backup').then(function (r) {
+          if (!r.ok) throw new Error('导出失败');
+          return r.blob();
+        }).then(function (blob) {
+          var url = URL.createObjectURL(blob);
+          var d = new Date();
+          var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'icbs-backup-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.json';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+          toast('备份文件已导出', 'ok');
+        }).catch(function () { toast('导出失败，请重试', 'err'); });
+      });
+
+      // 导入恢复
+      $el('btnPickImport').addEventListener('click', function () { $el('fileImport').click(); });
+      $el('fileImport').addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        this.value = '';
+        if (!file) return;
+        var rd = new FileReader();
+        rd.onload = async function () {
+          var obj;
+          try { obj = JSON.parse(rd.result); } catch (e) { toast('文件不是有效的备份 JSON', 'err'); return; }
+          if (!(await ask('导入将覆盖当前全部数据，确认继续吗？', '导入备份恢复数据', '覆盖恢复', true))) return;
+          var done = busyBtn($el('btnPickImport'), '导入中…');
+          if (!done) return;
+          fetch('/api/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(obj)
+          }).then(function (r) { return r.json(); }).then(function (j) {
+            if (j.code !== 0) throw new Error(j.msg || '恢复失败');
+            toast('恢复完成：班级 ' + j.classes + ' 个，学生 ' + j.students + ' 人', 'ok');
+            load();
+            if (typeof window.siteLoadSettings === 'function') window.siteLoadSettings();
+            try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'icst-settings', url: location.pathname }, location.origin); } catch (e) {}
+          }).catch(function (e) { toast(e.message || '恢复失败', 'err'); })
+            .finally(function () { done(); });
+        };
+        rd.readAsText(file);
+      });
+
+      // 清空业务数据：两个高危操作，均需输入验证短语「确认清空」经严格验证后执行
+      $el('btnClearStudents').addEventListener('click', async function () {
+        var tip = '确定清空全部学生档案吗？此操作不可恢复。\n\n'
+          + '将清空：全部未分班学生档案、各班花名册及分班结果、宿舍入住记录与操行记录。\n'
+          + '保留：班级结构、年级、教师、考试科目与系统设置。\n\n'
+          + '如需留存数据，请先点击上方「导出数据备份」。';
+        if (typeof window.confirmStrictDlg !== 'function') {
+          if (!window.confirm(tip)) return;
+        } else if (!(await window.confirmStrictDlg(tip, { title: '清空学生档案', okText: '清空学生' }))) {
+          return;
+        }
+        var done = busyBtn($el('btnClearStudents'), '清空中…');
+        if (!done) return;
+        fetch('/api/students', { method: 'DELETE' }).then(function (r) { return r.json(); }).then(function (j) {
+          toast(j.code === 0 ? '已清空全部学生档案' : (j.msg || '清空失败'), j.code === 0 ? 'ok' : 'err');
+        }).catch(function () { toast('清空失败，请重试', 'err'); })
+          .finally(function () { done(); });
+      });
+
+      $el('btnClearClasses').addEventListener('click', async function () {
+        var tip = '确定清空全部班级吗？此操作不可恢复。\n\n'
+          + '将删除：全部班级及其顺序与班主任配置，所有已分班学生将退回未分班。\n'
+          + '保留：学生档案、年级、教师、考试科目与系统设置。\n\n'
+          + '如需留存数据，请先点击上方「导出数据备份」。';
+        if (typeof window.confirmStrictDlg !== 'function') {
+          if (!window.confirm(tip)) return;
+        } else if (!(await window.confirmStrictDlg(tip, { title: '清空全部班级', okText: '清空班级' }))) {
+          return;
+        }
+        var done = busyBtn($el('btnClearClasses'), '清空中…');
+        if (!done) return;
+        fetch('/api/classes', { method: 'DELETE' }).then(function (r) { return r.json(); }).then(function (j) {
+          toast(j.code === 0 ? '已清空全部班级' : (j.msg || '清空失败'), j.code === 0 ? 'ok' : 'err');
+        }).catch(function () { toast('清空失败，请重试', 'err'); })
+          .finally(function () { done(); });
+      });
+
+      // ===== 示例数据导入（原「学生管理 → 更多 → 批量导入示例」，扩展至年级 / 班级 / 宿舍） =====
+      // 按「年级 → 班级 → 宿舍 → 学生」顺序追加写入，已存在的自动跳过，可安全重复点击
+      var DEMO_GRADES = ['高一', '高二', '高三'];
+      var DEMO_CLASS_COUNT = 2;        // 每个年级生成的班级数（高一1班 / 高一2班 …）
+      var DEMO_CLASS_CAPACITY = 50;
+      var DEMO_ROOM_CAPACITY = 4;
+      var DEMO_ROOMS = [
+        { building: '1号楼', roomNo: '101', gender: 'male' },
+        { building: '1号楼', roomNo: '102', gender: 'male' },
+        { building: '1号楼', roomNo: '103', gender: 'male' },
+        { building: '2号楼', roomNo: '101', gender: 'female' },
+        { building: '2号楼', roomNo: '102', gender: 'female' },
+        { building: '2号楼', roomNo: '103', gender: 'female' }
+      ];
+      var DEMO_ROSTER = [
+        ['2024001', '张伟', '男', '高一'], ['2024002', '李娜', '女', '高一'], ['2024003', '王强', '男', '高一'],
+        ['2024004', '赵敏', '女', '高一'], ['2024005', '刘洋', '男', '高一'], ['2024006', '陈静', '女', '高一'],
+        ['2024011', '徐鹏', '男', '高二'], ['2024012', '孙芳', '女', '高二'], ['2024013', '马超', '男', '高二'],
+        ['2024021', '唐明', '男', '高三'], ['2024022', '许婷', '女', '高三'], ['2024030', '姜媛', '女', '高三']
+      ];
+      var DEMO_SPECIALTY = ['篮球', '舞蹈', '', '钢琴', '编程', '绘画'];
+      // 生成 12 名示例学生：成绩按当前科目生成（各科 70~99，逐生/逐科错开），特长轮换
+      function demoStudents() {
+        var subs = window.SUBJECTS || [];
+        return DEMO_ROSTER.map(function (row, i) {
+          var scores = {};
+          if (subs.length) {
+            subs.forEach(function (sj, k) {
+              scores[sj.key] = 70 + ((i * 17 + k * 11) % 30);
+            });
+          } else {
+            scores = { chinese: 85, math: 88, english: 82, science: 86 };
+          }
+          return {
+            studentId: row[0], name: row[1], gender: row[2], grade: row[3],
+            scores: scores, specialty: DEMO_SPECIALTY[i % DEMO_SPECIALTY.length]
+          };
+        });
+      }
+      // 统一的示例数据请求：始终返回 { ok, body }，网络异常时返回 ok=false 而不中断后续步骤
+      function demoReq(url, opt) {
+        return fetch(url, opt).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            return { ok: r.ok, body: j || {} };
+          });
+        }).catch(function () { return { ok: false, body: {} }; });
+      }
+      function demoPost(url, payload) {
+        return demoReq(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+      // 依次写入四类示例数据，返回各项实际新增数量与跳过数量
+      async function runDemoImport() {
+        var out = { grades: 0, classes: 0, dorms: 0, students: 0, skipped: 0 };
+        // 1) 年级：先比对现有年级，已存在的不重复添加（服务端对重名会返回 400）
+        var g = await demoReq('/api/grades');
+        var known = (g.ok && g.body.data) || [];
+        for (var i = 0; i < DEMO_GRADES.length; i++) {
+          if (known.indexOf(DEMO_GRADES[i]) !== -1) { out.skipped++; continue; }
+          var gr = await demoPost('/api/grades', { name: DEMO_GRADES[i] });
+          if (gr.ok && gr.body.code === 0) out.grades++; else out.skipped++;
+        }
+        // 2) 班级：按示例年级各建 N 个班，同名班级由服务端自动跳过
+        for (var k = 0; k < DEMO_GRADES.length; k++) {
+          var cr = await demoPost('/api/classes/batch', {
+            grade: DEMO_GRADES[k], start: 1, count: DEMO_CLASS_COUNT, capacity: DEMO_CLASS_CAPACITY
+          });
+          if (cr.ok && cr.body.code === 0 && cr.body.data) {
+            out.classes += (cr.body.data.created || []).length;
+            out.skipped += (cr.body.data.skipped || []).length;
+          }
+        }
+        // 3) 宿舍：同楼栋同房号已存在时跳过（服务端会拒绝重复房号）
+        var d = await demoReq('/api/dorms');
+        var rooms = (d.ok && d.body.data) || [];
+        for (var m = 0; m < DEMO_ROOMS.length; m++) {
+          var want = DEMO_ROOMS[m];
+          var dup = rooms.some(function (r) {
+            return String(r.building) === want.building && String(r.roomNo) === want.roomNo;
+          });
+          if (dup) { out.skipped++; continue; }
+          var rr = await demoPost('/api/dorms', {
+            building: want.building, roomNo: want.roomNo,
+            capacity: DEMO_ROOM_CAPACITY, gender: want.gender
+          });
+          if (rr.ok && rr.body.code === 0) out.dorms++; else out.skipped++;
+        }
+        // 4) 学生：追加示例学生（未分班、未住宿，可自行体验分班与宿舍分配）
+        var sr = await demoPost('/api/students/batch', demoStudents());
+        if (sr.ok && sr.body.code === 0) out.students += (sr.body.count || 0);
+        return out;
+      }
+
+      $el('btnDemoImport').addEventListener('click', async function () {
+        var tip = '将按「年级 → 班级 → 宿舍 → 学生」顺序追加写入示例数据：\n\n'
+          + '· 年级：' + DEMO_GRADES.join(' / ') + '\n'
+          + '· 班级：每个年级 ' + DEMO_CLASS_COUNT + ' 个班（容量 ' + DEMO_CLASS_CAPACITY + '）\n'
+          + '· 宿舍：1 号楼男生 101～103、2 号楼女生 101～103（' + DEMO_ROOM_CAPACITY + ' 人间）\n'
+          + '· 学生：' + DEMO_ROSTER.length + ' 名，含各科成绩与特长\n\n'
+          + '已存在的年级 / 班级 / 房间会自动跳过，不会覆盖或删除已有数据。\n'
+          + '导入后可在「年级管理」「班级管理」「宿舍管理」「学生管理」中查看。\n\n确定继续吗？';
+        if (typeof window.confirmDlg !== 'function') {
+          if (!window.confirm(tip)) return;
+        } else if (!(await window.confirmDlg(tip, { title: '导入示例数据', okText: '开始导入' }))) {
+          return;
+        }
+        var done = busyBtn($el('btnDemoImport'), '导入中…');
+        if (!done) return;
+        runDemoImport().then(function (r) {
+          var parts = [];
+          if (r.grades) parts.push(r.grades + ' 个年级');
+          if (r.classes) parts.push(r.classes + ' 个班级');
+          if (r.dorms) parts.push(r.dorms + ' 间宿舍');
+          if (r.students) parts.push(r.students + ' 名学生');
+          var msg = parts.length
+            ? '示例数据导入完成：新增 ' + parts.join('、') + (r.skipped ? '，另有 ' + r.skipped + ' 项已存在已跳过' : '')
+            : '示例数据均已存在，无需重复导入' + (r.skipped ? '（跳过 ' + r.skipped + ' 项）' : '');
+          toast(msg, parts.length ? 'ok' : '');
+        }).catch(function (e) {
+          toast('导入失败：' + (e && e.message ? e.message : '请重试'), 'err');
+        }).finally(function () { done(); });
+      });
+
+      $el('btnDataManage').addEventListener('click', load);
+
+      // ================= 二级侧边栏菜单：分组切换 =================
+      // 科目设置已整合到「课程管理」，此处不再保留 subjects 分组
+      var NAV_KEYS = ['info', 'rules', 'data', 'audit', 'account', 'roles', 'server'];
+      var curSec = NAV_KEYS[0];   // 当前分组（刷新时据此重载对应列表）
+      function switchSec(key) {
+        if (NAV_KEYS.indexOf(key) === -1) key = NAV_KEYS[0];
+        curSec = key;
+        var items = document.querySelectorAll('.set-nav-item');
+        for (var i = 0; i < items.length; i++) {
+          items[i].className = 'set-nav-item' + (items[i].getAttribute('data-key') === key ? ' active' : '');
+        }
+        for (var k = 0; k < NAV_KEYS.length; k++) {
+          var card = document.querySelector('.set-card[data-sec="' + NAV_KEYS[k] + '"]');
+          if (card) {
+            if (NAV_KEYS[k] === key) card.removeAttribute('hidden');
+            else card.setAttribute('hidden', '');
+          }
+        }
+        if (key === 'server' && typeof refreshServerStatus === 'function') refreshServerStatus();
+        if (key === 'audit' && !auditLoaded) loadAudit(1);
+        if (key === 'data' && !backupListLoaded) loadBackupList();
+        return key;
+      }
+      (function () {
+        var items = document.querySelectorAll('.set-nav-item');
+        for (var i = 0; i < items.length; i++) {
+          items[i].addEventListener('click', function (e) {
+            e.preventDefault();
+            var k = this.getAttribute('data-key');
+            switchSec(k);
+            try { location.hash = k; } catch (e2) {}
+          });
+        }
+        // 支持 #rules / #data / #audit / #account / #server 直达指定分组
+        var m = /#(info|rules|data|audit|account|server)/.exec(location.hash || '');
+        switchSec(m ? m[1] : 'info');
+      })();
+
+      // ================= 自动备份（服务器本地） =================
+      var backupListLoaded = false;
+      function fmtSize(n) {
+        n = Number(n) || 0;
+        if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + ' MB';
+        if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+        return n + ' B';
+      }
+      function fmtTime(iso) {
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return '-';
+        function p(x) { return x < 10 ? '0' + x : '' + x; }
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+          + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+      }
+      function loadBackupList() {
+        backupListLoaded = true;
+        var tb = $el('bkTbody');
+        tb.innerHTML = '<tr><td colspan="5" class="bk-empty">加载中…</td></tr>';
+        fetch('/api/backups').then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '加载失败');
+          var list = j.data || [];
+          if (!list.length) {
+            tb.innerHTML = '<tr><td colspan="5" class="bk-empty">暂无服务器备份，点击「立即备份一次」生成</td></tr>';
+            return;
+          }
+          tb.innerHTML = list.map(function (f) {
+            var tag = f.kind === 'auto'
+              ? '<span class="bk-tag auto">自动</span>'
+              : '<span class="bk-tag manual">手动</span>';
+            return '<tr data-name="' + escU(f.name) + '">'
+              + '<td class="bk-name">' + escU(f.name) + '</td>'
+              + '<td>' + tag + '</td>'
+              + '<td>' + escU(fmtTime(f.mtime)) + '</td>'
+              + '<td>' + escU(fmtSize(f.size)) + '</td>'
+              + '<td class="bk-ops">'
+              + '<button type="button" class="btn btn-default btn-sm bk-dl">下载</button>'
+              + '<button type="button" class="btn btn-default btn-sm bk-restore">恢复</button>'
+              + '<button type="button" class="btn btn-danger btn-sm bk-del">删除</button>'
+              + '</td></tr>';
+          }).join('');
+        }).catch(function (e) {
+          tb.innerHTML = '<tr><td colspan="5" class="bk-empty">加载失败：' + escU(e.message || '请重试') + '</td></tr>';
+        });
+      }
+      // 保存自动备份设置
+      $el('btnSaveBk').addEventListener('click', function () {
+        var time = ($el('bkTime').value || '03:00').trim();
+        if (!/^\d{2}:\d{2}$/.test(time)) { toast('备份时间格式不正确', 'err'); return; }
+        var keep = parseInt($el('bkKeep').value, 10);
+        if (!(keep >= 1 && keep <= 100)) { toast('保留份数需为 1～100', 'err'); return; }
+        save({ backup: { auto: $el('bkAuto').checked, time: time, keep: keep } }, '自动备份设置已保存');
+      });
+      // 立即手动备份
+      $el('btnBkNow').addEventListener('click', async function () {
+        var ok;
+        if (typeof window.confirmDlg === 'function') {
+          ok = await window.confirmDlg('将在服务器上立即生成一份全量数据备份，是否继续？', { title: '立即备份', okText: '立即备份' });
+        } else { ok = window.confirm('将在服务器上立即生成一份全量数据备份，是否继续？'); }
+        if (!ok) return;
+        var done = busyBtn($el('btnBkNow'), '备份中…');
+        if (!done) return;
+        fetch('/api/backups', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '备份失败');
+          toast(j.msg || '备份已生成', 'ok');
+          loadBackupList();
+        }).catch(function (e) {
+          toast('备份失败：' + (e.message || '请重试'), 'err');
+        }).finally(function () { done(); });
+      });
+      $el('btnBkRefresh').addEventListener('click', loadBackupList);
+      // 列表内操作（事件委托）：下载 / 恢复 / 删除
+      $el('bkTbody').addEventListener('click', async function (e) {
+        var btn = e.target.closest && e.target.closest('button');
+        if (!btn) return;
+        var tr = btn.closest('tr');
+        var name = tr && tr.getAttribute('data-name');
+        if (!name) return;
+        if (btn.className.indexOf('bk-dl') !== -1) {
+          window.open('/api/backups/' + encodeURIComponent(name), '_blank');
+          return;
+        }
+        if (btn.className.indexOf('bk-del') !== -1) {
+          var okDel;
+          var msgDel = '确定删除服务器备份「' + name + '」？删除后不可恢复。';
+          if (typeof window.confirmDlg === 'function') {
+            okDel = await window.confirmDlg(msgDel, { title: '删除备份', okText: '删除', danger: true });
+          } else { okDel = window.confirm(msgDel); }
+          if (!okDel) return;
+          fetch('/api/backups/' + encodeURIComponent(name), { method: 'DELETE' })
+            .then(function (r) { return r.json(); }).then(function (j) {
+              if (j.code !== 0) throw new Error(j.msg || '删除失败');
+              toast('备份已删除', 'ok');
+              loadBackupList();
+            }).catch(function (err) { toast('删除失败：' + (err.message || '请重试'), 'err'); });
+          return;
+        }
+        if (btn.className.indexOf('bk-restore') !== -1) {
+          var msg = '将用服务器备份「' + name + '」<b>覆盖当前全部数据</b>，此操作不可撤销，建议先另存一份当前备份。确定继续？';
+          var okR;
+          if (typeof window.confirmDlg === 'function') {
+            okR = await window.confirmDlg(msg, { title: '恢复备份', okText: '确认覆盖恢复', danger: true });
+          } else { okR = window.confirm('将用备份「' + name + '」覆盖当前全部数据，此操作不可撤销，确定继续？'); }
+          if (!okR) return;
+          btn.disabled = true;
+          var oldText = btn.textContent;
+          btn.textContent = '恢复中…';
+          fetch('/api/backups/' + encodeURIComponent(name))
+            .then(function (r) { return r.json(); })
+            .then(function (payload) {
+              return fetch('/api/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              }).then(function (r) { return r.json(); });
+            })
+            .then(function (j) {
+              if (j.code !== 0) throw new Error(j.msg || '恢复失败');
+              toast('备份已恢复，页面即将刷新…', 'ok');
+              setTimeout(function () { location.reload(); }, 1200);
+            })
+            .catch(function (err) { toast('恢复失败：' + (err.message || '请重试'), 'err'); })
+            .finally(function () { btn.disabled = false; btn.textContent = oldText; });
+        }
+      });
+
+      // ================= 操作审计日志 =================
+      var auditLoaded = false;
+      var auditPage = 1;
+      var auditKw = '';
+      var auditTotal = 0;
+      var AUDIT_PAGE_SIZE = 20;
+      var ROLE_LABEL = { admin: '管理员', viewer: '查看者', student: '学生', teacher: '教师', position: '职务账号' };
+      function loadAudit(page) {
+        auditPage = Math.max(1, page || 1);
+        var tb = $el('auTbody');
+        tb.innerHTML = '<tr><td colspan="6" class="bk-empty">加载中…</td></tr>';
+        var qs = 'page=' + auditPage + '&pageSize=' + AUDIT_PAGE_SIZE + (auditKw ? '&kw=' + encodeURIComponent(auditKw) : '');
+        fetch('/api/audit?' + qs).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '加载失败');
+          auditLoaded = true;
+          var d = j.data || {};
+          var rows = d.rows || [];
+          auditTotal = d.total || 0;
+          if (!rows.length) {
+            tb.innerHTML = '<tr><td colspan="6" class="bk-empty">没有符合条件的审计记录</td></tr>';
+          } else {
+            tb.innerHTML = rows.map(function (x) {
+              var method = String(x.method || '');
+              // 职务账号的审计记录直接显示其职务名（actorLabel），其余回退角色名
+              var roleText = x.actorLabel || (x.actorRole ? (ROLE_LABEL[x.actorRole] || x.actorRole) : '');
+              var role = roleText ? '<div class="au-role">' + escU(roleText) + '</div>' : '';
+              return '<tr>'
+                + '<td>' + escU(fmtTime(x.at)) + '</td>'
+                + '<td>' + escU(x.actor || '-') + role + '</td>'
+                + '<td><span class="au-method ' + escU(method) + '">' + escU(method) + '</span></td>'
+                + '<td>' + escU(x.module || '-') + '</td>'
+                + '<td class="path">' + escU(x.path || '-') + '</td>'
+                + '<td>' + escU(x.ip || '-') + '</td>'
+                + '</tr>';
+            }).join('');
+          }
+          var pages = Math.max(1, Math.ceil(auditTotal / AUDIT_PAGE_SIZE));
+          $el('auInfo').textContent = '共 ' + auditTotal + ' 条';
+          $el('auPage').textContent = auditPage + ' / ' + pages;
+          $el('btnAuPrev').disabled = auditPage <= 1;
+          $el('btnAuNext').disabled = auditPage >= pages;
+        }).catch(function (e) {
+          tb.innerHTML = '<tr><td colspan="6" class="bk-empty">加载失败：' + escU(e.message || '请重试') + '</td></tr>';
+        });
+      }
+      $el('btnAuSearch').addEventListener('click', function () {
+        auditKw = $el('auKw').value.trim();
+        loadAudit(1);
+      });
+      $el('auKw').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { auditKw = this.value.trim(); loadAudit(1); }
+      });
+      $el('btnAuRefresh').addEventListener('click', function () { loadAudit(auditPage); });
+      $el('btnAuPrev').addEventListener('click', function () { loadAudit(auditPage - 1); });
+      $el('btnAuNext').addEventListener('click', function () { loadAudit(auditPage + 1); });
+      $el('btnAuClear').addEventListener('click', async function () {
+        var ok;
+        if (typeof window.confirmDlg === 'function') {
+          ok = await window.confirmDlg('确定清空全部审计日志？清空后不可恢复。', { title: '清空审计日志', okText: '清空', danger: true });
+        } else { ok = window.confirm('确定清空全部审计日志？清空后不可恢复。'); }
+        if (!ok) return;
+        fetch('/api/audit', { method: 'DELETE' }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '清空失败');
+          toast('审计日志已清空', 'ok');
+          loadAudit(1);
+        }).catch(function (e) { toast('清空失败：' + (e.message || '请重试'), 'err'); });
+      });
+
+      // ================= 账号与安全 =================
+      function escU(t) {
+        return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      // ================= 科目设置（已整合到「课程管理」）=================
+      // 考试科目不再由本页维护：课程计划中的课程即考试科目，
+      // 增删科目请到「课程管理」调整各年级课程计划。
+
+      // —— 修改当前账号密码 ——
+      $el('btnSavePwd').addEventListener('click', function () {
+        var oldP = $el('pwOld').value;
+        var n1 = $el('pwNew').value;
+        var n2 = $el('pwNew2').value;
+        if (!oldP) return toast('请输入当前密码', 'err');
+        if (n1.length < 6 || n1.length > 64) return toast('新密码需为 6～64 位', 'err');
+        if (n1 !== n2) return toast('两次输入的新密码不一致', 'err');
+        var done = busyBtn($el('btnSavePwd'), '保存中…');
+        if (!done) return;
+        fetch('/api/auth/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldPassword: oldP, newPassword: n1 })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '修改失败');
+          $el('pwOld').value = $el('pwNew').value = $el('pwNew2').value = '';
+          toast('密码已更新，请妥善保管', 'ok');
+        }).catch(function (e) { toast(e.message || '修改失败', 'err'); })
+          .finally(function () { done(); });
+      });
+
+      // —— 账号「重设密码」弹窗（模态框，替代原生 prompt）——
+      var pwdTarget = null;  // 当前重设密码的账号对象
+
+      function openPwdModal(u) {
+        pwdTarget = u;
+        var label = u.role === 'student' ? '学生账号' : (u.role === 'teacher' ? '教师账号' : '账号');
+        $el('pwdTitle').textContent = '重设密码';
+        $el('pwdWho').innerHTML = '为' + label + '「<b>' + escU(u.nickname || u.username) + '</b>（@' + escU(u.username) + '）」设置新密码，保存后立即生效。';
+        $el('pwdTip').textContent = (u.role === 'student'
+          ? '设为本人学号，即可恢复「首次默认登录（学号）」状态。'
+          : (u.role === 'teacher'
+            ? '设为本人身份证号后 6 位，即可恢复「首次登录（初始密码）」强制改密状态。'
+            : '密码需为 6～64 位，保存后立即生效。'));
+        // 自助账号（学生 / 教师）才有一键「重置为初始密码」，管理类账号无初始密码
+        $el('pwdResetInit').style.display = (u.role === 'student' || u.role === 'teacher') ? '' : 'none';
+        $el('pwdNew').value = '';
+        $el('pwdNew2').value = '';
+        $el('pwdEye').checked = false;
+        syncPwdMask();
+        $el('pwdMask').classList.add('show');
+        setTimeout(function () { $el('pwdNew').focus(); }, 60);
+      }
+      function closePwdModal() {
+        $el('pwdMask').classList.remove('show');
+        pwdTarget = null;
+      }
+      function syncPwdMask() {
+        var t = $el('pwdEye').checked ? 'text' : 'password';
+        $el('pwdNew').type = t;
+        $el('pwdNew2').type = t;
+      }
+      function savePwd() {
+        if (!pwdTarget) return;
+        var n1 = $el('pwdNew').value;
+        var n2 = $el('pwdNew2').value;
+        if (n1.length < 6 || n1.length > 64) { toast('密码需为 6～64 位', 'err'); $el('pwdNew').focus(); return; }
+        if (n1 !== n2) { toast('两次输入的新密码不一致', 'err'); $el('pwdNew2').focus(); return; }
+        var btn = $el('pwdSave');
+        var done = busyBtn(btn, '保存中…');
+        if (!done) return;
+        fetch('/api/users/' + encodeURIComponent(pwdTarget.username), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: n1 })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '操作失败');
+          toast('密码已重置', 'ok');
+          closePwdModal();
+        }).catch(function (e) { toast(e.message || '操作失败', 'err'); })
+          .finally(function () { done(); });
+      }
+      // 一键恢复初始默认密码：弹窗内按钮与列表行按钮共用这套确认 + 提交流程
+      async function resetInitPwd(u, btn) {
+        var isStu = u.role === 'student';
+        if (!(await ask(
+          '确定将「' + (u.nickname || u.username) + '（@' + u.username + '）」的登录密码重置为初始默认密码吗？\n' +
+          (isStu ? '学生初始密码为本人学号「' + u.username + '」。' : '教师初始密码为本人身份证号后 6 位。') +
+          '\n重置后该用户下次登录需重新设置个人密码。',
+          '重置为初始密码', '重置', true))) return;
+        var done = busyBtn(btn, '重置中…');
+        if (!done) return;
+        fetch('/api/users/' + encodeURIComponent(u.username) + '/password-reset', { method: 'PUT' })
+          .then(function (r) { return r.json(); }).then(function (j) {
+            if (j.code !== 0) throw new Error(j.msg || '重置失败');
+            toast(j.msg || '密码已重置', 'ok');
+            closePwdModal();
+          }).catch(function (e) { toast(e.message || '重置失败，请重试', 'err'); })
+          .finally(function () { done(); });
+      }
+      $el('pwdResetInit').addEventListener('click', function () {
+        if (pwdTarget) resetInitPwd(pwdTarget, $el('pwdResetInit'));
+      });
+      $el('pwdSave').addEventListener('click', savePwd);
+      $el('pwdCancel').addEventListener('click', closePwdModal);
+      $el('pwdClose').addEventListener('click', closePwdModal);
+      $el('pwdEye').addEventListener('change', syncPwdMask);
+      $el('pwdForm').addEventListener('submit', function (e) { e.preventDefault(); savePwd(); });
+      $el('pwdMask').addEventListener('click', function (e) {
+        if (e.target === $el('pwdMask')) closePwdModal();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && $el('pwdMask').classList.contains('show')) closePwdModal();
+      });
+
+      // —— 账号管理（仅管理员可见）——
+      var accSelf = null;
+
+      function accRow(u) {
+        var isMe = accSelf && u.username === accSelf.username;
+        var isStudent = u.role === 'student';
+        var isTeacher = u.role === 'teacher';
+        var isSelf = isStudent || isTeacher;
+        var selfLabel = isStudent ? '学号 @' : '工号 @';
+        var selfNote = isStudent ? '学号自助登录 · 首次登录需改密' : '工号自助登录 · 首次登录需改密';
+        var opts = ['admin', 'viewer'].map(function (r) {
+          return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' +
+            (r === 'admin' ? '管理员' : '查看模式') + '</option>';
+        }).join('');
+        var row = document.createElement('div');
+        row.className = 'acc-row';
+        row.innerHTML =
+          '<div><b>' + escU(u.nickname || u.username) + '</b>' +
+          (isStudent ? '<span class="acc-stu-role">学生（自助端）</span>' : '') +
+          (isTeacher ? '<span class="acc-tea-role">教师（自助端）</span>' : '') +
+          (isMe ? '<span class="acc-me">当前登录</span>' : '') +
+          '<div class="acc-created">' + (isSelf ? selfLabel : '@') + escU(u.username) + '</div></div>' +
+          '<div class="acc-created">' + (u.createdAt ? String(u.createdAt).slice(0, 10) : '—') + '</div>' +
+          (isStudent
+            ? '<div class="acc-created">学生</div>'
+            : (isTeacher
+              ? '<div class="acc-created">教师</div>'
+              : '<div><select class="acc-role-sel">' + opts + '</select></div>')) +
+          '<div class="acc-created">' +
+          (isSelf ? selfNote : (u.role === 'admin' ? '可操作全部功能与数据' : '仅查看，不可修改')) +
+          '</div>' +
+          '<div class="acc-btns">' +
+          '<button class="btn-sm btn-edit acc-reset" title="由管理员指定一个新密码（6～64 位）">重设密码</button>' +
+          (isSelf
+            ? '<button class="btn-sm btn-reset acc-init" title="一键恢复本人的初始默认密码：学生为学号，教师为身份证号后 6 位；重置后下次登录需重新设置个人密码">重置密码</button>'
+            : '') +
+          (isSelf || isMe ? '' : '<button class="btn-sm btn-del acc-del">删除</button>') +
+          '</div>';
+
+        var sel = row.querySelector('.acc-role-sel');
+        if (sel) sel.addEventListener('change', function () {
+          fetch('/api/users/' + encodeURIComponent(u.username), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: sel.value })
+          }).then(function (r) { return r.json(); }).then(function (j) {
+            if (j.code !== 0) { toast(j.msg || '修改失败', 'err'); renderAccList(); return; }
+            toast('已将「' + u.username + '」设为' + (sel.value === 'admin' ? '管理员' : '查看模式'), 'ok');
+            renderAccList();
+          }).catch(function () { toast('修改失败', 'err'); renderAccList(); });
+        });
+
+        row.querySelector('.acc-reset').addEventListener('click', function () {
+          openPwdModal(u);
+        });
+
+        // 重置为「初始默认密码」：学生 = 学号，教师 = 身份证号后 6 位（均由服务端计算，前端不接触身份证）
+        var initBtn = row.querySelector('.acc-init');
+        if (initBtn) initBtn.addEventListener('click', function () { resetInitPwd(u, initBtn); });
+
+        var del = row.querySelector('.acc-del');
+        if (del) del.addEventListener('click', async function () {
+          if (!(await ask('确定删除账号「' + u.username + '」吗？', '删除账号', '删除', true))) return;
+          fetch('/api/users/' + encodeURIComponent(u.username), { method: 'DELETE' })
+            .then(function (r) { return r.json(); }).then(function (j) {
+              toast(j.code === 0 ? '账号已删除' : (j.msg || '删除失败'), j.code === 0 ? 'ok' : 'err');
+              if (j.code === 0) renderAccList();
+            }).catch(function () { toast('删除失败', 'err'); });
+        });
+        return row;
+      }
+
+      // 账号列表：数据只拉取一次并缓存，搜索关键词与角色筛选均为纯前端过滤，不再请求服务端
+      var accCache = [];
+      var accSearchTimer = null;
+
+      function accFiltered() {
+        var kw = String(($el('accSearch') && $el('accSearch').value) || '').trim().toLowerCase();
+        var rf = $el('accRoleFilter') ? $el('accRoleFilter').value : '';
+        return accCache.filter(function (u) {
+          if (rf && u.role !== rf) return false;
+          if (!kw) return true;
+          return String(u.username || '').toLowerCase().indexOf(kw) >= 0 ||
+            String(u.nickname || '').toLowerCase().indexOf(kw) >= 0;
+        });
+      }
+
+      function paintAccList(list) {
+        var zone = $el('accZone');
+        var total = accCache.length;
+        zone.innerHTML = '';
+        if ($el('accCount')) {
+          $el('accCount').textContent = list.length === total
+            ? ('共 ' + total + ' 个账号')
+            : ('筛选出 ' + list.length + ' / ' + total + ' 个账号');
+        }
+        if (!total) {
+          zone.innerHTML = '<div class="acc-empty">暂无账号</div>';
+          return;
+        }
+        if (!list.length) {
+          zone.innerHTML = '<div class="acc-empty">没有匹配的账号<br />' +
+            '<span style="font-size:12px">换个关键词，或把角色改回「全部角色」再试</span></div>';
+          return;
+        }
+        var head = document.createElement('div');
+        head.className = 'acc-head';
+        ['账号 / 昵称', '创建时间', '角色', '权限', '操作'].forEach(function (t) {
+          var d = document.createElement('div');
+          d.textContent = t;
+          head.appendChild(d);
+        });
+        zone.appendChild(head);
+        list.forEach(function (u) { zone.appendChild(accRow(u)); });
+      }
+
+      function renderAccList() {
+        fetch('/api/users').then(function (r) { return r.json(); }).then(function (j) {
+          accCache = (j.code === 0 && Array.isArray(j.data)) ? j.data : [];
+          paintAccList(accFiltered());
+        }).catch(function () {
+          if ($el('accCount')) $el('accCount').textContent = '读取失败';
+          $el('accZone').innerHTML = '<div class="acc-empty">读取账号列表失败，请刷新重试</div>';
+          toast('读取账号列表失败', 'err');
+        });
+      }
+
+      // 搜索 / 筛选：输入即过滤，Esc 或 × 快速清空
+      function syncAccSearchClear() {
+        var inp = $el('accSearch');
+        if (inp && $el('accSearchClear')) $el('accSearchClear').hidden = !inp.value;
+      }
+      function repaintAccSoon() {
+        clearTimeout(accSearchTimer);
+        accSearchTimer = setTimeout(function () { paintAccList(accFiltered()); }, 120);
+      }
+      $el('accSearch').addEventListener('input', function () { syncAccSearchClear(); repaintAccSoon(); });
+      $el('accSearch').addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        this.value = '';
+        syncAccSearchClear();
+        paintAccList(accFiltered());
+      });
+      $el('accSearchClear').addEventListener('click', function () {
+        $el('accSearch').value = '';
+        syncAccSearchClear();
+        paintAccList(accFiltered());
+        $el('accSearch').focus();
+      });
+      $el('accRoleFilter').addEventListener('change', function () { paintAccList(accFiltered()); });
+
+      $el('btnAddAcc').addEventListener('click', function () {
+        var name = $el('accUser').value.trim();
+        var pwd = $el('accPwd').value;
+        var role = $el('accRole').value;
+        if (!name) return toast('请输入账号', 'err');
+        if (!/^[\w\u4e00-\u9fa5-]{2,20}$/.test(name)) return toast('账号需为 2～20 位中英文、数字、下划线或短横线', 'err');
+        if (pwd.length < 6 || pwd.length > 64) return toast('初始密码需为 6～64 位', 'err');
+        var done = busyBtn($el('btnAddAcc'), '创建中…');
+        if (!done) return;
+        fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: name, password: pwd, role: role })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '创建失败');
+          toast('账号已创建', 'ok');
+          $el('accUser').value = $el('accPwd').value = '';
+          renderAccList();
+        }).catch(function (e) { toast(e.message || '创建失败', 'err'); })
+          .finally(function () { done(); });
+      });
+
+      function initAcc() {
+        accSelf = window.AUTH ? { username: window.AUTH.username } : null;
+        var zone = $el('accAdminZone');
+        if (!zone || !accSelf) { if (zone) zone.style.display = 'none'; return; }
+        renderAccList();
+      }
+      if (window.AUTH) initAcc();
+      else window.addEventListener('cb-auth-ready', initAcc);
+
+      // ================= 服务器管理 =================
+      function escSrv(t) {
+        return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      function srvItem(k, v, sub) {
+        return '<div class="srv-item"><div class="srv-k">' + escSrv(k) + '</div>' +
+          '<div class="srv-v">' + v + '</div>' +
+          (sub ? '<div class="srv-sub">' + sub + '</div>' : '') + '</div>';
+      }
+      function renderServerStatus(d) {
+        d = d || {};
+        $el('srvEnvBadge').textContent = d.container ? '容器内运行' : (d.supervisor ? '守护进程托管' : '独立进程运行');
+        $el('srvDataDir').textContent = d.dataDir || '—';
+        $el('srvDelayText').textContent = Number(d.restartDelay) || 0;
+        $el('srvRestartDelay').value = Number(d.restartDelay) || 0;
+        var html = '';
+        html += srvItem('主机名', escSrv(d.hostname || '—'));
+        html += srvItem('操作系统', escSrv(d.osName || '—'), escSrv(d.platform || '') + ' · ' + escSrv(d.arch || ''));
+        html += srvItem('Node 版本', escSrv(d.nodeVersion || '—'), 'PID ' + escSrv(d.pid) + ' · 端口 ' + escSrv(d.port));
+        html += srvItem('服务运行时长', escSrv(d.uptimeText || '—'),
+          '启动于 ' + escSrv(String(d.startedAt || '').replace('T', ' ').slice(0, 19)));
+        html += srvItem('系统内存占用', escSrv(d.memText || '—'),
+          '<div class="srv-bar"><i style="width:' + (Number(d.memPercent) || 0) + '%"></i></div>');
+        html += srvItem('CPU', escSrv(d.cpuModel || '—'),
+          '核心 ' + escSrv(d.cpuCount) + ' · 负载 ' + escSrv(d.load1) + ' / ' + escSrv(d.load5) + ' / ' + escSrv(d.load15));
+        html += srvItem('本进程内存', escSrv(d.procRssText || '—'), '堆 ' + escSrv(d.procHeapText || '—'));
+        html += srvItem('数据目录占用', escSrv(d.dataSizeText || '—'));
+        $el('srvInfo').innerHTML = html;
+      }
+      function refreshServerStatus() {
+        return fetch('/api/server/status').then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '读取状态失败');
+          renderServerStatus(j.data);
+        }).catch(function (e) {
+          $el('srvInfo').innerHTML = '<div class="srv-item"><div class="srv-k">状态</div><div class="srv-v">' +
+            escSrv(e.message || '读取状态失败') + '</div></div>';
+        });
+      }
+      $el('btnSrvRefresh').addEventListener('click', function () { refreshServerStatus(); });
+      $el('btnSaveSrvCfg').addEventListener('click', function () {
+        var n = Number($el('srvRestartDelay').value);
+        if (!isFinite(n) || n < 0 || n > 30) { toast('重启延迟需为 0～30 秒', 'err'); return; }
+        save({ serverControl: { restartDelay: n } }, '服务器管理设置已保存')
+          .then(function () { refreshServerStatus(); });
+      });
+      // 重启后轮询状态接口，服务恢复即自动刷新页面
+      function waitServerBack(waitSec) {
+        setTimeout(function () {
+          var tries = 0;
+          var timer = setInterval(function () {
+            tries++;
+            fetch('/api/server/status', { cache: 'no-store' }).then(function (r) {
+              if (r.ok) { clearInterval(timer); location.reload(); }
+              else if (tries >= 20) clearInterval(timer);
+            }).catch(function () {
+              if (tries >= 20) clearInterval(timer); // 最多等待约 40 秒
+            });
+          }, 2000);
+        }, Math.max(0, waitSec) * 1000);
+      }
+      $el('btnRestartService').addEventListener('click', async function () {
+        var tip = '确定重启本服务吗？\n\n服务会短暂中断（约数秒）后自动恢复，期间所有页面无法访问。';
+        if (typeof window.confirmDlg === 'function') {
+          if (!(await window.confirmDlg(tip, { title: '重启服务', okText: '重启' }))) return;
+        } else if (!window.confirm(tip)) return;
+        var delaySec = Number($el('srvRestartDelay').value) || 0;
+        var done = busyBtn($el('btnRestartService'), '重启中…');
+        if (!done) return;
+        fetch('/api/server/restart', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (j) {
+          toast(j.msg || (j.code === 0 ? '正在重启服务' : '重启失败'), j.code === 0 ? 'ok' : 'err');
+          if (j.code === 0) waitServerBack(delaySec + 1);
+        }).catch(function () {
+          toast('服务正在重启，恢复后页面会自动刷新', 'ok');
+          waitServerBack(delaySec + 2);
+        }).finally(function () { done(); });
+      });
+
+      // 工作台顶栏 / 页签菜单「刷新当前页」：重新读取设置，并刷新当前分组内的列表
+      //（此前本页未暴露钩子，embed.js 找不到回调 → 点击刷新完全无反应）
+      window.cbEmbedRefresh = function () {
+        load();
+        if (curSec === 'account' && typeof renderAccList === 'function') renderAccList();
+        else if (curSec === 'audit' && auditLoaded) loadAudit(auditPage);
+        else if (curSec === 'data' && backupListLoaded) loadBackupList();
+        else if (curSec === 'server' && typeof refreshServerStatus === 'function') refreshServerStatus();
+      };
+
+      load();
+    })();
+  </script>
+</body>
+</html>
