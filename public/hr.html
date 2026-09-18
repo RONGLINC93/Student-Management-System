@@ -109,6 +109,15 @@
     .modal-body .dept-editor { margin-top: 0; border: 0; background: transparent; padding: 0; }
     .req { color: #e3493b; }
     .dept-row input.dept-desc { flex: 1; }
+
+    /* ===== 职位（整合进组织架构树，作为部门下子项）===== */
+    .trow.tpos { padding-left: 30px; background: #fafbfc; }
+    .trow.tpos:hover { background: #f1f5f9; }
+    .tpos-badge {
+      flex: 0 0 auto; font-size: 11px; line-height: 1; padding: 2px 6px; border-radius: 5px;
+      background: #eef2ff; color: #4f46e5; font-weight: 600; margin-right: 4px;
+    }
+    .tnode.collapsed .tpositions { display: none; }
   </style>
 </head>
 <body>
@@ -151,7 +160,7 @@
             <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加部门
           </button>
         </div>
-        <p class="hr-tip">顶层为学校名称，其下按部门层级维护（支持多级：总务处 → 安保处 / 食堂）。每行右侧「⋯」可添加子部门 / 编辑 / 删除，改完点「保存组织架构」。部门权限在「系统设置 → 组织架构权限」配置，<b>子部门自动继承上级权限</b>。</p>
+        <p class="hr-tip">顶层为学校名称，其下按部门层级维护（支持多级：总务处 → 安保处 / 食堂）。每行右侧「⋯」可添加子部门 / 编辑 / 删除，也可<b>添加职位</b>——职位会作为该部门下的子项展示，并供后勤职工登记时「具体岗位」联动。改完部门点「保存组织架构」。</p>
         <div id="deptTree" class="org-tree"></div>
 
       </aside>
@@ -298,6 +307,34 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-default" id="deptEditorCancel">取消</button>
         <button type="button" class="btn btn-primary" id="deptEditorSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加 / 编辑职位 模态框 -->
+  <div class="modal-mask" id="posModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="posEditorTitle">添加职位</h3>
+        <button class="modal-close" id="posModalClose" type="button" aria-label="关闭"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label class="form-label">职位名称 <span class="req">*</span></label>
+          <input type="text" id="posName" class="set-input" maxlength="30" placeholder="如：保安队长" />
+        </div>
+        <div class="form-row">
+          <label class="form-label">所属部门</label>
+          <select id="posDept" class="set-input"></select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">描述</label>
+          <input type="text" id="posDesc" class="set-input" maxlength="60" placeholder="选填" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" id="posEditorCancel">取消</button>
+        <button type="button" class="btn btn-primary" id="posEditorSave">保存</button>
       </div>
     </div>
   </div>

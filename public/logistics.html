@@ -186,11 +186,11 @@
           <div class="form-row"><label class="form-label">岗位类别</label>
             <select id="fCategory"></select>
           </div>
-          <div class="form-row"><label class="form-label">具体岗位</label>
-            <input type="text" id="fPost" list="postList" maxlength="30" placeholder="如：保安队长 / 食堂厨师" />
-          </div>
           <div class="form-row"><label class="form-label">所属部门</label>
             <select id="fDepartment" class="set-input"><option value="">（未分配部门）</option></select>
+          </div>
+                    <div class="form-row"><label class="form-label">职位</label>
+            <select id="fPost" class="set-input"><option value="">（请先选择所属部门）</option></select>
           </div>
           <div class="form-row"><label class="form-label">用工性质</label>
             <select id="fEmployType"></select>
@@ -233,26 +233,9 @@
             <input type="text" id="fRemark" maxlength="200" placeholder="如：负责夜间巡查、持有特种设备操作证等（选填）" />
           </div>
         </div>
-        <datalist id="postList">
-          <option value="保安"></option>
-          <option value="保安队长"></option>
-          <option value="门卫"></option>
-          <option value="保洁员"></option>
-          <option value="保洁组长"></option>
-          <option value="食堂厨师"></option>
-          <option value="食堂服务员"></option>
-          <option value="食堂管理员"></option>
-          <option value="维修工"></option>
-          <option value="水电工"></option>
-          <option value="宿管"></option>
-          <option value="宿管员"></option>
-          <option value="绿化工"></option>
-          <option value="司机"></option>
-          <option value="校医"></option>
-        </datalist>
         <datalist id="vendorList"></datalist>
         <datalist id="areaList"></datalist>
-        <p class="lg-tip">后勤职工档案<b>独立于教师档案</b>：不参与教学统计、不进入课程表教师下拉与班主任候选，也不具备教师端 / 后台登录账号。合同到期与健康证到期在列表中自动预警（30 天内标黄、已过期标红）。</p>
+        <p class="lg-tip">后勤职工档案<b>独立于教师档案</b>：不参与教学统计、不进入课程表教师下拉与班主任候选，也不具备教师端 / 后台登录账号。合同到期与健康证到期在列表中自动预警（30 天内标黄、已过期标红）。<b>「职位」联动人事管理 → 组织架构 → 职位管理</b>：先在组织架构里维护各部门职位，这里<b>选定所属部门后，职位下拉会自动列出该部门下的职位</b>；若该部门在人事中尚未定义职位，则下拉为空，需先在组织架构补充。</p>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" id="modalCancel">取消</button>
           <button type="submit" class="btn btn-primary">保存</button>

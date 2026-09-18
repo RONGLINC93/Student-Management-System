@@ -45,6 +45,7 @@ const NOTIFICATIONS_FILE = path.join(__dirname, 'data', 'notifications.json'); /
 const HR_FILE = path.join(__dirname, 'data', 'hr.json');                       // 人事异动记录（入职 / 转正 / 调岗 / 晋升 / 离职 / 退休 等）
 const LOGISTICS_FILE = path.join(__dirname, 'data', 'logistics.json');         // 后勤 / 职工档案（安保、保洁、食堂、维修等，独立于教师档案，不参与教学口径）
 const DEPARTMENTS_FILE = path.join(__dirname, 'data', 'departments.json');      // 组织架构基础信息（人事管理 → 组织架构维护；部门权限在「系统设置 → 职位权限」的组织架构权限区配置）
+const POSITIONS_FILE = path.join(__dirname, 'data', 'positions.json');          // 职位（岗位）信息（人事管理 → 组织架构 → 职位管理；后勤职工「具体岗位」联动来源）
 const TIMETABLES_FILE = path.join(__dirname, 'data', 'timetables.json');       // 课程表（按班级排课，教师/学生端只读查看）
 const COURSE_PLANS_FILE = path.join(__dirname, 'data', 'course-plans.json');    // 各年级课程计划（决定课表可排什么课），课程自带满分
 const AUDIT_FILE = path.join(__dirname, 'data', 'audit.json');                  // 操作审计日志
@@ -82,7 +83,7 @@ const PERMISSION_MODULES = [
   { key: 'dorms',         name: '宿舍管理', apis: ['/api/dorms', '/api/dorm-apps'] },
   // 人事管理（可授权）：登记异动会改写教师的「职务」，而职务即权限来源，因此只宜授予人事类岗位，
   // 获授权者可通过调岗 / 晋升间接改变他人后台权限（服务端已强制留痕，禁止改自己的档案除外场景由管理员把握）
-  { key: 'hr',            name: '人事管理', apis: ['/api/hr', '/api/departments'] },
+  { key: 'hr',            name: '人事管理', apis: ['/api/hr', '/api/departments', '/api/positions'] },
   // 后勤 / 职工管理（可授权）：独立数据表，与教师档案、课程表、班主任候选完全解耦
   { key: 'logistics',     name: '后勤/职工管理', apis: ['/api/logistics'] }
 ];
@@ -663,6 +664,24 @@ const readLogistics = () => readJsonFile(LOGISTICS_FILE, []);
 const writeLogistics = l => writeJsonFile(LOGISTICS_FILE, l);
 const readDepartments = () => readJsonFile(DEPARTMENTS_FILE, []);
 const writeDepartments = l => writeJsonFile(DEPARTMENTS_FILE, l);
+// 职位（岗位）规范化：归属某部门（departmentId 指向部门 id，department 冗余存部门名便于后勤联动）
+function normalizePosition(raw, idx) {
+  const o = (raw && typeof raw === 'object') ? raw : {};
+  const name = String(o.name || '').trim().slice(0, 30);
+  let id = String(o.id || '').trim();
+  if (!id) id = 'pos_' + Date.now().toString(36) + (idx == null ? '' : idx);
+  const departmentId = String(o.departmentId || '').trim();
+  const department = String(o.department || '').trim().slice(0, 30);
+  return {
+    id,
+    name,
+    departmentId,
+    department,
+    desc: String(o.desc || '').trim().slice(0, 60)
+  };
+}
+const readPositions = () => readJsonFile(POSITIONS_FILE, []);
+const writePositions = l => writeJsonFile(POSITIONS_FILE, l);
 // 部门基础信息（人事管理 → 部门设置维护）：名称唯一、可填描述；部门权限在「系统设置 → 职位权限」配置
 // 部门档案规范化：支持层级（parentId 指向上级部门 id）与负责人（leaderId + leaderType：teacher / logistics）
 function normalizeDepartment(raw, idx) {
@@ -1992,6 +2011,7 @@ const AUDIT_MODULES = [
   ['/api/hr', '人事管理'],
   ['/api/logistics', '后勤/职工管理'],
   ['/api/departments', '组织架构'],
+  ['/api/positions', '组织架构'],
   ['/api/exams', '成绩管理'],
   ['/api/attendance', '考勤管理'],
   ['/api/conduct', '操行管理'],
@@ -3989,6 +4009,35 @@ async function handle(req, res) {
     list.sort((a, b) => depthOf[a.id] - depthOf[b.id] || String(a.name).localeCompare(String(b.name), 'zh'));
     writeDepartments(list);
     return sendJson(res, 200, { code: 0, data: list, msg: '组织架构已保存（共 ' + list.length + ' 个部门）' });
+  }
+
+  // ===== 职位（岗位）管理 API（人事管理 → 组织架构 → 职位管理；后勤职工岗位联动来源）=====
+  // GET：所有登录用户可读（组织架构职位展示、后勤职工岗位联想均需读取）
+  if (pathname === '/api/positions' && req.method === 'GET') {
+    const list = readPositions().map(normalizePosition);
+    list.sort((a, b) =>
+      String(a.department || '').localeCompare(String(b.department || ''), 'zh')
+      || String(a.name || '').localeCompare(String(b.name || ''), 'zh'));
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+  // PUT：全量替换职位列表（支持按部门归类）。写操作纳入 'hr' 模块闸门——仅管理员或获「人事管理」授权的职务账号可维护。
+  if (pathname === '/api/positions' && req.method === 'PUT') {
+    const body = await readBody(req);
+    if (!Array.isArray(body)) return sendJson(res, 400, { code: 1, msg: '数据格式不正确' });
+    const seen = {};
+    const list = body.map((d, i) => normalizePosition(d, i)).filter(d => {
+      if (!d.name) return false;
+      const key = (d.name + '|' + (d.department || '')).toLowerCase();
+      if (seen[key]) return false;
+      seen[key] = 1;
+      return true;
+    });
+    // 完整性校验：departmentId 若存在须指向列表内存在的部门
+    if (list.some(d => d.departmentId && !readDepartments().some(x => x.id === d.departmentId))) {
+      return sendJson(res, 400, { code: 1, msg: '存在职位指向了不存在的部门，请检查组织架构' });
+    }
+    writePositions(list);
+    return sendJson(res, 200, { code: 0, data: list, msg: '职位已保存（共 ' + list.length + ' 个）' });
   }
 
   // ===== 考试与成绩管理 API =====

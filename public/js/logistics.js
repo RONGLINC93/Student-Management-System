@@ -10,6 +10,9 @@ const DUE_DAYS = 30;   // 合同 / 健康证到期预警阈值（天）
 let staff = [];
 let deptCache = [];
 const DEPT_API = '/api/departments';
+// 职位（岗位）联动来源：人事管理 → 组织架构 → 职位管理
+const POS_API = '/api/positions';
+let posCache = [];
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -92,6 +95,39 @@ function fillDeptSelect() {
     });
   })('', '');
   sel.innerHTML = html;
+}
+// 拉取职位列表（人事管理 → 组织架构 → 职位管理），用于「具体岗位」联动联想
+async function loadPositions() {
+  try {
+    const res = await fetch(POS_API);
+    const json = await res.json();
+    posCache = (json && json.code === 0 && Array.isArray(json.data)) ? json.data : [];
+  } catch (e) { posCache = []; }
+  fillPostSelect();
+}
+// 职位下拉联动：依据所选「所属部门」过滤职位；未选部门则禁用并提示先选部门。
+// 仅列出人事「组织架构 → 职位管理」中该部门下定义的职位，不提供自由填写。
+function fillPostSelect() {
+  const sel = $('#fPost');
+  if (!sel) return;
+  const dept = ($('#fDepartment') ? $('#fDepartment').value : '').trim();
+  const prev = sel.value;
+  if (!dept) {
+    sel.disabled = true;
+    sel.innerHTML = '<option value="">（请先选择所属部门）</option>';
+    return;
+  }
+  sel.disabled = false;
+  const pool = (posCache || []).filter(p => (p.department || '') === dept).map(p => p.name).filter(Boolean);
+  const uniq = [];
+  pool.forEach(n => { if (uniq.indexOf(n) === -1) uniq.push(n); });
+  let html = '<option value="">（请选择职位）</option>';
+  if (!uniq.length) html = '<option value="">（该部门暂无职位）</option>';
+  uniq.forEach(n => { html += '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>'; });
+  sel.innerHTML = html;
+  // 切换部门后若原选择仍存在于新列表则保留，否则重置
+  if ([].some.call(sel.options, o => o.value === prev)) sel.value = prev;
+  else sel.value = '';
 }
 
 // ===== 到期渲染 =====
@@ -218,8 +254,21 @@ function openModal(rec) {
   $('#fStaffNo').value = rec ? (rec.staffNo || '') : '';
   $('#fGender').value = rec ? (rec.gender || '男') : '男';
   $('#fCategory').value = rec ? (rec.category || '其他') : '其他';
-  $('#fPost').value = rec ? (rec.post || '') : '';
   $('#fDepartment').value = rec ? (rec.department || '') : '';
+  // 职位：按所选部门联动填充，再回填已存岗位（不在列表中的追加为选项以保留原值）
+  fillPostSelect();
+  const postSel = $('#fPost');
+  const postVal = rec ? (rec.post || '') : '';
+  if (postVal) {
+    if (![].some.call(postSel.options, o => o.value === postVal)) {
+      const opt = document.createElement('option');
+      opt.value = postVal; opt.textContent = postVal;
+      postSel.appendChild(opt);
+    }
+    postSel.value = postVal;
+  } else {
+    postSel.value = '';
+  }
   $('#fEmployType').value = rec ? (rec.employType || '其他') : '其他';
   $('#fVendor').value = rec ? (rec.vendor || '') : '';
   $('#fStatus').value = rec ? (rec.status || '在职') : '在职';
@@ -339,6 +388,8 @@ function bindEvents() {
   $('#statusFilter').onchange = renderTable;
   $('#employFilter').onchange = renderTable;
   $('#dueFilter').onchange = renderTable;
+  // 选择部门后，「具体岗位」联想词联动为该部门下定义的职位
+  $('#fDepartment').onchange = fillPostSelect;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Esc') closeModal(); });
   // 行内编辑 / 删除（事件委托，重渲染不丢监听）
   $('#lgBody').addEventListener('click', e => {
@@ -361,6 +412,7 @@ function init() {
   bindEvents();
   loadList();
   loadDept().then(fillDeptSelect);
+  loadPositions();
 }
 init();
 // 登录态就绪后按「职位权限」重渲染一次（未授权时隐藏写操作入口）

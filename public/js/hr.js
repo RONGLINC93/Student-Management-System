@@ -398,14 +398,28 @@ function bindEvents() {
       renderDeptTree();
       return;
     }
-    // 打开 / 关闭下拉菜单
+    // 打开 / 关闭下拉菜单（fixed 定位，避免被侧栏 overflow:auto 裁切）
     const mb = e.target.closest('.tmenu-btn');
     if (mb) {
       e.stopPropagation();
       const menu = mb.parentElement.querySelector('.tmenu');
       const willOpen = menu.hidden;
       closeAllMenus();
-      menu.hidden = !willOpen;
+      if (willOpen) {
+        menu.hidden = false;
+        const r = mb.getBoundingClientRect();
+        const mh = menu.offsetHeight, mw = menu.offsetWidth;
+        let top = r.bottom + 4;
+        if (top + mh > window.innerHeight - 6) top = r.top - mh - 4; // 空间不足翻到上方
+        if (top < 6) top = 6;
+        let left = r.right - mw;
+        if (left < 6) left = 6;
+        menu.style.position = 'fixed';
+        menu.style.right = 'auto';
+        menu.style.bottom = 'auto';
+        menu.style.top = top + 'px';
+        menu.style.left = left + 'px';
+      }
       return;
     }
     // 菜单项：添加子部门 / 编辑 / 删除
@@ -415,8 +429,19 @@ function bindEvents() {
       const act = mi.dataset.act, id = mi.dataset.id || '';
       closeAllMenus();
       if (act === 'add') (id ? openDeptEditor('add-child', { id }) : openDeptEditor('add'));
+      else if (act === 'addpos') openPosEditor('add', { deptId: id });
       else if (act === 'edit') openDeptEditor('edit', { id });
       else if (act === 'del') delDept(id);
+      return;
+    }
+    // 职位行内操作（编辑 / 删除）：data-pact 避免与部门菜单 data-act 冲突
+    const pbtn = e.target.closest('[data-pact]');
+    if (pbtn) {
+      e.stopPropagation();
+      const pact = pbtn.dataset.pact, pid = pbtn.dataset.id;
+      closeAllMenus();
+      if (pact === 'edit') openPosEditor('edit', { id: pid });
+      else if (pact === 'del') delPos(pid);
       return;
     }
     // 点击行：选中高亮
@@ -429,14 +454,23 @@ function bindEvents() {
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#deptTree .tmenu-wrap')) closeAllMenus();
   });
+  // 菜单为 fixed 定位，不跟随滚动容器；滚动时关闭以免错位
+  window.addEventListener('scroll', closeAllMenus, true);
+  // 职位（组织架构树内：部门「⋯」菜单添加 / 行内编辑删除）
+  $('#posEditorCancel').onclick = closePosModal;
+  $('#posEditorSave').onclick = savePosEditor;
+  $('#posModalClose').onclick = closePosModal;
+  $('#posModal').onclick = (e) => { if (e.target === $('#posModal')) closePosModal(); };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#posModal') && $('#posModal').classList.contains('show')) closePosModal(); });
 }
 
-window.cbEmbedRefresh = function () { loadTeachers().then(loadHR); };
+window.cbEmbedRefresh = function () { loadTeachers().then(loadHR); loadPositions().then(renderDeptTree); };
 
 loadPerms().then(loadTeachers).then(() => {
   bindEvents();
   loadHR().then(applyWriteScope);
   Promise.all([loadDept(), loadLeaders(), getSchoolName()]).then(renderDeptTree);
+  loadPositions().then(renderDeptTree);
 });
 
 // ===== 组织架构（人事管理 → 组织架构；部门权限在系统设置配置）=====
@@ -521,17 +555,39 @@ function renderDeptTree() {
       ).join('') + '</div>' +
     '</span>';
   }
+  // 部门下的职位行（作为该部门子项展示）
+  function posRow(p) {
+    const actions = writable
+      ? '<span class="tmenu-wrap"><button type="button" class="tmenu-btn" title="操作">' + TREE_ICONS.more + '</button>' +
+        '<div class="tmenu" hidden>' +
+          '<button type="button" data-pact="edit" data-id="' + escAttr(p.id) + '">编辑</button>' +
+          '<button type="button" data-pact="del" data-id="' + escAttr(p.id) + '">删除</button>' +
+        '</div></span>'
+      : '';
+    return '<div class="trow tpos">' +
+      '<span class="ttoggle leaf"></span>' +
+      '<span class="tpos-badge">职位</span>' +
+      '<span class="tname">' + escAttr(p.name) + '</span>' +
+      (p.desc ? '<span class="tmeta">' + escAttr(p.desc) + '</span>' : '') +
+      actions +
+    '</div>';
+  }
   function node(d) {
     const children = kidsOf(d.id);
     const collapsed = deptCollapsed.has(d.id);
+    const posRows = posCache.filter(p => (p.departmentId || '') === d.id || (p.department || '') === d.name)
+      .map(p => posRow(p)).join('');
     const menu = writable ? menuHtml([
+      { act: 'addpos', id: d.id, label: '添加职位' },
       { act: 'add', id: d.id, label: '添加子部门' },
       { act: 'edit', id: d.id, label: '编辑' },
       { act: 'del', id: d.id, label: '删除' }
     ]) : '';
+    const hasKids = children.length > 0 || !!posRows;
     let html = '<div class="tnode' + (collapsed ? ' collapsed' : '') + '">' +
-      row(children.length ? TREE_ICONS.building : TREE_ICONS.staff, d.name, d.leaderName || '', menu, children.length > 0, collapsed, d.id);
+      row(children.length ? TREE_ICONS.building : TREE_ICONS.staff, d.name, d.leaderName || '', menu, hasKids, collapsed, d.id);
     if (children.length) html += '<div class="tchildren">' + children.map(node).join('') + '</div>';
+    if (posRows) html += '<div class="tpositions">' + posRows + '</div>';
     html += '</div>';
     return html;
   }
@@ -655,3 +711,101 @@ async function commitDept() {
   finally { done(); }
 }
 function closeDeptModal() { const m = $('#deptModal'); if (m) m.classList.remove('show'); }
+
+// ===== 职位（岗位）管理（人事管理 → 组织架构 → 职位管理；后勤职工岗位联动来源）=====
+const POS_API = '/api/positions';
+let posCache = [];
+// 拉取职位列表
+async function loadPositions() {
+  try {
+    const res = await fetch(POS_API);
+    const json = await res.json();
+    posCache = (json && json.code === 0 && Array.isArray(json.data)) ? json.data : [];
+  } catch (e) { posCache = []; }
+}
+// 部门下拉（树形缩进，value=部门 id，文本带部门名），供职位归属选择
+function fillPositionDeptSelect() {
+  const sel = $('#posDept');
+  if (!sel) return;
+  const kidsOf = pid => deptCache.filter(d => (d.parentId || '') === pid);
+  let html = '<option value="">（未分配部门）</option>';
+  (function walk(pid, prefix) {
+    kidsOf(pid).forEach(d => {
+      html += '<option value="' + escAttr(d.id) + '">' + escAttr(prefix + d.name) + '</option>';
+      walk(d.id, prefix + '　');
+    });
+  })('', '');
+  sel.innerHTML = html;
+}
+// 渲染职位列表（整合进组织架构树，由 renderDeptTree 统一渲染，这里不再单独渲染）
+function openPosEditor(mode, opts) {
+  fillPositionDeptSelect();
+  const editor = $('#posModal');
+  const title = $('#posEditorTitle');
+  const nameI = $('#posName');
+  const deptI = $('#posDept');
+  const descI = $('#posDesc');
+  if (mode === 'edit' && opts) {
+    const p = posCache.find(x => x.id === opts.id);
+    title.textContent = '编辑职位';
+    nameI.value = p ? p.name : '';
+    deptI.value = p ? (p.departmentId || '') : '';
+    descI.value = p ? (p.desc || '') : '';
+    editor.dataset.editId = opts.id;
+  } else {
+    title.textContent = '添加职位';
+    nameI.value = '';
+    deptI.value = (opts && opts.deptId) ? opts.deptId : '';
+    descI.value = '';
+    editor.dataset.editId = '';
+  }
+  editor.classList.add('show');
+  nameI.focus();
+}
+async function savePosEditor() {
+  const name = ($('#posName').value || '').trim();
+  if (!name) { toast('请填写职位名称', 'error'); return; }
+  const deptId = ($('#posDept').value || '').trim();
+  if (!deptId) { toast('请选择所属部门（职位须归属于组织架构中的某个部门）', 'error'); return; }
+  const deptObj = deptCache.find(d => d.id === deptId);
+  const department = deptObj ? deptObj.name : '';
+  const desc = ($('#posDesc').value || '').trim();
+  const editId = $('#posModal').dataset.editId || '';
+  if (editId) {
+    const p = posCache.find(x => x.id === editId);
+    if (p) Object.assign(p, { name, departmentId: deptId, department, desc });
+  } else {
+    posCache.push({ id: 'pos_' + Date.now().toString(36), name, departmentId: deptId, department, desc });
+  }
+  closePosModal();
+  await commitPositions();
+}
+async function delPos(id) {
+  const p = posCache.find(x => x.id === id);
+  if (!p) return;
+  if (!window.confirm('确定删除职位「' + p.name + '」？该操作仅删除职位定义，已登记的后勤职工档案不受影响。')) return;
+  posCache = posCache.filter(x => x.id !== id);
+  renderDeptTree();
+  await commitPositions();
+}
+// 全量提交职位列表到服务端
+async function commitPositions() {
+  if (!canWrite()) { toast('无保存权限', 'error'); return false; }
+  const done = busyBtn($('#posEditorSave'), '保存中…');
+  if (!done) return false;
+  try {
+    const payload = posCache.map(p => ({
+      id: p.id, name: p.name,
+      departmentId: p.departmentId || '', department: p.department || '', desc: p.desc || ''
+    }));
+    const res = await fetch(POS_API, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const json = await res.json();
+    if (json.code !== 0) { toast(json.msg || '保存失败', 'error'); return false; }
+    posCache = json.data || posCache;
+    toast(json.msg || '职位已保存', 'success');
+    renderDeptTree();
+    return true;
+  } catch (e) { toast('保存失败：' + e.message, 'error'); return false; }
+  finally { done(); }
+}
+function closePosModal() { const m = $('#posModal'); if (m) m.classList.remove('show'); }
