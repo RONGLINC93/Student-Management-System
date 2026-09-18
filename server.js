@@ -43,6 +43,7 @@ const ANNOUNCEMENTS_FILE = path.join(__dirname, 'data', 'announcements.json'); /
 const TRASH_FILE = path.join(__dirname, 'data', 'students_trash.json');        // 学生回收站（删除后软归档，可恢复）
 const NOTIFICATIONS_FILE = path.join(__dirname, 'data', 'notifications.json'); // 学生中心站内消息（各类事务变化通知）
 const HR_FILE = path.join(__dirname, 'data', 'hr.json');                       // 人事异动记录（入职 / 转正 / 调岗 / 晋升 / 离职 / 退休 等）
+const LOGISTICS_FILE = path.join(__dirname, 'data', 'logistics.json');         // 后勤 / 职工档案（安保、保洁、食堂、维修等，独立于教师档案，不参与教学口径）
 const TIMETABLES_FILE = path.join(__dirname, 'data', 'timetables.json');       // 课程表（按班级排课，教师/学生端只读查看）
 const COURSE_PLANS_FILE = path.join(__dirname, 'data', 'course-plans.json');    // 各年级课程计划（决定课表可排什么课），课程自带满分
 const AUDIT_FILE = path.join(__dirname, 'data', 'audit.json');                  // 操作审计日志
@@ -80,7 +81,9 @@ const PERMISSION_MODULES = [
   { key: 'dorms',         name: '宿舍管理', apis: ['/api/dorms', '/api/dorm-apps'] },
   // 人事管理（可授权）：登记异动会改写教师的「职务」，而职务即权限来源，因此只宜授予人事类岗位，
   // 获授权者可通过调岗 / 晋升间接改变他人后台权限（服务端已强制留痕，禁止改自己的档案除外场景由管理员把握）
-  { key: 'hr',            name: '人事管理', apis: ['/api/hr'] }
+  { key: 'hr',            name: '人事管理', apis: ['/api/hr'] },
+  // 后勤 / 职工管理（可授权）：独立数据表，与教师档案、课程表、班主任候选完全解耦
+  { key: 'logistics',     name: '后勤/职工管理', apis: ['/api/logistics'] }
 ];
 // ===== 职位权限矩阵（v2）=====
 // 权限由「行政职务名」驱动：系统设置里维护若干条目，每条 = 职务名 + 登录身份（教务 staff / 宿管 dorm）+ 可管理模块。
@@ -250,8 +253,8 @@ if (!fs.existsSync(WORKBENCH_FILE)) {
 if (!fs.existsSync(SETTINGS_FILE)) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
 }
-['teachers', 'exams', 'attendance', 'conduct', 'dormitories', 'dormApps', 'leaves', 'announcements', 'trash'].forEach(name => {
-  const f = { teachers: TEACHERS_FILE, exams: EXAMS_FILE, attendance: ATTENDANCE_FILE, conduct: CONDUCT_FILE, dormitories: DORMS_FILE, dormApps: DORM_APPS_FILE, leaves: LEAVES_FILE, announcements: ANNOUNCEMENTS_FILE, trash: TRASH_FILE }[name];
+['teachers', 'exams', 'attendance', 'conduct', 'dormitories', 'dormApps', 'leaves', 'announcements', 'trash', 'logistics'].forEach(name => {
+  const f = { teachers: TEACHERS_FILE, exams: EXAMS_FILE, attendance: ATTENDANCE_FILE, conduct: CONDUCT_FILE, dormitories: DORMS_FILE, dormApps: DORM_APPS_FILE, leaves: LEAVES_FILE, announcements: ANNOUNCEMENTS_FILE, trash: TRASH_FILE, logistics: LOGISTICS_FILE }[name];
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf-8');
 });
 if (!fs.existsSync(TIMETABLES_FILE)) fs.writeFileSync(TIMETABLES_FILE, JSON.stringify(defaultTimetables(), null, 2), 'utf-8');
@@ -585,6 +588,8 @@ const readTeachers = () => readJsonFile(TEACHERS_FILE, []);
 const writeTeachers = l => writeJsonFile(TEACHERS_FILE, l);
 const readHR = () => readJsonFile(HR_FILE, []);
 const writeHR = l => writeJsonFile(HR_FILE, l);
+const readLogistics = () => readJsonFile(LOGISTICS_FILE, []);
+const writeLogistics = l => writeJsonFile(LOGISTICS_FILE, l);
 const readExams = () => readJsonFile(EXAMS_FILE, []);
 const writeExams = l => writeJsonFile(EXAMS_FILE, l);
 const readAttendance = () => readJsonFile(ATTENDANCE_FILE, []);
@@ -821,6 +826,7 @@ function buildBackupPayload() {
     students: readStudents(),
     teachers: readTeachers(),
     hr: readHR(),
+    logistics: readLogistics(),
     exams: readExams(),
     attendance: readAttendance(),
     conduct: readConduct(),
@@ -964,6 +970,65 @@ function normalizeStatus(v) {
   const s = String(v || '').trim();
   return TEACHER_STATUS.indexOf(s) !== -1 ? s : TEACHER_STATUS_DEFAULT;
 }
+// ===== 后勤 / 职工档案（安保、保洁、食堂、维修、宿舍、绿化、司机、校医等）=====
+// 独立数据表：与教师档案解耦，不进入课程表教师下拉、班主任候选与教职工教学统计口径。
+const LOGISTICS_CATEGORIES = ['安保', '保洁', '食堂', '维修', '宿舍', '绿化', '司机', '校医', '其他'];
+const EMPLOY_TYPES = ['在编', '合同制', '劳务派遣', '外包', '临时', '其他'];
+const WORK_SHIFTS = ['常白班', '早班', '晚班', '夜班', '轮班', '其他'];
+const DATE_STR_RE = /^\d{4}-\d{2}-\d{2}$/;
+function normalizeDateStr(v) {
+  const s = String(v || '').trim();
+  return DATE_STR_RE.test(s) ? s : '';
+}
+// 距某个日期还有多少天（今天为 0，已过为负；无日期返回 null）
+function daysUntil(dateStr) {
+  const s = normalizeDateStr(dateStr);
+  if (!s) return null;
+  const t = new Date(s + 'T00:00:00').getTime();
+  if (!isFinite(t)) return null;
+  const n = new Date();
+  const today = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  return Math.round((t - today) / 86400000);
+}
+function normalizeLogistics(raw) {
+  const o = (raw && typeof raw === 'object') ? raw : {};
+  const pick = (v, list) => {
+    const s = String(v || '').trim();
+    return list.indexOf(s) !== -1 ? s : '';
+  };
+  return {
+    id: o.id || genId(),
+    staffNo: String(o.staffNo || '').trim().slice(0, 30),      // 工号（后勤序列，与教师工号互不冲突校验）
+    name: String(o.name || '').trim().slice(0, 30),
+    gender: o.gender === '女' ? '女' : '男',
+    category: pick(o.category, LOGISTICS_CATEGORIES) || '其他', // 岗位类别
+    post: String(o.post || '').trim().slice(0, 30),             // 具体岗位（保安队长 / 食堂厨师 …）
+    department: String(o.department || '').trim().slice(0, 30), // 所属部门（总务处 / 后勤处 …）
+    vendor: String(o.vendor || '').trim().slice(0, 40),         // 外包单位（劳务派遣 / 外包时填写）
+    employType: pick(o.employType, EMPLOY_TYPES) || '其他',     // 用工性质
+    status: normalizeStatus(o.status),                          // 在职状态（复用教师状态枚举）
+    shift: pick(o.shift, WORK_SHIFTS),                          // 班次
+    area: String(o.area || '').trim().slice(0, 60),             // 负责区域（A 栋宿舍 / 食堂一楼 …）
+    phone: String(o.phone || '').trim().slice(0, 20),
+    idCard: String(o.idCard || '').trim().toUpperCase().replace(/[^0-9X]/g, '').slice(0, 18),
+    joinDate: normalizeDateStr(o.joinDate),                     // 入职日期
+    contractEnd: normalizeDateStr(o.contractEnd),               // 合同到期日
+    healthCertEnd: normalizeDateStr(o.healthCertEnd),           // 健康证到期日
+    address: String(o.address || '').trim().slice(0, 100),
+    emergencyPhone: String(o.emergencyPhone || '').trim().slice(0, 20),
+    remark: String(o.remark || '').trim().slice(0, 200),
+    createdAt: o.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+// 列表下发时附带到期天数（前端预警用，避免两端各算一遍）
+function withLogisticsDue(x) {
+  return Object.assign({}, x, {
+    contractDays: daysUntil(x.contractEnd),
+    healthDays: daysUntil(x.healthCertEnd)
+  });
+}
+
 // 教师档案规范化
 function normalizeTeacher(raw) {
   const o = (raw && typeof raw === 'object') ? raw : {};
@@ -1806,6 +1871,7 @@ const AUDIT_MODULES = [
   ['/api/grades', '年级管理'],
   ['/api/teachers', '教师管理'],
   ['/api/hr', '人事管理'],
+  ['/api/logistics', '后勤/职工管理'],
   ['/api/exams', '成绩管理'],
   ['/api/attendance', '考勤管理'],
   ['/api/conduct', '操行管理'],
@@ -3701,6 +3767,68 @@ async function handle(req, res) {
     });
   }
 
+  // ===== 后勤 / 职工管理 API（独立数据表：安保 / 保洁 / 食堂 / 维修等）=====
+  // 与教师档案完全解耦：不参与教学统计、不进入课程表教师下拉与班主任候选。
+  if (pathname === '/api/logistics' && req.method === 'GET') {
+    const catIdx = c => {
+      const i = LOGISTICS_CATEGORIES.indexOf(c);
+      return i === -1 ? LOGISTICS_CATEGORIES.length : i;
+    };
+    const list = readLogistics().map(normalizeLogistics).map(withLogisticsDue);
+    list.sort((a, b) => {
+      const oa = OFF_DUTY_STATUS.indexOf(a.status) !== -1 ? 1 : 0;
+      const ob = OFF_DUTY_STATUS.indexOf(b.status) !== -1 ? 1 : 0;
+      if (oa !== ob) return oa - ob;
+      const ca = catIdx(a.category), cb = catIdx(b.category);
+      if (ca !== cb) return ca - cb;
+      return String(a.staffNo || '').localeCompare(String(b.staffNo || ''))
+        || String(a.name || '').localeCompare(String(b.name || ''));
+    });
+    return sendJson(res, 200, { code: 0, data: list });
+  }
+
+  // 新增后勤职工
+  if (pathname === '/api/logistics' && req.method === 'POST') {
+    const body = await readBody(req);
+    const rec = normalizeLogistics(body);
+    if (!rec.name) return sendJson(res, 400, { code: 1, msg: '请填写职工姓名' });
+    const list = readLogistics();
+    if (rec.staffNo && list.some(x => String(x.staffNo || '').trim() === rec.staffNo)) {
+      return sendJson(res, 400, { code: 1, msg: '工号「' + rec.staffNo + '」已存在' });
+    }
+    list.push(rec);
+    writeLogistics(list);
+    return sendJson(res, 200, {
+      code: 0, data: withLogisticsDue(rec), msg: '已添加「' + rec.name + '」的后勤档案'
+    });
+  }
+
+  // 编辑 / 删除单条后勤职工档案
+  if (pathname.startsWith('/api/logistics/') && (req.method === 'PUT' || req.method === 'DELETE')) {
+    const id = pathname.split('/').pop();
+    const list = readLogistics();
+    const idx = list.findIndex(x => x.id === id);
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '该职工档案不存在' });
+    if (req.method === 'DELETE') {
+      const removed = list.splice(idx, 1)[0];
+      writeLogistics(list);
+      return sendJson(res, 200, { code: 0, msg: '已删除「' + (removed.name || '该职工') + '」的后勤档案' });
+    }
+    const body = await readBody(req);
+    const merged = normalizeLogistics(Object.assign({}, list[idx], body, {
+      id: list[idx].id, createdAt: list[idx].createdAt
+    }));
+    if (!merged.name) return sendJson(res, 400, { code: 1, msg: '请填写职工姓名' });
+    if (merged.staffNo && list.some((x, i) => i !== idx && String(x.staffNo || '').trim() === merged.staffNo)) {
+      return sendJson(res, 400, { code: 1, msg: '工号「' + merged.staffNo + '」已存在' });
+    }
+    list[idx] = merged;
+    writeLogistics(list);
+    return sendJson(res, 200, {
+      code: 0, data: withLogisticsDue(merged), msg: '已更新「' + merged.name + '」的档案'
+    });
+  }
+
   // ===== 考试与成绩管理 API =====
   // 列表（不含完整成绩明细，附带参与人数）
   if (pathname === '/api/exams' && req.method === 'GET') {
@@ -4404,6 +4532,7 @@ async function handle(req, res) {
     writeStudents(body.students);
     if (Array.isArray(body.teachers)) writeTeachers(body.teachers.map(normalizeTeacher));
     if (Array.isArray(body.hr)) writeHR(body.hr.map(normalizeHR));
+    if (Array.isArray(body.logistics)) writeLogistics(body.logistics.map(normalizeLogistics));
     if (Array.isArray(body.exams)) writeExams(body.exams);
     if (Array.isArray(body.attendance)) writeAttendance(body.attendance);
     if (Array.isArray(body.conduct)) writeConduct(body.conduct);
