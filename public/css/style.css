@@ -2689,3 +2689,98 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
   .stat-num { font-size: 19px; }
 }
 
+/* ============================================================================
+   通用行操作下拉菜单（/js/rowmenu.js，教师管理 / 后勤管理等列表页共用）
+   触发按钮：<button class="btn-sm more-btn" data-act="more">操作 ▾</button>
+   ============================================================================ */
+.row-menu {
+  /* 需高于页面内的固定条（如批量操作条 1200），但低于弹窗与 toast */
+  position: fixed; z-index: 1300; width: 230px; max-width: calc(100vw - 16px);
+  display: flex; flex-direction: column; max-height: calc(100vh - 16px);
+  padding: 6px; background: var(--card-bg, #fff); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 14px 36px rgba(15, 23, 42, .16);
+  opacity: 0; transform: translateY(-6px) scale(.98); transform-origin: top right;
+  transition: opacity .16s, transform .16s;
+}
+/* 非列表项不压缩，列表区占剩余空间并可滚动 */
+.row-menu > :not(.rm-list) { flex: none; }
+/* display:flex 会覆盖 [hidden] 默认的 display:none，这里显式补回，避免关闭后仍拦截点击 */
+.row-menu[hidden] { display: none; }
+.row-menu.show { opacity: 1; transform: none; }
+.row-menu.above { transform-origin: bottom right; }
+.rm-caption { display: flex; align-items: center; gap: 6px; padding: 6px 10px 5px; font-size: 11px; color: var(--text-light); letter-spacing: .4px; }
+.rm-caption svg { width: 13px; height: 13px; color: var(--text-light); flex: none; }
+.rm-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  border: 0; background: transparent; padding: 8px 10px; border-radius: 8px;
+  font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
+}
+.rm-item svg { width: 15px; height: 15px; color: #94a3b8; flex: none; }
+.rm-item .lbl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rm-item .hint { flex: none; font-size: 11px; color: var(--text-light); }
+.rm-item:hover:not(:disabled) { background: #eef2ff; }
+.rm-item:hover:not(:disabled) svg { color: var(--primary); }
+.rm-item.is-cur { color: #047857; }
+.rm-item.is-cur svg, .rm-item.is-cur .hint { color: #34d399; }
+.rm-item.is-cur:hover { background: #ecfdf5; }
+.rm-item.danger { color: var(--danger); }
+.rm-item.danger svg { color: var(--danger); }
+.rm-item.danger:hover:not(:disabled) { background: #fef2f2; }
+.rm-item:disabled { opacity: .5; cursor: default; }
+.rm-item:disabled:hover { background: transparent; }
+.rm-list { flex: 1 1 auto; min-height: 0; max-height: 46vh; overflow: auto; overscroll-behavior: contain; }
+.rm-divider { height: 1px; background: var(--border); margin: 5px 4px; }
+/* 触发按钮：白底描边，悬停转主色 */
+.more-btn { background: #fff; border: 1px solid var(--border); color: #475569; }
+.more-btn:hover { border-color: #a5b4fc; background: #eef2ff; color: #4338ca; }
+.more-btn svg { width: 12px; height: 12px; }
+.more-btn .caret { color: #94a3b8; }
+
+/* ============================================================================
+   左侧筛选树（任教年级 / 所属部门 / 年级·班级），列表页侧栏共用
+   结构：<div class="grade-tree"> → .gnode > .gtree-row（+ .gchildren 子节点）
+   ============================================================================ */
+.grade-tree { margin-top: 4px; font-size: 13.5px; user-select: none; }
+.gtree-row {
+  display: flex; align-items: center; gap: 6px; padding: 5px 6px;
+  border-radius: 6px; min-height: 28px; position: relative; cursor: pointer;
+}
+.gtree-row:hover { background: #f1f5ff; }
+.gtree-row.selected { background: #e5ebff; }
+.gtree-row.selected .gname { color: #3730a3; font-weight: 600; }
+.gtree-toggle { flex: 0 0 14px; width: 14px; height: 14px; border: 0; background: transparent; cursor: pointer; padding: 0; position: relative; }
+.gtree-toggle::before {
+  content: ''; position: absolute; left: 4px; top: 3px;
+  border-left: 5px solid #94a3b8; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  transform: rotate(90deg); transition: transform .12s ease;
+}
+.gtree-toggle.collapsed::before { transform: rotate(0); }
+.gtree-toggle.leaf::before { display: none; }
+.gico { flex: 0 0 15px; width: 15px; height: 15px; }
+.gico.school { color: var(--primary); }
+.gico.grade { color: #4f46e5; }
+.gico.cls { color: #9aa7b8; }
+.gname { flex: 1 1 auto; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gmeta { flex: 0 0 auto; font-size: 12px; color: var(--text-light); max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gnode-root > .gtree-row .gname { font-weight: 700; }
+.gchildren { position: relative; margin-left: 8px; padding-left: 14px; }
+.gchildren::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px dashed #cbd5e1; }
+.gchildren > .gnode { position: relative; }
+.gchildren > .gnode > .gtree-row::before { content: ''; position: absolute; left: -14px; top: 14px; width: 12px; border-top: 1px dashed #cbd5e1; }
+.gnode.collapsed > .gchildren { display: none; }
+/* 侧栏头部与说明 */
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.sidebar-title { font-size: 15px; font-weight: 700; margin: 0; }
+.sidebar-tip {
+  margin: 0 0 8px; font-size: 12.5px; line-height: 1.7; color: var(--text-light);
+  background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+}
+/* 工具栏中的筛选提示（显示当前树筛选与命中人数，可一键清除） */
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+  border-radius: 999px; background: #eef2ff; border: 1px solid #c7d2fe;
+  color: #4338ca; font-size: 13px; white-space: nowrap;
+}
+.filter-chip button { border: 0; background: transparent; color: #6366f1; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+.filter-chip button:hover { color: #312e81; }
+

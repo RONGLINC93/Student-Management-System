@@ -114,58 +114,13 @@
     .st-on { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
     .st-off { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
     .st-warn { background: #fff7e6; border-color: #fde68a; color: #b45309; }
-    /* 操作列 */
+    /* 操作列：单个「操作 ▾」按钮，点击展开下拉菜单（/js/rowmenu.js，样式见 style.css） */
     .row-actions { gap: 6px; }
     .row-actions .btn-sm { height: 27px; display: inline-flex; align-items: center; gap: 4px; }
-    .head-btn { background: #fff; border: 1px solid var(--border); color: #475569; }
-    .head-btn svg:not(.caret) { width: 13px; height: 13px; }
-    .head-btn .caret { width: 11px; height: 11px; color: #94a3b8; transition: transform .15s; }
-    .btn-hr { background: #fff; border: 1px solid var(--border); color: #4338ca; }
-    .btn-hr:hover { border-color: #a5b4fc; background: #eef2ff; }
     .hr-tip {
       margin: 2px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--text-light);
       background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
     }
-    .head-btn.is-head { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
-    .head-btn.is-head .caret { color: #34d399; }
-    /* 悬浮菜单（任班主任 / 更多） */
-    #ctxMenu {
-      position: fixed; z-index: 200; width: 250px;height: 50%;
-      display: flex; flex-direction: column;
-      max-height: calc(100vh - 16px);
-      background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
-      box-shadow: 0 14px 36px rgba(15,23,42,.16);
-      padding: 6px;
-      opacity: 0; visibility: hidden; transform: translateY(-6px) scale(.98);
-      transform-origin: top right;
-      transition: opacity .16s, transform .16s;
-    }
-    /* 非列表项不压缩，列表区占剩余空间并可滚动 */
-    #ctxMenu > :not(.ctx-list) { flex: none; }
-    #ctxMenu.show { opacity: 1; visibility: visible; transform: none; }
-    #ctxMenu.above { transform-origin: bottom right; }
-    .ctx-caption { display: flex; align-items: center; gap: 6px; padding: 6px 10px 5px; font-size: 11px; color: var(--text-light); letter-spacing: .4px; }
-    .ctx-caption svg { width: 13px; height: 13px; color: var(--text-light); flex: none; }
-    .ctx-item {
-      display: flex; align-items: center; gap: 8px; width: 100%;
-      border: 0; background: transparent; padding: 8px 10px; border-radius: 8px;
-      font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
-    }
-    .ctx-item svg { width: 15px; height: 15px; color: #94a3b8; flex: none; }
-    .ctx-item .lbl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ctx-item .hint { flex: none; font-size: 11px; color: var(--text-light); }
-    .ctx-item:hover:not(:disabled) { background: #eef2ff; }
-    .ctx-item:hover:not(:disabled) svg { color: var(--primary); }
-    .ctx-item.is-cur { color: #047857; }
-    .ctx-item.is-cur svg, .ctx-item.is-cur .hint { color: #34d399; }
-    .ctx-item.is-cur:hover { background: #ecfdf5; }
-    .ctx-item.danger { color: var(--danger); }
-    .ctx-item.danger svg { color: var(--danger); }
-    .ctx-item.danger:hover:not(:disabled) { background: #fef2f2; }
-    .ctx-item:disabled { opacity: .5; cursor: default; }
-    .ctx-item:disabled:hover { background: transparent; }
-    .ctx-list { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-    .ctx-divider { height: 1px; background: var(--border); margin: 5px 4px; }
     #modalMask .modal { max-width: 560px; }
 
     /* ===== 左侧「任教年级」侧栏 ===== */
@@ -229,7 +184,6 @@
       .table-scroll { max-height: 62vh; max-height: calc(100dvh - 300px); }
       .t-table thead th { padding: 11px 12px; }
       .t-table tbody td { padding: 9px 12px; }
-      #ctxMenu { width: min(250px, calc(100vw - 24px)); }
     }
   </style>
 </head>
@@ -479,14 +433,12 @@
     </div>
   </div>
 
-  <!-- 行操作悬浮菜单（设置/改任班主任） -->
-  <div id="ctxMenu" hidden></div>
-
   <div class="toast" id="toast"></div>
 
   <script src="/js/dialog.js"></script>
   <script src="/js/site.js"></script>
   <script src="/js/embed.js"></script>
+  <script src="/js/rowmenu.js"></script>
   <script src="/js/teachers.js"></script>
 </body>
 </html>

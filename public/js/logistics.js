@@ -137,6 +137,9 @@ function fillPostSelect() {
   else sel.value = '';
 }
 
+// 行操作按钮（操作 ▾）的三角图标
+const IC_CARET = '<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
 // ===== 左侧「所属部门」树：点击节点筛选职工 =====
 // 部门来自人事管理 → 组织架构（/api/departments），职工通过 department（部门名称）归属
 function deptKidsOf(pid) {
@@ -370,8 +373,7 @@ function renderTable() {
       <td><span class="st-tag ${statusClass(s.status)}">${escapeHtml(s.status || '在职')}</span></td>
       <td>
         <div class="row-actions">
-          <button type="button" class="btn-sm btn-edit" data-act="edit">编辑</button>
-          <button type="button" class="btn-sm btn-del" data-act="del">删除</button>
+          <button type="button" class="btn-sm more-btn" data-act="more" title="编辑 / 删除">操作${IC_CARET}</button>
         </div>
       </td>
     </tr>`;
@@ -534,6 +536,24 @@ function exportCsv() {
   window.toast('已导出 ' + list.length + ' 条档案', 'success');
 }
 
+// ===== 行操作下拉菜单：操作 ▾ → 编辑 / 删除 =====
+// 菜单容器与定位由 /js/rowmenu.js（教师管理、后勤管理共用）负责，这里只定义菜单项与动作
+function openRowMenu(rec, anchor) {
+  if (!window.RowMenu) return;
+  const IC = window.ROW_ICONS || {};
+  window.RowMenu.open(anchor, {
+    caption: '操作 · ' + (rec.name || ''),
+    tail: [
+      { kind: 'edit', label: '编辑档案', icon: IC.edit || '' },
+      { kind: 'del', label: '删除档案', icon: IC.trash || '', danger: true }
+    ],
+    onPick: (ds) => {
+      if (ds.kind === 'edit') openModal(rec);
+      else if (ds.kind === 'del') delRec(rec.id, rec.name || '该职工');
+    }
+  });
+}
+
 // ===== 事件绑定 =====
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
@@ -559,7 +579,7 @@ function bindEvents() {
   // 选择部门后，「具体岗位」联想词联动为该部门下定义的职位
   $('#fDepartment').onchange = fillPostSelect;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Esc') closeModal(); });
-  // 行内编辑 / 删除（事件委托，重渲染不丢监听）
+  // 行内「操作 ▾」下拉菜单（事件委托，重渲染不丢监听）
   $('#lgBody').addEventListener('click', e => {
     const btn = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
     if (!btn) return;
@@ -567,8 +587,7 @@ function bindEvents() {
     const id = tr ? tr.dataset.id : '';
     const rec = staff.find(x => x.id === id);
     if (!rec) return;
-    if (btn.dataset.act === 'edit') openModal(rec);
-    else if (btn.dataset.act === 'del') delRec(rec.id, rec.name || '该职工');
+    if (btn.dataset.act === 'more') openRowMenu(rec, btn);
   });
 }
 

@@ -403,6 +403,8 @@ async function loadFilters() {
 }
 
 function renderTable() {
+  // 列表重绘后原触发按钮已不存在，先收起行操作菜单
+  if (window.RowMenu) window.RowMenu.close();
   const kw = ($('#searchInput').value || '').trim().toLowerCase();
   const tbody = $('#studentTbody');
   const pagination = $('#pagination');
@@ -427,12 +429,19 @@ function renderTable() {
   const dormFilter = $('#dormFilter')?.value || '';
   if (dormFilter === 'in') list = list.filter(s => !!s._roomId);
   else if (dormFilter === 'out') list = list.filter(s => !s._roomId);
+  // 左侧「年级 / 班级」树筛选（与工具栏其它条件为「且」关系）
+  list = list.filter(s => matchTree(s, treeSel));
 
   if (sortKey) list.sort(compareSort);
   // 记录当前筛选结果（全选按钮的作用范围）
   currentFilteredIds = list.map(s => String(s.id));
+  updateTreeChip(list.length);
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="${colSpanCount()}" class="empty-tip">暂无学生数据，点击右上角「添加学生」开始</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colSpanCount()}" class="empty-tip">${
+      !allStudents.length ? '暂无学生数据，点击右上角「添加学生」开始'
+        : (treeSel.kind === 'all' ? '没有符合条件的学生，换个关键词或调整筛选试试'
+          : '该年级 / 班级下没有符合条件的学生，点击左侧「全部学生」查看全部')
+    }</td></tr>`;
     pagination.innerHTML = '';
     updateStats();
     syncCheckAll();
@@ -454,6 +463,7 @@ function renderTable() {
   }).join('');
   pagination.innerHTML = renderPaginationHtml(total, totalPages);
   updateStats();
+  renderClassTree(); // 班级树人数随档案变化（新增 / 入班 / 删除后同步）
   syncCheckAll();
 }
 
@@ -464,26 +474,157 @@ const ICON_SWAP = `<svg ${SVG_ATTRS}><polyline points="17 1 21 5 17 9"/><path d=
 const ICON_ASSIGN = `<svg ${SVG_ATTRS}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>`;
 const ICON_KEY = `<svg ${SVG_ATTRS}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`;
 const ICON_TRASH = `<svg ${SVG_ATTRS}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
-const ICON_MORE = `<svg ${SVG_ATTRS}><circle cx="12" cy="6" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1.7" fill="currentColor" stroke="none"/></svg>`;
+// 「操作 ▾」下拉箭头，与教师管理、后勤管理的行操作按钮一致
+const ICON_CARET = `<svg class="caret" ${SVG_ATTRS}><polyline points="6 9 12 15 18 9"/></svg>`;
 
-// 操作列：单颗「⋯」按钮，点击展开该行操作菜单
+// 操作列：与教师管理、后勤管理一致的「操作 ▾」按钮（data-act="more" 为通用菜单组件的触发标记）
 function rowActionsHtml() {
-  return `<button type="button" class="act-more" data-act="rowmenu" aria-label="更多操作" title="更多操作">${ICON_MORE}</button>`;
+  return `<button type="button" class="btn-sm more-btn" data-act="more" title="编辑档案 / 分班 / 重置密码 / 学籍异动 / 删除">操作${ICON_CARET}</button>`;
 }
 
-// 行操作菜单：悬停在页面层，避免被表格横向滚动容器裁剪
-function renderRowMenuItems(s) {
+// ===== 左侧「年级 / 班级」树：点击节点筛选学生 =====
+// 年级来自「年级管理」，班级来自「班级管理」；学生通过 grade / classId 归属
+let classTreeCache = [];                    // 班级列表（id / name / grade）
+let treeSel = { kind: 'all', value: '' };   // all（全部）/ grade（年级）/ class（班级）/ none（未分班）
+const treeCollapsed = new Set();            // 折叠节点键：'__root__' / 'g:年级名'，默认展开
+const TREE_ICONS = {
+  school: `<svg class="gico school" ${SVG_ATTRS}><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>`,
+  grade: `<svg class="gico grade" ${SVG_ATTRS}><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 14l9 5 9-5"/></svg>`,
+  cls: `<svg class="gico cls" ${SVG_ATTRS}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M16 10h.01"/><path d="M16 14h.01"/></svg>`
+};
+// 年级清单：以「年级管理」为准，补进班级 / 学生已用但年级管理中缺失的年级，避免无处挂载
+function treeGradeNames() {
+  const names = [];
+  const add = (v) => { const n = String(v || '').trim(); if (n && names.indexOf(n) === -1) names.push(n); };
+  (gradesList || []).forEach(add);
+  classTreeCache.forEach(c => add(c && c.grade));
+  allStudents.forEach(s => add(s && s.grade));
+  return names;
+}
+// 学生的归属年级：档案为空时回退到所在班级的年级（已分班学生的年级由班级决定）
+function studentGradeOf(s) {
+  const g = String(s.grade || '').trim();
+  if (g) return g;
+  const c = classTreeCache.find(x => String(x.id) === String(s.classId || ''));
+  return c ? String(c.grade || '').trim() : '';
+}
+function matchTree(s, sel) {
+  if (!sel || sel.kind === 'all') return true;
+  if (sel.kind === 'none') return !s.allocated;
+  if (sel.kind === 'grade') return studentGradeOf(s) === sel.value;
+  if (sel.kind === 'class') return String(s.classId || '') === String(sel.value || '');
+  return true;
+}
+function treeRowHtml(o) {
+  const toggle = o.hasKids
+    ? `<button type="button" class="gtree-toggle${o.collapsed ? ' collapsed' : ''}" data-toggle="${escapeHtml(o.nodeId || '')}" aria-label="展开 / 收起"></button>`
+    : '<span class="gtree-toggle leaf"></span>';
+  return `<div class="gtree-row${o.selected ? ' selected' : ''}" data-kind="${escapeHtml(o.kind)}" data-value="${escapeHtml(o.value || '')}"${o.title ? ` title="${escapeHtml(o.title)}"` : ''}>`
+    + toggle + o.icon
+    + `<span class="gname">${escapeHtml(o.name)}</span>`
+    + (o.meta ? `<span class="gmeta">${escapeHtml(o.meta)}</span>` : '')
+    + '</div>';
+}
+function renderClassTree() {
+  const host = $('#classTree');
+  if (!host) return;
+  const isSel = (kind, value) => treeSel.kind === kind && String(treeSel.value || '') === String(value || '');
+  const countOf = (sel) => allStudents.filter(s => matchTree(s, sel)).length;
+  const gnames = treeGradeNames();
+  const rootCollapsed = treeCollapsed.has('__root__');
+  let kids = '<div class="gnode">' + treeRowHtml({
+    icon: TREE_ICONS.cls, name: '未分班', kind: 'none', value: '',
+    meta: countOf({ kind: 'none' }) + ' 人', selected: isSel('none', ''), title: '尚未安排班级的学生'
+  }) + '</div>';
+  gnames.forEach(g => {
+    const cls = classTreeCache.filter(c => String((c && c.grade) || '').trim() === g);
+    const collapsed = treeCollapsed.has('g:' + g);
+    let node = '<div class="gnode' + (collapsed ? ' collapsed' : '') + '">' + treeRowHtml({
+      icon: TREE_ICONS.grade, name: g, kind: 'grade', value: g,
+      meta: countOf({ kind: 'grade', value: g }) + ' 人',
+      selected: isSel('grade', g), hasKids: cls.length > 0, collapsed, nodeId: 'g:' + g,
+      title: '只看「' + g + '」的学生'
+    });
+    if (cls.length) {
+      node += '<div class="gchildren">' + cls.map(c => '<div class="gnode">' + treeRowHtml({
+        icon: TREE_ICONS.cls, name: c.name, kind: 'class', value: c.id,
+        meta: countOf({ kind: 'class', value: c.id }) + ' 人',
+        selected: isSel('class', c.id), title: g + ' · ' + c.name
+      }) + '</div>').join('') + '</div>';
+    }
+    kids += node + '</div>';
+  });
+  host.innerHTML = '<div class="gnode gnode-root' + (rootCollapsed ? ' collapsed' : '') + '">'
+    + treeRowHtml({
+      icon: TREE_ICONS.school, name: '全部学生', kind: 'all', value: '',
+      meta: allStudents.length + ' 人', selected: isSel('all', ''),
+      hasKids: true, collapsed: rootCollapsed, nodeId: '__root__', title: '显示全部学生'
+    })
+    + '<div class="gchildren">' + kids + '</div></div>'
+    + (gnames.length ? '' : '<p class="sidebar-tip" style="margin-top:8px">暂无年级，请先在「年级管理」中添加年级。</p>');
+}
+function bindClassTree() {
+  const host = $('#classTree');
+  if (!host || host.dataset.bound) return;
+  host.dataset.bound = '1';
+  host.addEventListener('click', (e) => {
+    const tg = e.target.closest('.gtree-toggle');
+    if (tg && !tg.classList.contains('leaf')) {
+      const id = tg.dataset.toggle || '';
+      if (treeCollapsed.has(id)) treeCollapsed.delete(id);
+      else treeCollapsed.add(id);
+      renderClassTree();
+      return;
+    }
+    const row = e.target.closest('.gtree-row');
+    if (!row) return;
+    const kind = row.dataset.kind || 'all';
+    const value = row.dataset.value || '';
+    // 已选中则保持不变（避免重复刷新）；切换其它节点或点「全部学生」即恢复
+    if (treeSel.kind === kind && String(treeSel.value || '') === value) return;
+    treeSel = { kind, value };
+    currentPage = 1;
+    renderClassTree();
+    renderTable();
+  });
+}
+// 工具栏中的筛选提示 chip（显示当前年级 / 班级与命中人数，可一键清除）
+function updateTreeChip(count) {
+  const chip = $('#treeChip');
+  if (!chip) return;
+  if (treeSel.kind === 'all') { chip.hidden = true; return; }
+  let label = '未分班';
+  if (treeSel.kind === 'grade') label = '年级：' + treeSel.value;
+  else if (treeSel.kind === 'class') {
+    const c = classTreeCache.find(x => String(x.id) === String(treeSel.value));
+    label = '班级：' + (c ? c.name : '—');
+  }
+  chip.hidden = false;
+  $('#treeChipText').textContent = label + ' · ' + count + ' 人';
+}
+// 班级列表（树数据源），与「安排入班」弹窗各自按需拉取
+async function loadClassTree() {
+  try {
+    const res = await fetch(CLASSES_API);
+    const j = await res.json();
+    classTreeCache = j.data || [];
+    renderClassTree();
+  } catch (e) {
+    console.error('加载班级失败', e);
+  }
+}
+
+// 行操作菜单项（通用下拉菜单 /js/rowmenu.js 使用；已分班的学生不允许直接删除）
+function rowMenuItems(s) {
   const alloc = !!s.allocated;
-  const assignTxt = alloc ? '转班到其他班级' : '安排入班';
-  const delBlock = alloc ? '' :
-    `<div class="menu-sep"></div>
-     <button type="button" class="row-menu-item danger" data-mact="del"><span class="menu-ico">${ICON_TRASH}</span>删除该生</button>`;
-  return `
-    <button type="button" class="row-menu-item" data-mact="edit"><span class="menu-ico">${ICON_EDIT}</span>编辑档案</button>
-    <button type="button" class="row-menu-item" data-mact="assign"><span class="menu-ico">${alloc ? ICON_SWAP : ICON_ASSIGN}</span>${assignTxt}</button>
-    <button type="button" class="row-menu-item" data-mact="resetpwd"><span class="menu-ico">${ICON_KEY}</span>重置登录密码</button>
-    <button type="button" class="row-menu-item" data-mact="enroll"><span class="menu-ico">${ICON_EDIT}</span>学籍异动…</button>
-    ${delBlock}`;
+  const items = [
+    { kind: 'edit', label: '编辑档案', icon: ICON_EDIT },
+    { kind: 'assign', label: alloc ? '转班到其他班级' : '安排入班', icon: alloc ? ICON_SWAP : ICON_ASSIGN },
+    { kind: 'resetpwd', label: '重置登录密码', icon: ICON_KEY },
+    { kind: 'enroll', label: '学籍异动…', icon: ICON_EDIT }
+  ];
+  const tail = alloc ? [] : [{ kind: 'del', label: '删除该生', icon: ICON_TRASH, danger: true }];
+  return { items, tail };
 }
 
 // 按列渲染单元格（与表头严格同序）
@@ -620,6 +761,7 @@ async function loadStudents() {
     pruneSelection();
     renderTable();
     updateBulkBar();
+    loadClassTree(); // 班级人数 / 班级列表随学生数据同步（入班、转班、导入后）
   } catch (e) {
     toast('加载失败：' + e.message, 'error');
   }
@@ -1592,58 +1734,37 @@ function bindEvents() {
   const colDropdown = $('#colDropdown');
   const colMenu = $('#colMenu');
 
-  // 行操作下拉菜单：挂在页面层（body）上，避免被表格横向滚动容器裁剪
-  const rowMenu = document.createElement('div');
-  rowMenu.className = 'row-menu';
-  document.body.appendChild(rowMenu);
-  let rowMenuStuId = null;
-  const onScrollCloseRow = () => closeRowMenu();
-  const closeRowMenu = () => {
-    rowMenu.classList.remove('show');
-    rowMenuStuId = null;
-    document.removeEventListener('scroll', onScrollCloseRow, true);
-  };
+  // 行操作下拉菜单：与教师管理、后勤管理共用 /js/rowmenu.js（挂在页面层，不被表格滚动容器裁剪）
+  const closeRowMenu = () => { if (window.RowMenu) window.RowMenu.close(); };
   function openRowMenu(btn, stu) {
-    if (!stu) return;
-    rowMenu.innerHTML = renderRowMenuItems(stu);
-    rowMenuStuId = String(stu.id);
-    document.addEventListener('scroll', onScrollCloseRow, true);
-    rowMenu.style.visibility = 'hidden';
-    rowMenu.classList.add('show');
-    const mw = rowMenu.offsetWidth || 176;
-    const mh = rowMenu.offsetHeight || 210;
-    const r = btn.getBoundingClientRect();
-    let left = r.right - mw;
-    if (left < 8) left = Math.max(8, r.left + 8);
-    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-    let top = r.bottom + 6;
-    if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
-    rowMenu.style.left = left + 'px';
-    rowMenu.style.top = top + 'px';
-    rowMenu.style.visibility = '';
+    if (!stu || !window.RowMenu) return;
+    const menu = rowMenuItems(stu);
+    window.RowMenu.open(btn, {
+      caption: '操作 · ' + (stu.name || ''),
+      list: menu.items,
+      tail: menu.tail,
+      onPick: (ds) => rowMenuPick(stu, ds.kind)
+    });
   }
-  // 行操作菜单项点击
-  rowMenu.addEventListener('click', (e) => {
-    const item = e.target.closest('[data-mact]');
-    if (!item) return;
-    const stu = allStudents.find(s => String(s.id) === rowMenuStuId) || null;
-    const act = item.dataset.mact;
-    closeRowMenu();
-    if (!stu) return;
+  function rowMenuPick(stu, act) {
     if (act === 'edit') openModal(stu);
     else if (act === 'assign') openAssignDlg(stu);
     else if (act === 'resetpwd') resetStudentPassword(stu.id, stu);
     else if (act === 'enroll') openEnrollDlg(stu);
     else if (act === 'del') deleteStudent(stu.id);
-  });
+  }
 
-  const hideDropdowns = () => {
+  // 顶部「更多」/「列设置」下拉（不含行操作菜单，行菜单由 RowMenu 自行管理开合）
+  const closeTopDropdowns = () => {
     moreMenu.classList.remove('show');
     moreDropdown.classList.remove('open');
     if (colDropdown && colMenu) {
       colMenu.classList.remove('show');
       colDropdown.classList.remove('open');
     }
+  };
+  const hideDropdowns = () => {
+    closeTopDropdowns();
     closeRowMenu();
   };
   $('#btnMore').onclick = (e) => {
@@ -1702,6 +1823,17 @@ function bindEvents() {
   $('#gradeFilter').onchange = () => { currentPage = 1; renderTable(); saveFilters(); };
   $('#statusFilter').onchange = () => { currentPage = 1; renderTable(); saveFilters(); };
   $('#dormFilter').onchange = () => { currentPage = 1; renderTable(); saveFilters(); };
+  // 左侧「年级 / 班级」树：点击节点筛选学生；chip 上的 × 与侧栏「全部学生」按钮清除筛选
+  bindClassTree();
+  const clearTree = () => {
+    if (treeSel.kind === 'all') return;
+    treeSel = { kind: 'all', value: '' };
+    currentPage = 1;
+    renderClassTree();
+    renderTable();
+  };
+  if ($('#btnTreeAll')) $('#btnTreeAll').onclick = clearTree;
+  if ($('#treeChipClear')) $('#treeChipClear').onclick = clearTree;
 
   $('#pagination').onclick = (e) => {
     const btn = e.target.closest('[data-page]');
@@ -1727,10 +1859,11 @@ function bindEvents() {
     const tr = btn.closest('tr');
     const id = tr.dataset.id;
     const stu = allStudents.find(s => s.id === id) || null;
-    if (btn.dataset.act === 'rowmenu') {
+    if (btn.dataset.act === 'more') {
+      // 阻止冒泡：交给 RowMenu 自己判断开合，避免被「点击外部关闭」立刻收起
       e.stopPropagation();
-      if (rowMenu.classList.contains('show') && rowMenuStuId === String(id)) closeRowMenu();
-      else openRowMenu(btn, stu);
+      closeTopDropdowns();
+      openRowMenu(btn, stu);
       return;
     }
     if (btn.dataset.act === 'dorm') openDormDlg(stu);
@@ -2019,6 +2152,6 @@ renderHeader();
 bindEvents();
 renderColMenu();
 Promise.all([loadGradeOptions(), loadFilters()]).then(() => {
-  loadStudents();
+  loadStudents(); // 内部会加载班级并渲染左侧班级树
 });
 initEnrollTrashUI();

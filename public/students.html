@@ -259,43 +259,22 @@
     .student-table tbody tr { transition: background .15s; }
     .student-table td { transition: background-color .12s; }
 
-    /* 操作列：单颗「⋯」按钮 + 行下拉菜单 */
+    /* 操作列：「操作 ▾」按钮（.btn-sm.more-btn）+ 通用行下拉菜单，样式见 /css/style.css */
     .student-table .row-actions { display: flex; justify-content: center; }
-    .act-more {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 30px; height: 30px; padding: 0; border-radius: 8px;
-      border: 1px solid var(--border, #e5e7eb); background: #fff;
-      color: #94a3b8; cursor: pointer; transition: all .15s;
-    }
-    .act-more svg { width: 17px; height: 17px; }
-    .act-more:hover { color: var(--primary); border-color: var(--primary); background: #eef2ff; box-shadow: 0 2px 8px rgba(79,70,229,.16); }
 
-    .row-menu {
-      position: fixed; z-index: 1300; min-width: 178px; padding: 6px;
+    /* 左侧「年级 / 班级」侧栏 + 右侧内容区（树样式见 /css/style.css） */
+    .stu-layout { display: flex; gap: 18px; align-items: flex-start; }
+    .stu-sidebar {
+      flex: 0 0 250px; position: sticky; top: 18px; align-self: flex-start;
       background: #fff; border: 1px solid var(--border, #e5e7eb); border-radius: 12px;
-      box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
-      display: none; transform-origin: top right;
+      padding: 14px; max-height: calc(100vh - 45px); overflow: auto; overscroll-behavior: contain;
     }
-    .row-menu.show { display: block; animation: rowMenuIn .12s ease; }
-    @keyframes rowMenuIn {
-      from { opacity: 0; transform: scale(.96) translateY(-3px); }
-      to { opacity: 1; transform: none; }
+    .stu-main { flex: 1 1 auto; min-width: 0; }
+    @media (max-width: 900px) {
+      /* 小屏：侧栏改为顶部整块，内容区独占下方 */
+      .stu-layout { flex-direction: column; }
+      .stu-sidebar { flex: 1 1 auto; width: 100%; position: static; max-height: none; }
     }
-    .row-menu-item {
-      display: flex; align-items: center; gap: 10px; width: 100%;
-      padding: 8px 10px; border: none; background: none; border-radius: 8px;
-      font-size: 13px; color: var(--text, #1f2937); cursor: pointer; text-align: left;
-      font-family: inherit; transition: background .12s;
-    }
-    .row-menu-item:hover { background: #f1f5f9; color: var(--primary); }
-    .row-menu-item .menu-ico { display: inline-flex; color: #94a3b8; }
-    .row-menu-item:hover .menu-ico { color: var(--primary); }
-    .row-menu-item .menu-ico svg { width: 15px; height: 15px; }
-    .row-menu-item.danger { color: #dc2626; }
-    .row-menu-item.danger:hover { background: #fef2f2; color: #b91c1c; }
-    .row-menu-item.danger:hover .menu-ico { color: #dc2626; }
-    .row-menu-item.danger .menu-ico { color: #f87171; }
-    .menu-sep { height: 1px; background: var(--border, #e5e7eb); margin: 5px 6px; }
 
     /* 列设置下拉 */
     #colDropdown .dropdown-menu { min-width: 176px; }
@@ -397,6 +376,16 @@
   </header>
 
   <main class="container">
+    <div class="stu-layout">
+      <aside class="stu-sidebar">
+        <div class="sidebar-head">
+          <h3 class="sidebar-title">年级 / 班级</h3>
+          <button type="button" class="btn btn-outline btn-sm" id="btnTreeAll">全部学生</button>
+        </div>
+        <p class="sidebar-tip">点击<b>年级</b>看该年级学生；展开年级后点击<b>班级</b>只看该班学生；「未分班」为尚未安排班级的学生。班级来自「班级管理」。</p>
+        <div id="classTree" class="grade-tree"></div>
+      </aside>
+      <div class="stu-main">
     <!-- 统计卡片 -->
     <section class="stats">
       <div class="stat-card">
@@ -434,6 +423,7 @@
           <option value="in">已入住</option>
           <option value="out">未入住</option>
         </select>
+        <span class="filter-chip" id="treeChip" hidden><span id="treeChipText"></span><button type="button" id="treeChipClear" title="清除年级 / 班级筛选">&times;</button></span>
       </div>
       <div class="toolbar-right">
         <button class="btn btn-primary" id="btnAdd"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加学生</button>
@@ -465,6 +455,8 @@
 
     <!-- 分页 -->
     <section class="pagination" id="pagination"></section>
+      </div>
+    </div>
   </main>
 
   <!-- 学生编辑弹窗 -->
@@ -747,6 +739,7 @@
   <script src="/js/dialog.js"></script>
   <script src="/js/site.js"></script>
   <script src="/js/embed.js"></script>
+  <script src="/js/rowmenu.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

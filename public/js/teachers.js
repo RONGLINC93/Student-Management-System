@@ -528,10 +528,7 @@ function renderTable() {
       <td>${headCell}</td>
       <td>
         <div class="row-actions">
-          <button type="button" class="btn-sm btn-edit" data-act="edit">编辑</button>
-          <button type="button" class="btn-sm head-btn${t.classId ? ' is-head' : ''}" data-act="head">${IC_HEAD}<span>${t.classId ? '班主任' : '任班主任'}</span>${IC_CARET}</button>
-          <button type="button" class="btn-sm btn-hr" data-act="hr">人事</button>
-          <button type="button" class="btn-sm btn-del" data-act="del">删除</button>
+          <button type="button" class="btn-sm more-btn" data-act="more" title="编辑 / 人事异动 / 班主任 / 删除">操作${IC_CARET}</button>
         </div>
       </td>
     </tr>`;
@@ -829,74 +826,79 @@ async function saveHr(e) {
   }
 }
 
-/* ===== 悬浮菜单（任 / 改任 / 解除班主任） ===== */
-const ctx = $('#ctxMenu');
-let ctxTeacher = null;
+/* ===== 行操作下拉菜单：操作 ▾ → 编辑 / 人事异动 / 班主任 / 删除 ===== */
+// 菜单容器与定位由 /js/rowmenu.js（教师管理、后勤管理共用）负责，这里只定义菜单项与后续动作
+let ctxAnchor = null; // 最近一次打开菜单的触发按钮，二级菜单（班级列表）沿用其位置
 
 function closeCtxMenu() {
-  if (!ctx) return;
-  ctx.classList.remove('show');
-  ctxTeacher = null;
+  if (window.RowMenu) window.RowMenu.close();
 }
 
-function openCtxMenu(t, anchor) {
-  if (!ctx) return;
-  if (ctx.classList.contains('show') && ctxTeacher && ctxTeacher.id === t.id) { closeCtxMenu(); return; }
-  if (!classList.length) { toast('暂无班级，请先在「班级管理」中添加班级', 'error'); return; }
-
+// 一级菜单：编辑 / 人事异动 / 班主任（进入班级列表）/ 删除
+function openActionMenu(t, anchor) {
+  if (!window.RowMenu) return;
+  ctxAnchor = anchor;
   const isHead = !!t.classId;
-  let classRows;
-  if (!classList.length) {
-    classRows = '<button type="button" class="ctx-item" disabled>暂无班级可选</button>';
-  } else {
-    classRows = classList.map(c => {
-      const isCur = c.id === t.classId;
-      const other = !isCur && c.headTeacher && c.headTeacher !== t.name ? c.headTeacher : '';
-      const hint = isCur ? '担任中'
-        : (other ? '现：' + escapeHtml(other) : '');
-      const icon = isCur ? IC_CHECK : IC_UNCHECK;
-      const curCls = isCur ? ' is-cur' : '';
-      return `<button type="button" class="ctx-item${curCls}" data-kind="class" data-cid="${escapeHtml(c.id)}" data-cname="${escapeHtml(c.name)}" data-other="${escapeHtml(other)}" ${isCur ? 'disabled' : ''}>${icon}<span class="lbl">${escapeHtml(c.name)}</span><span class="hint">${hint}</span></button>`;
-    }).join('');
-  }
-
-  const removeRow = isHead
-    ? `<button type="button" class="ctx-item danger" data-kind="cancel">${IC_USER_MINUS}<span class="lbl">解除班主任（当前：${escapeHtml(t.className || '已设班级')}）</span></button>
-       <div class="ctx-divider"></div>`
-    : '';
-
-  ctx.innerHTML =
-    `<div class="ctx-caption">${IC_HEAD}<span>${isHead ? '改任班主任 · 选择班级' : '设为班主任 · 选择班级'}</span></div>
-     ${removeRow}
-     <div class="ctx-list">${classRows}</div>
-     <div class="ctx-divider"></div>
-     <button type="button" class="ctx-item" data-kind="hr">${IC_HR}<span class="lbl">登记人事异动</span></button>
-     <button type="button" class="ctx-item" data-kind="edit">${IC_EDIT}<span class="lbl">编辑教师</span></button>
-     <button type="button" class="ctx-item danger" data-kind="del">${IC_TRASH}<span class="lbl">删除教师</span></button>`;
-
-  ctxTeacher = t;
-  ctx.hidden = false;
-  ctx.style.visibility = 'hidden';
-  ctx.style.opacity = '0';
-
-  const r = anchor.getBoundingClientRect();
-  const mh = ctx.offsetHeight;
-  const mw = ctx.offsetWidth;
-  let top = r.bottom + 8;
-  let left = r.right - mw;
-  const placeAbove = top + mh > window.innerHeight - 8;
-  if (placeAbove) top = Math.max(8, r.top - mh - 8);
-  if (left < 8) left = Math.max(8, r.left);
-  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-  ctx.classList.toggle('above', placeAbove);
-  ctx.style.top = top + 'px';
-  ctx.style.left = left + 'px';
-  ctx.style.visibility = '';
-  ctx.style.opacity = '';
-  requestAnimationFrame(() => ctx.classList.add('show'));
+  window.RowMenu.open(anchor, {
+    caption: '操作 · ' + (t.name || ''),
+    tail: [
+      { kind: 'edit', label: '编辑教师', icon: IC_EDIT },
+      { kind: 'hr', label: '登记人事异动', icon: IC_HR },
+      {
+        kind: 'head',
+        label: isHead ? '改任班主任（当前：' + (t.className || '已设班级') + '）' : '设为班主任',
+        icon: IC_HEAD
+      },
+      { kind: 'del', label: '删除教师', icon: IC_TRASH, danger: true }
+    ],
+    onPick: (ds) => ctxPick(t, ds.kind, ds)
+  });
 }
 
-async function ctxPick(t, kind, item) {
+// 二级菜单：选择班级（设为 / 改任班主任），已任班主任时附带「解除」
+// 只列出该教师「任教年级」下的班级，避免把班主任派到未任教的年级
+function openHeadMenu(t, anchor) {
+  if (!window.RowMenu) return;
+  if (!classList.length) { toast('暂无班级，请先在「班级管理」中添加班级', 'error'); return; }
+  const grades = (Array.isArray(t.grades) ? t.grades : []).map(g => String(g || '').trim()).filter(Boolean);
+  const scoped = grades.length
+    ? classList.filter(c => grades.indexOf(String((c && c.grade) || '').trim()) !== -1)
+    : classList.slice();
+  // 任教年级已设置却查不到班级：多半是该年级尚未建班，提示而非给出全校列表
+  if (grades.length && !scoped.length) {
+    toast('「' + grades.join('、') + '」下暂无班级，请先在「班级管理」中添加', 'error');
+    return;
+  }
+  ctxAnchor = anchor;
+  const classRows = scoped.map(c => {
+    const isCur = c.id === t.classId;
+    const other = !isCur && c.headTeacher && c.headTeacher !== t.name ? c.headTeacher : '';
+    const grade = String((c && c.grade) || '').trim();
+    return {
+      kind: 'class',
+      label: grade ? grade + ' · ' + c.name : c.name,
+      icon: isCur ? IC_CHECK : IC_UNCHECK,
+      hint: isCur ? '担任中' : (other ? '现：' + other : ''),
+      cur: isCur,
+      disabled: isCur, // 当前班级即已担任，无需重复设置
+      data: { cid: c.id, cname: c.name, other: other }
+    };
+  });
+  const scopeText = grades.length ? grades.join('、') : '全部班级（未设置任教年级）';
+  const head = t.classId
+    ? [{ kind: 'cancel', label: '解除班主任（当前：' + (t.className || '已设班级') + '）', icon: IC_USER_MINUS, danger: true }]
+    : [];
+  window.RowMenu.open(anchor, {
+    caption: (t.classId ? '改任班主任' : '设为班主任') + ' · ' + scopeText,
+    captionIcon: IC_HEAD,
+    head,
+    list: classRows,
+    onPick: (ds) => ctxPick(t, ds.kind, ds)
+  });
+}
+
+async function ctxPick(t, kind, ds) {
+  if (kind === 'head') { openHeadMenu(t, ctxAnchor); return; }
   if (kind === 'hr') { closeCtxMenu(); openHrModal(t); return; }
   if (kind === 'edit') { closeCtxMenu(); openModal(t); return; }
   if (kind === 'del') { closeCtxMenu(); delTeacher(t.id, t.name); return; }
@@ -907,9 +909,9 @@ async function ctxPick(t, kind, item) {
     return;
   }
   if (kind === 'class') {
-    const cid = item.dataset.cid;
-    const cname = item.dataset.cname || '';
-    const other = item.dataset.other || '';
+    const cid = ds.cid;
+    const cname = ds.cname || '';
+    const other = ds.other || '';
     closeCtxMenu();
     if (other) {
       if (!(await confirmDlg(`「${cname}」现由「${other}」担任班主任，确定换由「${t.name}」担任吗？`, { title: '替换班主任', okText: '替换', danger: true }))) return;
@@ -960,38 +962,15 @@ function bindEvents() {
   $('#hType').addEventListener('change', hrWatch);
   $('#hTeacher').addEventListener('change', hrWatch);
 
-  // 悬浮菜单动作（事件委托，防止 re-render 丢失监听）
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('#ctxMenu')) return;
-    if (e.target.closest('[data-act="head"]')) return;
-    closeCtxMenu();
-  });
-  ctx.onclick = async (e) => {
-    const item = e.target.closest('.ctx-item');
-    if (!item || item.disabled || !ctxTeacher) return;
-    const kind = item.dataset.kind;
-    if (kind === 'class' || kind === 'cancel' || kind === 'hr' || kind === 'edit' || kind === 'del') ctxPick(ctxTeacher, kind, item);
-  };
-
+  // 「操作 ▾」下拉菜单：点击行内按钮打开（菜单项点击、外部点击、Esc、滚动关闭由 rowmenu.js 统一处理）
   $('#tBody').onclick = (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
     const tr = btn.closest('tr');
     const t = teachers.find(x => x.id === tr.dataset.id);
     if (!t) return;
-    if (btn.dataset.act === 'edit') openModal(t);
-    else if (btn.dataset.act === 'del') delTeacher(t.id, t.name);
-    else if (btn.dataset.act === 'hr') openHrModal(t);
-    else if (btn.dataset.act === 'head') openCtxMenu(t, btn);
+    if (btn.dataset.act === 'more') openActionMenu(t, btn);
   };
-
-  window.addEventListener('resize', closeCtxMenu);
-  window.addEventListener('scroll', (e) => {
-    const t = e.target;
-    if (t && t.nodeType === 1 && t.closest && t.closest('#ctxMenu')) return; // 菜单内滚动不关
-    closeCtxMenu();
-  }, true);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtxMenu(); });
 
   window.addEventListener('cb-site-ready', () => {
     if (window.SUBJECTS && window.SUBJECTS.length) {
