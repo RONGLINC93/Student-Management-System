@@ -7,6 +7,10 @@ const PERM_API = '/api/dept-perms';
 let teachers = [];
 let classList = [];
 let gradeList = [];
+// 左侧年级树筛选：kind = all（全部）/ grade（任教年级）/ class（班级班主任）/ none（未指定年级）
+let treeSel = { kind: 'all', value: '' };
+// 年级树折叠状态（键：'__root__' / 'g:年级名'），默认展开
+const gradeCollapsed = new Set();
 // 组织架构权限（部门 → 可管理模块，服务端已按层级算好继承），用于部门提示与人事异动权限预警
 let deptPermMap = {};
 let permModules = [];
@@ -30,6 +34,12 @@ const IC_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const IC_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
 const IC_USER_MINUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/></svg>';
 const IC_HR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
+// 左侧年级树图标：学校（全部）/ 年级 / 班级
+const G_ICONS = {
+  school: '<svg class="gico school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>',
+  grade: '<svg class="gico grade" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 14l9 5 9-5"/></svg>',
+  cls: '<svg class="gico cls" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M16 10h.01"/><path d="M16 14h.01"/></svg>'
+};
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -302,6 +312,121 @@ function renderGradeChecks(checkedNames) {
   }).join('');
 }
 
+// ===== 左侧「任教年级」树：点击节点筛选教师 =====
+// 年级 ↔ 教师：档案中的「任教年级 grades」；班级 ↔ 教师：担任班主任（classId）
+function matchTree(t, sel) {
+  if (!sel || sel.kind === 'all') return true;
+  if (sel.kind === 'none') return !(Array.isArray(t.grades) && t.grades.length);
+  if (sel.kind === 'grade') return Array.isArray(t.grades) && t.grades.indexOf(sel.value) !== -1;
+  if (sel.kind === 'class') return String(t.classId || '') === String(sel.value || '');
+  return true;
+}
+// 年级清单：以「年级管理」为准，补进班级已使用但年级管理中缺失的年级，避免班级无处挂载
+function gradeNamesOf() {
+  const names = [];
+  (gradeList || []).forEach(g => { const n = String(g || '').trim(); if (n && names.indexOf(n) === -1) names.push(n); });
+  (classList || []).forEach(c => { const n = String((c && c.grade) || '').trim(); if (n && names.indexOf(n) === -1) names.push(n); });
+  return names;
+}
+// 班级班主任：优先取教师档案（classId 关联），回退班级档案中登记的班主任姓名
+function headNameOfClass(c) {
+  const t = teachers.find(x => String(x.classId || '') === String(c.id));
+  if (t && t.name) return String(t.name);
+  return String((c && c.headTeacher) || '').trim();
+}
+function treeRow(o) {
+  const toggle = o.hasKids
+    ? '<button type="button" class="gtree-toggle' + (o.collapsed ? ' collapsed' : '') + '" data-toggle="' + escapeHtml(o.nodeId || '') + '" aria-label="展开 / 收起"></button>'
+    : '<span class="gtree-toggle leaf"></span>';
+  return '<div class="gtree-row' + (o.selected ? ' selected' : '') + '" data-kind="' + escapeHtml(o.kind) + '" data-value="' + escapeHtml(o.value || '') + '"'
+    + (o.title ? ' title="' + escapeHtml(o.title) + '"' : '') + '>'
+    + toggle + o.icon
+    + '<span class="gname">' + escapeHtml(o.name) + '</span>'
+    + (o.meta ? '<span class="gmeta">' + escapeHtml(o.meta) + '</span>' : '')
+    + '</div>';
+}
+function renderGradeTree() {
+  const host = $('#gradeTree');
+  if (!host) return;
+  const gnames = gradeNamesOf();
+  const isSel = (kind, value) => treeSel.kind === kind && String(treeSel.value || '') === String(value || '');
+  const rootCollapsed = gradeCollapsed.has('__root__');
+  let kids = '<div class="gnode">' + treeRow({
+    icon: G_ICONS.cls, name: '未指定年级', kind: 'none', value: '',
+    meta: teachers.filter(t => matchTree(t, { kind: 'none' })).length + ' 人',
+    selected: isSel('none', ''), title: '任教年级为空的教师'
+  }) + '</div>';
+  gnames.forEach(g => {
+    const cls = classList.filter(c => String((c && c.grade) || '').trim() === g);
+    const collapsed = gradeCollapsed.has('g:' + g);
+    let node = '<div class="gnode' + (collapsed ? ' collapsed' : '') + '">' + treeRow({
+      icon: G_ICONS.grade, name: g, kind: 'grade', value: g,
+      meta: teachers.filter(t => matchTree(t, { kind: 'grade', value: g })).length + ' 人',
+      selected: isSel('grade', g), hasKids: cls.length > 0, collapsed, nodeId: 'g:' + g,
+      title: '只看任教年级包含「' + g + '」的教师'
+    });
+    if (cls.length) {
+      node += '<div class="gchildren">' + cls.map(c => {
+        const hn = headNameOfClass(c);
+        return '<div class="gnode">' + treeRow({
+          icon: G_ICONS.cls, name: c.name, kind: 'class', value: String(c.id),
+          meta: hn || '未设班主任', selected: isSel('class', c.id),
+          title: hn ? '班主任：' + hn : '该班暂未设置班主任'
+        }) + '</div>';
+      }).join('') + '</div>';
+    }
+    node += '</div>';
+    kids += node;
+  });
+  host.innerHTML = '<div class="gnode gnode-root' + (rootCollapsed ? ' collapsed' : '') + '">'
+    + treeRow({
+      icon: G_ICONS.school, name: '全部教师', kind: 'all', value: '',
+      meta: teachers.length + ' 人', selected: isSel('all', ''),
+      hasKids: gnames.length > 0, collapsed: rootCollapsed, nodeId: '__root__', title: '显示全部教师'
+    })
+    + '<div class="gchildren">' + kids + '</div></div>'
+    + (gnames.length ? '' : '<p class="sidebar-tip" style="margin-top:8px">暂无年级，请先在「年级管理」中添加年级。</p>');
+}
+function bindGradeTree() {
+  const host = $('#gradeTree');
+  if (!host || host.dataset.bound) return;
+  host.dataset.bound = '1';
+  host.addEventListener('click', (e) => {
+    const tg = e.target.closest('.gtree-toggle');
+    if (tg && !tg.classList.contains('leaf')) {
+      const id = tg.dataset.toggle || '';
+      if (gradeCollapsed.has(id)) gradeCollapsed.delete(id);
+      else gradeCollapsed.add(id);
+      renderGradeTree();
+      return;
+    }
+    const row = e.target.closest('.gtree-row');
+    if (!row) return;
+    const kind = row.dataset.kind || 'all';
+    const value = row.dataset.value || '';
+    // 已选中则保持不变（避免重复刷新）；切换其它节点或点「全部教师」即恢复
+    if (treeSel.kind === kind && String(treeSel.value || '') === String(value)) return;
+    treeSel = { kind, value };
+    renderGradeTree();
+    renderTable();
+  });
+}
+// 工具栏中的筛选提示 chip（显示当前年级 / 班级筛选与命中人数，可一键清除）
+function updateTreeChip(count) {
+  const chip = $('#treeChip');
+  if (!chip) return;
+  if (treeSel.kind === 'all') { chip.hidden = true; return; }
+  let label = '';
+  if (treeSel.kind === 'none') label = '未指定年级';
+  else if (treeSel.kind === 'grade') label = '任教年级：' + treeSel.value;
+  else if (treeSel.kind === 'class') {
+    const c = classList.find(x => String(x.id) === String(treeSel.value));
+    label = '班级：' + (c ? c.name : '—') + '（班主任）';
+  }
+  chip.hidden = false;
+  $('#treeChipText').textContent = label + ' · ' + count + ' 人';
+}
+
 // 职务筛选下拉：按现有教师职务动态重建（保留当前选中值）
 function renderPosFilter() {
   const sel = $('#posFilter');
@@ -321,7 +446,8 @@ function renderTable() {
   const status = $('#statusFilter').value;
   const pos = $('#posFilter').value;
   const headState = $('#headFilter').value;
-  let list = teachers.slice();
+  // 左侧年级树筛选（与工具栏其它条件为「且」关系）
+  let list = teachers.slice().filter(t => matchTree(t, treeSel));
   if (kw) {
     list = list.filter(t =>
       (t.name || '').toLowerCase().includes(kw) ||
@@ -347,9 +473,14 @@ function renderTable() {
   $('#statMale').textContent = teachers.filter(t => t.gender === '男').length;
   $('#statFemale').textContent = teachers.filter(t => t.gender === '女').length;
   $('#statHead').textContent = teachers.filter(t => !!t.classId).length;
+  updateTreeChip(list.length);
 
   if (!list.length) {
-    $('#tBody').innerHTML = '<tr><td colspan="10" class="empty-tip">暂无符合条件的教师，点击右上角「添加教师」开始</td></tr>';
+    $('#tBody').innerHTML = '<tr><td colspan="10" class="empty-tip">'
+      + (treeSel.kind === 'all'
+        ? '暂无符合条件的教师，点击右上角「添加教师」开始'
+        : '当前年级 / 班级下没有符合条件的教师，点击左侧「全部教师」查看全部')
+      + '</td></tr>';
     return;
   }
 
@@ -415,6 +546,7 @@ async function loadTeachers() {
     renderPosFilter();
     renderHrTeacherSelect();
     renderTable();
+    renderGradeTree(); // 年级树人数随教师档案变化（新增 / 编辑 / 班主任变动后同步）
   } catch (e) {
     toast('加载教师失败：' + e.message, 'error');
   }
@@ -796,6 +928,16 @@ function bindEvents() {
   $('#statusFilter').onchange = renderTable;
   $('#posFilter').onchange = renderTable;
   $('#headFilter').onchange = renderTable;
+  // 左侧年级树：点击节点筛选教师；chip 上的 × 与侧栏「全部教师」按钮清除筛选
+  bindGradeTree();
+  const clearTree = () => {
+    if (treeSel.kind === 'all') return;
+    treeSel = { kind: 'all', value: '' };
+    renderGradeTree();
+    renderTable();
+  };
+  if ($('#btnTreeAll')) $('#btnTreeAll').onclick = clearTree;
+  if ($('#treeChipClear')) $('#treeChipClear').onclick = clearTree;
   // 人事异动弹窗
   $('#hrClose').onclick = closeHrModal;
   $('#hrCancel').onclick = closeHrModal;

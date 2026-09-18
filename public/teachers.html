@@ -168,8 +168,63 @@
     .ctx-divider { height: 1px; background: var(--border); margin: 5px 4px; }
     #modalMask .modal { max-width: 560px; }
 
+    /* ===== 左侧「任教年级」侧栏 ===== */
+    .tea-layout { display: flex; gap: 18px; align-items: flex-start; }
+    .tea-sidebar {
+      flex: 0 0 250px; position: sticky; top: 18px; align-self: flex-start;
+      background: #fff; border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px; max-height: calc(100vh - 45px); overflow: auto; overscroll-behavior: contain;
+    }
+    .tea-sidebar .sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .tea-sidebar .sidebar-title { font-size: 15px; font-weight: 700; margin: 0; }
+    .tea-sidebar .sidebar-tip {
+      margin: 0 0 8px; font-size: 12.5px; line-height: 1.7; color: var(--text-light);
+      background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    }
+    .tea-main { flex: 1 1 auto; min-width: 0; }
+    /* 年级 / 班级树 */
+    .grade-tree { margin-top: 4px; font-size: 13.5px; user-select: none; }
+    .gtree-row {
+      display: flex; align-items: center; gap: 6px; padding: 5px 6px;
+      border-radius: 6px; min-height: 28px; position: relative; cursor: pointer;
+    }
+    .gtree-row:hover { background: #f1f5ff; }
+    .gtree-row.selected { background: #e5ebff; }
+    .gtree-row.selected .gname { color: #3730a3; font-weight: 600; }
+    .gtree-toggle { flex: 0 0 14px; width: 14px; height: 14px; border: 0; background: transparent; cursor: pointer; padding: 0; position: relative; }
+    .gtree-toggle::before {
+      content: ''; position: absolute; left: 4px; top: 3px;
+      border-left: 5px solid #94a3b8; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+      transform: rotate(90deg); transition: transform .12s ease;
+    }
+    .gtree-toggle.collapsed::before { transform: rotate(0); }
+    .gtree-toggle.leaf::before { display: none; }
+    .gico { flex: 0 0 15px; width: 15px; height: 15px; }
+    .gico.school { color: var(--primary); }
+    .gico.grade { color: #4f46e5; }
+    .gico.cls { color: #9aa7b8; }
+    .gname { flex: 1 1 auto; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gmeta { flex: 0 0 auto; font-size: 12px; color: var(--text-light); max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gnode-root > .gtree-row .gname { font-weight: 700; }
+    .gchildren { position: relative; margin-left: 8px; padding-left: 14px; }
+    .gchildren::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px dashed #cbd5e1; }
+    .gchildren > .gnode { position: relative; }
+    .gchildren > .gnode > .gtree-row::before { content: ''; position: absolute; left: -14px; top: 14px; width: 12px; border-top: 1px dashed #cbd5e1; }
+    .gnode.collapsed > .gchildren { display: none; }
+    /* 工具栏中的年级 / 班级筛选提示 */
+    .filter-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+      border-radius: 999px; background: #eef2ff; border: 1px solid #c7d2fe;
+      color: #4338ca; font-size: 13px; white-space: nowrap;
+    }
+    .filter-chip button { border: 0; background: transparent; color: #6366f1; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+    .filter-chip button:hover { color: #312e81; }
+
     /* ===== 小屏适配 ===== */
     @media (max-width: 900px) {
+      /* 侧栏在小屏改为顶部整块，内容区独占下方 */
+      .tea-layout { flex-direction: column; }
+      .tea-sidebar { flex: 1 1 auto; width: 100%; position: static; max-height: none; }
       /* 表格区高度按小屏可视高度重算，并保证横向可滑动 */
       .table-scroll { max-height: 62vh; max-height: calc(100dvh - 300px); }
       .t-table thead th { padding: 11px 12px; }
@@ -210,6 +265,16 @@
   </header>
 
   <main class="container">
+    <div class="tea-layout">
+      <aside class="tea-sidebar" id="gradeSidebar">
+        <div class="sidebar-head">
+          <h3 class="sidebar-title">任教年级</h3>
+          <button type="button" class="btn btn-outline btn-sm" id="btnTreeAll">全部教师</button>
+        </div>
+        <p class="sidebar-tip">点击<b>年级</b>只看该年级的任课教师；展开年级后点击<b>班级</b>只看该班班主任。年级来自「年级管理」，班级来自「班级管理」。</p>
+        <div id="gradeTree" class="grade-tree"></div>
+      </aside>
+      <div class="tea-main">
     <section class="stats">
       <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">教师总数</div></div>
       <div class="stat-card"><div class="stat-num" id="statOn">0</div><div class="stat-label">在职教师</div></div>
@@ -241,6 +306,7 @@
           <option value="head">担任班主任</option>
           <option value="none">未担任班主任</option>
         </select>
+        <span class="filter-chip" id="treeChip" hidden><span id="treeChipText"></span><button type="button" id="treeChipClear" title="清除年级 / 班级筛选">&times;</button></span>
       </div>
       <div class="toolbar-right">
         <button class="btn btn-primary" id="btnAdd"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加教师</button>
@@ -257,6 +323,8 @@
         </table>
       </div>
     </section>
+      </div>
+    </div>
   </main>
 
   <!-- 教师编辑弹窗 -->
