@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="author" content="RONGLINC (chenronglin1993@hotmail.com)" />
   <link rel="icon" type="image/png" href="/favicon.png" />
-  <title>教师登录 · 学生管理系统</title>
+  <title>教师 / 职工登录 · 学生管理系统</title>
   <style>
     :root {
       --brand: #6366f1;
@@ -201,12 +201,12 @@
         </span>
         <div>
           <h1 data-site-name>学生管理系统</h1>
-          <div class="lg-en">TEACHER SERVICE PORTAL</div>
+          <div class="lg-en">TEACHER &amp; STAFF SERVICE PORTAL</div>
         </div>
       </div>
       <div class="lg-title" data-site-slogan>
-        教师自助服务
-        <small>输入工号即可登录，查看个人档案与班主任班级花名册，在线完善身份信息，了解学生住宿分布，并可修改个人密码。</small>
+        教师 / 职工自助服务
+        <small>输入工号即可登录：教师可查看个人档案与班主任班级花名册、审批本班请假；后勤职工（安保、保洁、食堂、维修等）可查看岗位与排班信息。两侧均支持在线完善联系方式并修改个人密码。</small>
       </div>
       <div class="lg-points">
         <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>个人档案与班主任班级信息</span>
@@ -217,8 +217,8 @@
 
     <!-- 右侧表单 -->
     <section class="login-form-side">
-      <h2>教师登录</h2>
-      <p class="lg-sub">请使用工号登录教师服务门户</p>
+      <h2>教师 / 职工登录</h2>
+      <p class="lg-sub">请使用工号登录教师 · 职工服务门户</p>
 
       <div class="field">
         <label for="loginUser">工号</label>
@@ -242,10 +242,11 @@
       <button type="button" class="btn-login" id="btnLogin">登　录</button>
       <div class="err-box" id="errBox"></div>
       <div class="notice" id="pwdNotice">
-        账号为<b>本人工号</b>，首次登录密码为<b>本人身份证号后 6 位</b>，登录后<b>必须修改为个人密码</b>方可继续使用。
+        账号为<b>本人工号</b>，首次登录密码为<b>本人身份证号后 6 位</b>，登录后<b>必须修改为个人密码</b>方可继续使用。<br>
+        教师与<b>后勤职工</b>（安保、保洁、食堂、维修等）均使用本入口登录，系统按工号自动识别身份。
       </div>
 
-      <p class="hint">如工号无法登录或提示未登记身份证号，请联系管理员在「教师管理」中核对档案并补录身份证号。</p>
+      <p class="hint">如工号无法登录或提示未登记身份证号，请联系管理员在「教师管理」或「后勤/职工管理」中核对档案并补录身份证号。</p>
       <div class="lg-foot">
         <a href="/result.html" target="_blank" rel="noopener">分班结果大屏</a>
         <span class="divider">|</span>
@@ -269,7 +270,7 @@
         if (name && name !== '学生管理系统') {
           var els = document.querySelectorAll('[data-site-name]');
           for (var i = 0; i < els.length; i++) els[i].textContent = name;
-          document.title = '教师登录 · ' + name;
+          document.title = '教师 / 职工登录 · ' + name;
         }
         if (s.logoDataUrl) {
           var host = document.querySelector('.lg-logo');

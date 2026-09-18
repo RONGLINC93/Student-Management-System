@@ -110,12 +110,10 @@
     .pwd-eye { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-light); cursor: pointer; user-select: none; }
     .pwd-eye input { accent-color: var(--primary, #4f6df5); cursor: pointer; margin: 0; }
     .hr-tip { margin: 4px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--text-light); background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
-    /* 职位权限：模块复选框阵列 */
+    /* 可管理模块复选框阵列 */
     .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; margin-top: 4px; }
     .perm-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; user-select: none; font-size: 13px; }
     .perm-item:hover { border-color: var(--primary, #4f6df5); }
-    /* 职位权限：全角色权限总览表 */
-    .perm-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 13px; }
     /* 组织架构权限区 */
     .perm-overview { font-size: 13px; color: var(--text); margin: 2px 0 10px; }
     .perm-overview b { color: var(--primary); }
@@ -123,28 +121,12 @@
     .perm-dept-name { font-weight: 600; font-size: 13.5px; }
     .perm-dept-name small { font-weight: 400; color: var(--text-light); margin-left: 6px; }
     .perm-inherit { color: var(--primary); opacity: .75; font-weight: 400; margin-left: 6px; }
-    .perm-table th, .perm-table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; line-height: 1.7; }
-    .perm-table th { background: rgba(127, 127, 127, .07); font-weight: 600; white-space: nowrap; }
-    .perm-table td:first-child { white-space: nowrap; font-weight: 600; }
-    .perm-table td small { color: var(--text-light); }
     .perm-item input { accent-color: var(--primary, #4f6df5); cursor: pointer; }
-    /* 职位权限：职务清单编辑器 */
+    /* 部门权限卡片 */
     .perm-role {
       border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #fff;
     }
     .perm-role-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .perm-role-head input[type="text"] {
-      flex: 1 1 180px; min-width: 140px; height: 34px; padding: 0 10px; font-size: 13px;
-      border: 1px solid var(--border); border-radius: 8px; background: #fff; color: inherit;
-    }
-    .perm-role-head select {
-      height: 34px; padding: 0 8px; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: inherit;
-    }
-    .perm-role-del {
-      height: 30px; padding: 0 10px; font-size: 12.5px; border: 1px solid #fecaca; color: #b91c1c;
-      background: #fff; border-radius: 8px; cursor: pointer;
-    }
-    .perm-role-del:hover { background: #fef2f2; }
     .perm-role-mods { margin-top: 8px; }
     .perm-role-tip { font-size: 12px; color: var(--text-light); margin-top: 6px; line-height: 1.6; }
     .perm-role-tip b { color: #b45309; }
@@ -316,10 +298,6 @@
           <a class="set-nav-item" data-key="account" href="#account">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             账号与安全
-          </a>
-          <a class="set-nav-item" data-key="roles" href="#roles">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            职位权限
           </a>
           <a class="set-nav-item" data-key="deptroles" href="#deptroles">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/><path d="M14 14h4"/></svg>
@@ -620,77 +598,8 @@
           <div class="acc-zone" id="accZone">
             <div class="acc-empty" id="accEmpty">账号列表加载中…</div>
           </div>
-          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝；其「行政职位」命中下方「<a href="#roles" onclick="switchSec('roles');return false;">职位权限</a>」清单中的职务条目时即可登录管理后台，并仅可管理该条目勾选的模块（没命中的教师不能进入管理后台，只能在教师端使用）；职称不再参与权限判定，可管理的模块完全由职务条目决定。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），教师账号随教师首次登录「教师入口」自动创建（账号为工号、初始密码为身份证号后 6 位，首次登录强制修改密码），此处均可为其<b>重设密码</b>（管理员指定新密码）或<b>重置密码</b>（一键恢复初始默认密码：学生为学号、教师为身份证号后 6 位，重置后该用户下次登录需重新设置个人密码），但角色不可修改。</p>
+          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝；其「所属部门」命中「<a href="#deptroles" onclick="switchSec('deptroles');return false;">组织架构权限</a>」清单中的部门条目时即可登录管理后台，并仅可管理该条目勾选的模块（未命中的教师不能进入管理后台，只能在教师端使用）；可管理的模块由所在部门的配置决定，子部门自动继承上级部门已勾选的模块。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），教师账号随教师首次登录「教师入口」自动创建（账号为工号、初始密码为身份证号后 6 位，首次登录强制修改密码），此处均可为其<b>重设密码</b>（管理员指定新密码）或<b>重置密码</b>（一键恢复初始默认密码：学生为学号、教师为身份证号后 6 位，重置后该用户下次登录需重新设置个人密码），但角色不可修改。</p>
         </div>
-      </section>
-
-      <!-- 职位权限 -->
-      <section class="set-card" data-sec="roles" hidden>
-        <div class="set-card-head">
-          <span class="set-card-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </span>
-          <div>
-            <div class="set-card-title">职位权限</div>
-            <div class="set-card-desc">查看全部角色的权限总览，配置「教务 / 宿管」职位教师登录管理后台后可管理的模块，保存后即时生效（已打开的页面需刷新）</div>
-          </div>
-        </div>
-
-        <div class="set-field">
-          <label class="set-label">角色权限总览 <span class="badge">全部登录角色的权限一览</span></label>
-          <table class="perm-table">
-            <thead>
-              <tr><th>角色</th><th>获得方式</th><th>可管理（读写）</th><th>备注</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>管理员</td>
-                <td>管理员入口登录（初始账号 admin）</td>
-                <td>全部业务模块：学生档案、班级管理、年级管理、成绩管理、考勤操行、请假、通知公告、宿舍管理、课程表、课程管理、人事管理</td>
-                <td>另享管理员专属功能：教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、系统设置、账号与安全；固定权限，不可配置</td>
-              </tr>
-              <tr>
-                <td>查看模式</td>
-                <td>管理员入口登录</td>
-                <td>无（全部模块仅可查看）</td>
-                <td>仅可查看各页与大屏，所有修改 / 删除操作被拒绝；固定权限，不可配置</td>
-              </tr>
-              <tr>
-                <td>职务账号</td>
-                <td>教师档案「行政职位」命中下方清单中对应的职务条目，即获得该条目勾选的可管理模块；只要填有行政职位即可登录管理后台（身份即职务）；管理员入口用工号登录</td>
-                <td id="ovPosition">加载中…</td>
-                <td>每个职务单独配置，见下方清单；未列入清单的职务仍可登录后台，但没有任何可管理模块（全部仅可查看）</td>
-              </tr>
-              <tr>
-                <td>班主任 / 科任教师</td>
-                <td>教师入口登录</td>
-                <td>教师端功能：成绩录入、请假审批、操行评定等</td>
-                <td>不进入管理后台</td>
-              </tr>
-              <tr>
-                <td>学生</td>
-                <td>学生入口登录（账号 / 初始密码为学号）</td>
-                <td>学生端功能：查看本人信息、成绩、请假申请等</td>
-                <td>不进入管理后台</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="set-field">
-          <label class="set-label">职务权限清单 <span class="badge">教师按「行政职位」精确匹配条目</span></label>
-          <div id="permRoles"></div>
-          <div style="margin-top:8px">
-            <button type="button" class="btn btn-outline btn-sm" id="btnAddPermRole">
-              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加职务
-            </button>
-          </div>
-        </div>
-        <div class="set-card-foot" style="margin-top:4px">
-          <button class="btn btn-primary btn-sm" id="btnSavePerms">保存职位权限</button>
-          <button class="btn btn-outline btn-sm" id="btnResetPerms">恢复默认</button>
-        </div>
-        <p class="acc-tip">权限由「职务」驱动：教师档案中的<b>行政职位</b>与下方清单里的职务名<b>完全一致</b>时命中该条目，即获得该条目勾选的可管理模块；填有行政职位的教师均可登录管理后台（身份即职务），未命中清单的只是没有任何可管理模块（全部仅可查看），没有行政职位的纯任课教师才走教师端。职称不再参与权限判定，可管理哪些模块完全由职务条目决定。条目<b>可增删改</b>，同名职务只保留一条；未勾选的模块仅可查看。<b>人事管理</b>已开放配置，可授予人事类岗位（如人事专员、办公室主任）：因异动登记会改写教师的「行政职位」，而职务即权限来源，获此授权者可通过调岗 / 晋升间接调整他人后台权限，请按需谨慎勾选并留痕。教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、账号与安全、系统设置本身（内含本职位权限清单，开放即等于可自助提权）始终仅限管理员，不开放配置。默认条目：教务主任、教务、教务处主任（可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管、宿管员、宿舍管理员（仅宿舍）。历史档案里把职责关键字写在职称或非标准职务上的教师，仍按旧关键字兜底授权（登录后在顶栏标注「遗留」），建议在此补一条同名职务后让其重新登录。职务即权限来源：办理调岗 / 晋升等人事异动改变职务时，会同步改变其后台权限，登记时需显式确认并留痕。权限变更保存后立即生效，新登录或刷新后的会话按新权限展示操作按钮，服务端始终以本设置硬拦截未授权的写请求。</p>
       </section>
 
       <!-- 组织架构权限 -->
@@ -701,18 +610,18 @@
           </span>
           <div>
             <div class="set-card-title">组织架构权限</div>
-            <div class="set-card-desc">按「部门」配置后台可管理模块，与职务权限取并集；教师档案「所属部门」命中部门后叠加对应权限，<b>子部门自动继承上级部门权限</b></div>
+            <div class="set-card-desc">按「部门」配置后台可管理模块；教师档案「所属部门」命中部门后即获得对应权限，<b>子部门自动继承上级部门权限</b></div>
           </div>
         </div>
         <div class="set-field">
-          <label class="set-label">组织架构权限清单 <span class="badge">教师按「所属部门」精确匹配，与职务权限并集</span></label>
+          <label class="set-label">组织架构权限清单 <span class="badge">教师/职工按「所属部门」精确匹配条目</span></label>
           <div class="perm-overview">已授权模块覆盖（各部门及其上级并集）：<b id="ovDept">加载中…</b></div>
           <div id="permDeptRoles"></div>
         </div>
         <div class="set-card-foot" style="margin-top:4px">
           <button class="btn btn-primary btn-sm" id="btnSaveDeptPerms">保存组织架构权限</button>
         </div>
-        <p class="acc-tip">权限由<b>「职务」与「部门」共同决定，取并集</b>：教师档案中「行政职位」命中职务权限清单、<b>或</b>「所属部门」命中下方部门清单，即获得各自勾选的可管理模块，两者叠加。部门清单来自「人事管理 → 组织架构」（支持层级：如总务处 → 安保处 / 食堂）；此处为每个部门勾选可管理模块。处于下级的部门会<b>自动继承其全部上级部门</b>已勾选的模块（无需重复勾选）。未勾选任何模块的部门，其教师若职务也未授权，则登录后台后全部仅可查看。教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、账号与安全、系统设置本身始终仅限管理员，不开放配置。</p>
+        <p class="acc-tip">权限由<b>「所属部门」决定</b>：教师档案中的「所属部门」与下方清单里的部门名<b>完全一致</b>时命中该条目，即获得该条目勾选的可管理模块。部门清单来自「人事管理 → 组织架构」（支持层级：如总务处 → 安保处 / 食堂）；此处为每个部门勾选可管理模块。处于下级的部门会<b>自动继承其全部上级部门</b>已勾选的模块（无需重复勾选）。未勾选任何模块的部门，其教师登录后台后全部仅可查看。教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、账号与安全、系统设置本身始终仅限管理员，不开放配置。</p>
       </section>
 
       <!-- 服务器管理 -->
@@ -875,12 +784,10 @@
         $el('bkAuto').checked = !!bk.auto;
         $el('bkTime').value = bk.time || '03:00';
         $el('bkKeep').value = Number(bk.keep) || 7;
-        // 职位权限设置
-        renderPerms(S.positionPermissions);
         initDeptPerms(S);
       }
 
-      // ================= 组织架构权限（与职务权限并集生效）=================
+      // ================= 组织架构权限（后台模块授权的唯一可配置项）=================
       function initDeptPerms(S) {
         var host = $el('permDeptRoles');
         function renderDeptPerms(depts, deptPerms) {
@@ -934,7 +841,7 @@
           document.querySelectorAll('#permDeptRoles .perm-dept').forEach(function (row) {
             var tip = row.querySelector('.perm-role-tip');
             var n = row.querySelectorAll('input[type="checkbox"]:checked').length;
-            tip.innerHTML = n ? ('可管理 ' + n + ' 个模块') : '<b>未勾选任何模块</b>，该部门教师（职务也未授权时）登录后台后全部仅可查看';
+            tip.innerHTML = n ? ('可管理 ' + n + ' 个模块') : '<b>未勾选任何模块</b>，该部门教师登录后台后全部仅可查看';
           });
         }
         host.addEventListener('input', syncDeptOverview);
@@ -947,8 +854,8 @@
         }).catch(function () { renderDeptPerms([], S.deptPermissions); });
       }
 
-      // ================= 职位权限（教务 / 宿管可管理模块）=================
-      // 与服务端 PERMISSION_MODULES / DEFAULT_SETTINGS.positionPermissions 保持一致
+      // ================= 可管理模块清单与工具函数（「组织架构权限」使用）=================
+      // 与服务端 PERMISSION_MODULES 保持一致
       var PERM_MODULES = [
         { key: 'students',      name: '学生档案' },
         { key: 'classes',       name: '班级管理' },
@@ -963,21 +870,6 @@
         { key: 'hr',            name: '人事管理' },
         { key: 'logistics',     name: '后勤/职工管理' }
       ];
-      // 默认模块模板（「恢复默认」与本地预览用，不再与身份绑定）
-      var PERM_DEFAULTS = {
-        teaching: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables', 'courses'],
-        dorm: ['dorms']
-      };
-      // 默认职务条目（与服务端 DEFAULT_POSITION_ROLES 一致，用于「恢复默认」的本地预览）
-      var PERM_DEFAULT_ROLES = [
-        { id: 'pr_jwzr', name: '教务主任', modules: PERM_DEFAULTS.teaching.slice() },
-        { id: 'pr_jw', name: '教务', modules: PERM_DEFAULTS.teaching.slice() },
-        { id: 'pr_jwczr', name: '教务处主任', modules: PERM_DEFAULTS.teaching.slice() },
-        { id: 'pr_sg', name: '宿管', modules: PERM_DEFAULTS.dorm.slice() },
-        { id: 'pr_sgy', name: '宿管员', modules: PERM_DEFAULTS.dorm.slice() },
-        { id: 'pr_ssgly', name: '宿舍管理员', modules: PERM_DEFAULTS.dorm.slice() }
-      ];
-
       function modNames(keys) {
         var names = PERM_MODULES.filter(function (m) { return keys.indexOf(m.key) !== -1; }).map(function (m) { return m.name; });
         return names.length ? names.join('、') : '无（全部模块仅可查看）';
@@ -987,113 +879,6 @@
           return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
         });
       }
-      function newRoleId() { return 'pr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6); }
-
-      // 渲染职务清单编辑器：每行 = 职务名 + 可管理模块（不用再选身份，身份即职务本身）
-      function renderPerms(pp) {
-        var list = (pp && Array.isArray(pp.roles) && pp.roles.length) ? pp.roles : PERM_DEFAULT_ROLES;
-        var host = $el('permRoles');
-        host.innerHTML = list.map(function (r) {
-          return '<div class="perm-role" data-id="' + esc(r.id) + '">' +
-            '<div class="perm-role-head">' +
-              '<input type="text" class="pr-name" value="' + esc(r.name) + '" placeholder="职务名（须与教师档案「行政职位」完全一致）" maxlength="20" />' +
-              '<button type="button" class="perm-role-del">删除</button>' +
-            '</div>' +
-            '<div class="perm-grid perm-role-mods">' +
-              PERM_MODULES.map(function (m) {
-                var on = (r.modules || []).indexOf(m.key) !== -1;
-                return '<label class="perm-item"><input type="checkbox" data-mod="' + m.key + '"' +
-                  (on ? ' checked' : '') + '><span>' + m.name + '</span></label>';
-              }).join('') +
-            '</div>' +
-            '<div class="perm-role-tip"></div>' +
-          '</div>';
-        }).join('');
-        syncPermOverview();
-      }
-
-      function addPermRole() {
-        var box = document.createElement('div');
-        box.className = 'perm-role';
-        box.dataset.id = newRoleId();
-        box.innerHTML =
-          '<div class="perm-role-head">' +
-            '<input type="text" class="pr-name" value="" placeholder="职务名（须与教师档案「行政职位」完全一致）" maxlength="20" />' +
-            '<button type="button" class="perm-role-del">删除</button>' +
-          '</div>' +
-          '<div class="perm-grid perm-role-mods">' +
-            PERM_MODULES.map(function (m) {
-              return '<label class="perm-item"><input type="checkbox" data-mod="' + m.key + '"><span>' + m.name + '</span></label>';
-            }).join('') +
-          '</div>' +
-          '<div class="perm-role-tip"></div>';
-        $el('permRoles').appendChild(box);
-        box.querySelector('.pr-name').focus();
-      }
-
-      // 收集当前清单（职务名 + 模块）；同步刷新总览与逐行提示
-      function collectPerms() {
-        var out = { v: 2, roles: [] };
-        document.querySelectorAll('#permRoles .perm-role').forEach(function (row) {
-          var name = String(row.querySelector('.pr-name').value || '').trim();
-          if (!name) return;
-          var mods = [];
-          row.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-            if (cb.checked) mods.push(cb.getAttribute('data-mod'));
-          });
-          out.roles.push({ id: row.dataset.id || newRoleId(), name: name, modules: mods });
-        });
-        return out;
-      }
-
-      // 总览：所有职务条目覆盖的模块并集（同名职务以清单为准）
-      function syncPermOverview() {
-        var p = collectPerms();
-        var all = {}, dup = {};
-        p.roles.forEach(function (r) {
-          var key = r.name.toLowerCase();
-          if (dup[key]) return;
-          dup[key] = 1;
-          r.modules.forEach(function (k) { all[k] = 1; });
-        });
-        $el('ovPosition').textContent = modNames(Object.keys(all));
-        // 逐行提示：重名 / 空模块
-        var seen = {};
-        document.querySelectorAll('#permRoles .perm-role').forEach(function (row) {
-          var name = String(row.querySelector('.pr-name').value || '').trim();
-          var tip = row.querySelector('.perm-role-tip');
-          if (!name) { tip.innerHTML = '<b>未填写职务名</b>，该行不会被保存'; return; }
-          var key = name.toLowerCase();
-          if (seen[key]) { tip.innerHTML = '<b>职务名重复</b>，同名只保留第一条'; return; }
-          seen[key] = 1;
-          var n = row.querySelectorAll('input[type="checkbox"]:checked').length;
-          tip.innerHTML = n ? '可管理 ' + n + ' 个模块' : '<b>未勾选任何模块</b>，命中该职务的教师登录后台后全部仅可查看';
-        });
-      }
-      $el('permRoles').addEventListener('input', syncPermOverview);
-      $el('permRoles').addEventListener('change', syncPermOverview);
-      $el('permRoles').addEventListener('click', async function (e) {
-        if (!e.target.classList || !e.target.classList.contains('perm-role-del')) return;
-        var row = e.target.closest('.perm-role');
-        if (!row) return;
-        var name = String(row.querySelector('.pr-name').value || '').trim();
-        if (name && !(await ask('确定删除职务「' + name + '」的权限配置吗？\n删除后该职务的教师将无法登录管理后台。', '删除职务', '删除', true))) return;
-        row.remove();
-        syncPermOverview();
-      });
-      $el('btnAddPermRole').addEventListener('click', function () { addPermRole(); syncPermOverview(); });
-
-      $el('btnSavePerms').addEventListener('click', function () {
-        var p = collectPerms();
-        if (!p.roles.length) { toast('至少需要保留一条职务配置', 'err'); return; }
-        var blank = p.roles.filter(function (r) { return !r.name; }).length;
-        save({ positionPermissions: p }, '职位权限已保存' + (blank ? '（已忽略 ' + blank + ' 条未填职务名的配置）' : ''));
-      });
-      $el('btnResetPerms').addEventListener('click', async function () {
-        if (!(await ask('确定恢复职位权限为默认配置吗？\n默认：教务 / 教务主任 / 教务处主任（教务身份，可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管 / 宿管员 / 宿舍管理员（宿管身份，仅宿舍）。', '恢复默认职位权限', '恢复', true))) return;
-        save({ positionPermissions: null }, '已恢复默认职位权限');
-      });
-
       function load() {
         return fetch('/api/settings').then(function (r) { return r.json(); }).then(function (j) {
           fill(j.data || {});
@@ -1379,7 +1164,8 @@
 
       // ================= 二级侧边栏菜单：分组切换 =================
       // 科目设置已整合到「课程管理」，此处不再保留 subjects 分组
-      var NAV_KEYS = ['info', 'rules', 'data', 'audit', 'account', 'roles', 'deptroles', 'server'];
+      // 原「职位权限」分组已弃用（权限统一由「组织架构权限」按部门配置），不再保留 roles
+      var NAV_KEYS = ['info', 'rules', 'data', 'audit', 'account', 'deptroles', 'server'];
       var curSec = NAV_KEYS[0];   // 当前分组（刷新时据此重载对应列表）
       function switchSec(key) {
         if (NAV_KEYS.indexOf(key) === -1) key = NAV_KEYS[0];
@@ -1411,7 +1197,7 @@
           });
         }
         // 支持 #rules / #data / #audit / #account / #server 直达指定分组
-        var m = /#(info|rules|data|audit|account|roles|deptroles|server)/.exec(location.hash || '');
+        var m = /#(info|rules|data|audit|account|deptroles|server)/.exec(location.hash || '');
         switchSec(m ? m[1] : 'info');
       })();
 
@@ -1547,7 +1333,7 @@
       var auditKw = '';
       var auditTotal = 0;
       var AUDIT_PAGE_SIZE = 20;
-      var ROLE_LABEL = { admin: '管理员', viewer: '查看者', student: '学生', teacher: '教师', position: '职务账号' };
+      var ROLE_LABEL = { admin: '管理员', viewer: '查看者', student: '学生', teacher: '教师', position: '部门账号' };
       function loadAudit(page) {
         auditPage = Math.max(1, page || 1);
         var tb = $el('auTbody');
@@ -1564,7 +1350,7 @@
           } else {
             tb.innerHTML = rows.map(function (x) {
               var method = String(x.method || '');
-              // 职务账号的审计记录直接显示其职务名（actorLabel），其余回退角色名
+              // 部门账号的审计记录直接显示其所属部门（actorLabel），其余回退角色名
               var roleText = x.actorLabel || (x.actorRole ? (ROLE_LABEL[x.actorRole] || x.actorRole) : '');
               var role = roleText ? '<div class="au-role">' + escU(roleText) + '</div>' : '';
               return '<tr>'

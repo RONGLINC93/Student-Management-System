@@ -3,12 +3,12 @@ const TEA_API = '/api/teachers';
 const CLASS_API = '/api/classes';
 const GRADES_API = '/api/grades';
 const HR_API = '/api/hr';
-const PERM_API = '/api/position-perms';
+const PERM_API = '/api/dept-perms';
 let teachers = [];
 let classList = [];
 let gradeList = [];
-// 职位权限矩阵（职务名 → 登录身份 + 可管理模块），用于职务提示与人事异动权限预警
-let permRoles = [];
+// 组织架构权限（部门 → 可管理模块，服务端已按层级算好继承），用于部门提示与人事异动权限预警
+let deptPermMap = {};
 let permModules = [];
 // 组织架构部门 / 职位（行政职位级联来源：教师也可能担任后勤等部门的职位）
 const DEPT_API = '/api/departments';
@@ -44,18 +44,18 @@ function maskIdCard(no) {
   return s.slice(0, 4) + '**********' + s.slice(-4);
 }
 
-// ===== 职位权限矩阵（职务 → 后台权限）=====
+// ===== 组织架构权限（所属部门 → 后台权限）=====
 async function loadPerms() {
   try {
     const res = await fetch(PERM_API);
     const json = await res.json();
-    permRoles = (json.data && json.data.roles) || [];
+    deptPermMap = (json.data && json.data.effective) || {};
     permModules = (json.data && json.data.modules) || [];
   } catch (e) {
-    permRoles = [];
+    deptPermMap = {};
     permModules = [];
   }
-  // 行政职位下拉来源为组织架构职位（/api/positions）；permRoles 仅用于下方权限提示，不再作为下拉选项来源
+  // 行政职位下拉来源为组织架构职位（/api/positions），与权限配置相互独立
   refreshPositionList($('#fPosDept') ? $('#fPosDept').value : '');
 }
 // 拉取组织架构部门（与人事管理共用 /api/departments），供行政职位「部门」级联下拉
@@ -99,7 +99,7 @@ function fillPosDeptSelect() {
   sel.innerHTML = html;
 }
 // 行政职位下拉：来源 = 组织架构职位（按部门级联收窄）。
-// 不再使用旧「职位权限」矩阵的职务清单作为选项来源；仅以组织架构（人事 → 组织架构 → 职位管理）中定义的职位为准。
+// 不再使用已废弃的「职务权限」清单作为选项来源；仅以组织架构（人事 → 组织架构 → 职位管理）中定义的职位为准。
 // opts.keep：需要保留的职务（编辑回填时的历史值）；opts.keepLegacy：true 时允许保留不在清单中的旧职务。
 // 未选部门时禁用行政职位，仅显示「请先选择所属部门」。
 function refreshPositionList(dept, opts) {
@@ -157,30 +157,29 @@ function moduleNames(keys) {
   const names = permModules.filter(m => (keys || []).indexOf(m.key) !== -1).map(m => m.name);
   return names.length ? names.join('、') : '无';
 }
-// 按职务名匹配权限条目（与服务端 resolveTeacherPerm 的精确匹配分支一致）
-function matchPerm(position) {
-  const pos = String(position || '').trim();
-  if (!pos) return null;
-  const key = pos.toLowerCase();
-  return permRoles.find(r => String(r.name || '').trim().toLowerCase() === key) || null;
+// 按部门名匹配权限条目（服务端下发的 effective 已含上级部门继承，与 resolveTeacherPerm 一致）
+function matchPerm(dept) {
+  const n = String(dept || '').trim();
+  if (!n) return null;
+  const mods = deptPermMap[n];
+  return Array.isArray(mods) ? { name: n, modules: mods } : null;
 }
 function permDesc(p) {
   if (!p) return '无后台权限（仅教师端）';
   return moduleNames(p.modules || []);
 }
-// 有行政职位但未配置任何可管理模块：仍可登录管理后台（身份即职务），只是全部模块仅可查看
+// 有所属部门但未配置任何可管理模块：仍可登录管理后台（身份即部门），只是全部模块仅可查看
 const UNCONFIGURED_PERM = '可登录后台，未配置可管理模块（全部仅可查看）';
 // 教师当前生效的权限描述（优先用服务端算好的 perm 命中结果）
 function teacherPermDesc(t) {
   if (!t) return '无后台权限（仅教师端）';
   if (t.perm && t.perm.matched) {
     const mods = t.perm.modules || [];
-    return (mods.length ? moduleNames(mods) : UNCONFIGURED_PERM)
-      + (t.perm.legacy ? '（遗留关键字匹配）' : '');
+    return mods.length ? moduleNames(mods) : UNCONFIGURED_PERM;
   }
-  const hit = matchPerm(t.position);
+  const hit = matchPerm(t.department);
   if (hit) return permDesc(hit);
-  return t.position ? UNCONFIGURED_PERM : '无后台权限（仅教师端）';
+  return t.department ? UNCONFIGURED_PERM : '无后台权限（仅教师端）';
 }
 
 // 给下拉赋值；值不在选项里时临时追加一个选项（兼容历史档案中的旧值）
@@ -371,9 +370,9 @@ function renderTable() {
       ? `<div class="dept-sub">${escapeHtml([t.department, t.joinYear ? t.joinYear + ' 年入职' : ''].filter(Boolean).join(' · '))}</div>`
       : '';
     const permBadge = t.perm && t.perm.matched
-      ? `<span class="perm-badge${t.perm.legacy ? ' legacy' : ''}${(!t.perm.modules || !t.perm.modules.length) ? ' unconf' : ''}" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(t.perm.matched)}</span>`
-      : (matchPerm(t.position)
-        ? `<span class="perm-badge" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(matchPerm(t.position).name)}</span>`
+      ? `<span class="perm-badge${(!t.perm.modules || !t.perm.modules.length) ? ' unconf' : ''}" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(t.perm.matched)}</span>`
+      : (matchPerm(t.department)
+        ? `<span class="perm-badge" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(matchPerm(t.department).name)}</span>`
         : '');
     const posCell = t.position
       ? `<div>${escapeHtml(t.position)}${permBadge}</div>${sub}`
@@ -421,36 +420,25 @@ async function loadTeachers() {
   }
 }
 
-// 编辑弹窗：按当前填写的职务实时提示其后台权限（职务即权限来源）
+// 编辑弹窗：按当前填写的所属部门实时提示其后台权限（部门即权限来源）
 function updatePermHint(t) {
   const box = $('#fPermHint');
   if (!box) return;
   const dept = String($('#fPosDept') ? $('#fPosDept').value : '').trim();
-  const pos = String($('#fPosition') ? $('#fPosition').value : '').trim();
-  if (!dept && !pos) {
-    box.textContent = '请先选择所属部门，再选择该部门下的行政职位。';
+  if (!dept) {
+    box.textContent = '未填写所属部门：该教师仅有教师端权限，不能登录管理后台。';
     return;
   }
-  if (!pos) {
-    box.textContent = '未填写行政职位：该教师仅有教师端权限，不能登录管理后台。';
+  const hit = matchPerm(dept);
+  const mods = hit ? (hit.modules || []) : [];
+  if (mods.length) {
+    box.innerHTML = '部门「<b>' + escapeHtml(dept) + '</b>」命中组织架构权限：<b>' + escapeHtml(permDesc(hit))
+      + '</b>（含继承的上级部门）。可在「系统设置 → 组织架构权限」调整该部门的可管理模块。';
     return;
   }
-  const hit = matchPerm(pos);
-  if (hit) {
-    box.innerHTML = '职务「<b>' + escapeHtml(pos) + '</b>」命中职位权限清单：<b>' + escapeHtml(permDesc(hit))
-      + '</b>。可在「系统设置 → 职位权限」调整该职务的可管理模块。';
-    return;
-  }
-  const legacy = t && (String(t.title || '').indexOf('教务') !== -1
-    || String(t.position || '').indexOf('教务') !== -1
-    || String(t.title || '').indexOf('宿管') !== -1
-    || String(t.position || '').indexOf('宿管') !== -1
-    || String(t.position || '').indexOf('宿舍管理') !== -1);
-  box.innerHTML = '职务「<b>' + escapeHtml(pos) + '</b>」尚未在「系统设置 → 职位权限」中配置：'
-    + '该教师<b>仍可登录管理后台</b>（身份即职务），但没有任何可管理模块，全部模块仅可查看。'
-    + (legacy
-      ? '当前由<b>遗留关键字</b>兜底授权，改用新职务后兜底失效。'
-      : '如需其管理具体模块，请在「系统设置 → 职位权限」添加同名职务并勾选模块。');
+  box.innerHTML = '部门「<b>' + escapeHtml(dept) + '</b>」尚未在「系统设置 → 组织架构权限」中配置：'
+    + '该教师<b>仍可登录管理后台</b>（身份即部门），但没有任何可管理模块，全部模块仅可查看。'
+    + '如需其管理具体模块，请在「系统设置 → 组织架构权限」为该部门勾选模块。';
 }
 
 function openModal(t) {
@@ -599,9 +587,9 @@ function renderHrTeacherSelect() {
   else if (cur) sel.value = cur;
 }
 
-// 人事异动：职务变化 → 后台权限变化预警（需勾选确认 + 二次确认）
-function hrWritesPosition(type) {
-  return ['调岗', '晋升', '入职', '转正', '其他'].indexOf(type) !== -1;
+// 人事异动：所属部门变化 → 后台权限变化预警（需勾选确认 + 二次确认）
+function hrWritesDept(type) {
+  return ['调岗', '晋升', '入职', '转正', '借调', '其他'].indexOf(type) !== -1;
 }
 function updateHrPermWarn(t) {
   const warn = $('#hPermWarn');
@@ -609,16 +597,16 @@ function updateHrPermWarn(t) {
   const ack = $('#hPermAck');
   if (!warn || !ackBox) return;
   const type = $('#hType').value;
-  const after = String($('#hAfter').value || '').trim();
-  if (!t || !hrWritesPosition(type) || !after) {
+  const dept = String($('#hDept').value || '').trim();
+  if (!t || !hrWritesDept(type) || !dept) {
     warn.hidden = true;
     ackBox.hidden = true;
     if (ack) ack.checked = false;
     return;
   }
   const before = teacherPermDesc(t);
-  const hit = matchPerm(after);
-  const now = hit ? permDesc(hit) : (after ? UNCONFIGURED_PERM : '无后台权限（仅教师端）');
+  const hit = matchPerm(dept);
+  const now = hit ? permDesc(hit) : UNCONFIGURED_PERM;
   if (before === now) {
     warn.hidden = true;
     ackBox.hidden = true;
@@ -626,9 +614,9 @@ function updateHrPermWarn(t) {
     return;
   }
   warn.hidden = false;
-  warn.innerHTML = '该异动会把「<b>' + escapeHtml(t.name) + '</b>」的行政职位改为「<b>' + escapeHtml(after)
+  warn.innerHTML = '该异动会把「<b>' + escapeHtml(t.name) + '</b>」的所属部门改为「<b>' + escapeHtml(dept)
     + '</b>」，其后台权限将由 <b>' + escapeHtml(before) + '</b> 变为 <b>' + escapeHtml(now)
-    + '</b>。请确认这是本次调岗 / 晋升的真实授权意图。';
+    + '</b>。请确认这是本次调岗 / 借调的真实授权意图。';
   ackBox.hidden = false;
 }
 
@@ -680,8 +668,8 @@ async function saveHr(e) {
       toast('该异动会改变其后台权限，请先勾选确认', 'error');
       return;
     }
-    const hit = matchPerm(data.after);
-    const now = hit ? permDesc(hit) : (data.after ? UNCONFIGURED_PERM : '无后台权限（仅教师端）');
+    const hit = matchPerm(data.department);
+    const now = hit ? permDesc(hit) : (data.department ? UNCONFIGURED_PERM : '无后台权限（仅教师端）');
     const ok = await confirmDlg(
       `「${t ? t.name : ''}」的后台权限将由「${teacherPermDesc(t)}」变为「${now}」，确定继续登记该人事异动吗？`,
       { title: '权限变更确认', okText: '确认变更', danger: true }
@@ -825,7 +813,8 @@ function bindEvents() {
     updatePermHint(teachers.find(x => x.id === $('#fId').value));
   });
   const hrWatch = () => updateHrPermWarn(teachers.find(x => x.id === $('#hTeacher').value));
-  $('#hAfter').addEventListener('input', hrWatch);
+  $('#hDept').addEventListener('input', hrWatch);
+  $('#hDept').addEventListener('change', hrWatch);
   $('#hType').addEventListener('change', hrWatch);
   $('#hTeacher').addEventListener('change', hrWatch);
 

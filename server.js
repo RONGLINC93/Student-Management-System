@@ -44,7 +44,7 @@ const TRASH_FILE = path.join(__dirname, 'data', 'students_trash.json');        /
 const NOTIFICATIONS_FILE = path.join(__dirname, 'data', 'notifications.json'); // 学生中心站内消息（各类事务变化通知）
 const HR_FILE = path.join(__dirname, 'data', 'hr.json');                       // 人事异动记录（入职 / 转正 / 调岗 / 晋升 / 离职 / 退休 等）
 const LOGISTICS_FILE = path.join(__dirname, 'data', 'logistics.json');         // 后勤 / 职工档案（安保、保洁、食堂、维修等，独立于教师档案，不参与教学口径）
-const DEPARTMENTS_FILE = path.join(__dirname, 'data', 'departments.json');      // 组织架构基础信息（人事管理 → 组织架构维护；部门权限在「系统设置 → 职位权限」的组织架构权限区配置）
+const DEPARTMENTS_FILE = path.join(__dirname, 'data', 'departments.json');      // 组织架构基础信息（人事管理 → 组织架构维护；部门权限在「系统设置 → 组织架构权限」配置）
 const POSITIONS_FILE = path.join(__dirname, 'data', 'positions.json');          // 职位（岗位）信息（人事管理 → 组织架构 → 职位管理；后勤职工「具体岗位」联动来源）
 const TIMETABLES_FILE = path.join(__dirname, 'data', 'timetables.json');       // 课程表（按班级排课，教师/学生端只读查看）
 const COURSE_PLANS_FILE = path.join(__dirname, 'data', 'course-plans.json');    // 各年级课程计划（决定课表可排什么课），课程自带满分
@@ -57,18 +57,18 @@ const STUDENT_COOKIE = 'icbs_stu_auth'; // 学生自助端（与学生登录完�
 const TEACHER_COOKIE = 'icbs_tea_auth'; // 教师自助端（与后台 / 学生登录完全隔离，可同浏览器共存）
 const SESSION_SECONDS = 24 * 3600;      // 默认会话 24 小时
 const REMEMBER_SECONDS = 7 * 24 * 3600; // 「记住我」7 天
-// POSITION：职务账号——教师凭「行政职务」命中职位权限清单后登录管理后台的会话角色。
-// 不再区分教务 / 宿管身份：能管什么完全由职务条目勾选的模块决定，身份即职务本身（展示职务名）。
+// POSITION：部门账号——教师凭「所属部门」命中组织架构权限后登录管理后台的会话角色。
+// 不再区分教务 / 宿管身份、也不再按行政职务授权：能管什么完全由所属部门（含上级继承）勾选的模块决定。
 // STAFF / DORM 仅为兼容旧会话 Cookie（旧版签发的 staff / dorm 会话会被归一为 position）。
 const ROLES = { ADMIN: 'admin', VIEWER: 'viewer', STUDENT: 'student', TEACHER: 'teacher', POSITION: 'position', STAFF: 'staff', DORM: 'dorm' };
-const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学生', teacher: '教师', position: '职务账号' };
+const ROLE_LABEL = { admin: '管理员', viewer: '查看模式', student: '学生', teacher: '教师', position: '部门账号' };
 const LEGACY_POSITION_ROLES = [ROLES.STAFF, ROLES.DORM];   // 旧会话角色值 → 归一为 position
 
 // 已注销的会话 token（内存级；保证“退出登录”后旧 Cookie 立即失效）
 const revokedTokens = new Set();
 
 // 系统默认设置
-// 职位权限可配置模块（系统设置 → 职位权限）：key 供前后端引用，apis 为对应可写接口前缀
+// 后台可配置模块（系统设置 → 组织架构权限）：key 供前后端引用，apis 为对应可写接口前缀
 // 注意：教师管理 / 智能分班 / 系统设置 / 备份审计等仅限管理员，不开放配置
 const PERMISSION_MODULES = [
   { key: 'students',      name: '学生档案', apis: ['/api/students', '/api/trash'] },
@@ -81,28 +81,16 @@ const PERMISSION_MODULES = [
   { key: 'timetables',    name: '课程表',   apis: ['/api/timetables'] },
   { key: 'courses',       name: '课程管理', apis: ['/api/course-plans'] },
   { key: 'dorms',         name: '宿舍管理', apis: ['/api/dorms', '/api/dorm-apps'] },
-  // 人事管理（可授权）：登记异动会改写教师的「职务」，而职务即权限来源，因此只宜授予人事类岗位，
-  // 获授权者可通过调岗 / 晋升间接改变他人后台权限（服务端已强制留痕，禁止改自己的档案除外场景由管理员把握）
+  // 人事管理（可授权）：登记异动会改写教师的「所属部门」，而部门即权限来源，因此只宜授予人事类岗位，
+  // 获授权者可通过调岗 / 借调间接改变他人后台权限（服务端已强制留痕，禁止改自己的档案除外场景由管理员把握）
   { key: 'hr',            name: '人事管理', apis: ['/api/hr', '/api/departments', '/api/positions'] },
   // 后勤 / 职工管理（可授权）：独立数据表，与教师档案、课程表、班主任候选完全解耦
   { key: 'logistics',     name: '后勤/职工管理', apis: ['/api/logistics'] }
 ];
-// ===== 职位权限矩阵（v2）=====
-// 权限由「行政职务名」驱动：系统设置里维护若干条目，每条 = 职务名 + 登录身份（教务 staff / 宿管 dorm）+ 可管理模块。
-// 教师凭档案中的「行政职务」精确匹配条目获得权限；职称不再参与判定。
-// 两套默认模块模板（「套用默认」与旧配置迁移时用），不再与身份绑定
-const DEFAULT_TEACHING_MODULES = ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables', 'courses'];
-const DEFAULT_DORM_MODULES = ['dorms'];
-// 默认职务条目：教学管理类三条 + 宿舍管理类三条（等价于旧版 staff / dorm 两组配置的迁移结果）
-const DEFAULT_POSITION_ROLES = [
-  { id: 'pr_jwzr',  name: '教务主任',   modules: DEFAULT_TEACHING_MODULES.slice() },
-  { id: 'pr_jw',    name: '教务',       modules: DEFAULT_TEACHING_MODULES.slice() },
-  { id: 'pr_jwczr', name: '教务处主任', modules: DEFAULT_TEACHING_MODULES.slice() },
-  { id: 'pr_sg',    name: '宿管',       modules: DEFAULT_DORM_MODULES.slice() },
-  { id: 'pr_sgy',   name: '宿管员',     modules: DEFAULT_DORM_MODULES.slice() },
-  { id: 'pr_ssgly', name: '宿舍管理员', modules: DEFAULT_DORM_MODULES.slice() }
-];
-// 默认部门清单（人事管理 → 组织架构可增删改；部门权限在「系统设置 → 职位权限」的组织架构权限区配置）
+// ===== 权限来源（v1.4.7 起）=====
+// 后台可管理模块一律由「所属部门」驱动：系统设置 → 组织架构权限，为部门勾选模块，子部门自动继承上级。
+// 旧的「职位权限 / 职务权限」矩阵（按行政职务名匹配）已废弃移除，行政职务与职称不再参与权限判定。
+// 默认部门清单（人事管理 → 组织架构可增删改；部门权限在「系统设置 → 组织架构权限」配置）
 const DEFAULT_DEPARTMENTS = [
   { id: 'dep_bxz',   name: '校长室',      desc: '', parentId: null },
   { id: 'dep_jwc',   name: '教务处',      desc: '', parentId: null },
@@ -118,44 +106,11 @@ const DEFAULT_DEPARTMENTS = [
   { id: 'dep_st',    name: '食堂',        desc: '', parentId: 'dep_zwc' }
 ];
 const ALL_MODULE_KEYS = PERMISSION_MODULES.map(m => m.key);
-// 单条职务权限规范化：职务名去空截断、模块走白名单过滤（身份已取消，不再保存 role）
-function normalizePositionRole(raw, idx) {
-  const o = (raw && typeof raw === 'object') ? raw : {};
-  const name = String(o.name || '').trim().slice(0, 20);
-  const modules = Array.isArray(o.modules)
-    ? ALL_MODULE_KEYS.filter(k => o.modules.indexOf(k) !== -1)
-    : [];
-  return { id: String(o.id || '').trim() || ('pr_' + Date.now().toString(36) + '_' + idx), name, modules };
-}
-// 读取当前生效的职务权限条目（兼容 v1 结构 { staff, dorm }）
-function readPositionRoles() {
-  try {
-    const pp = readSettings().positionPermissions;
-    if (pp && Array.isArray(pp.roles)) {
-      const list = pp.roles.map(normalizePositionRole).filter(r => !!r.name);
-      if (list.length) return list;
-    }
-    // v1：{ staff: [...], dorm: [...] } —— 按默认职务名迁移（教学类三条、宿舍类三条），模块取旧配置
-    if (pp && (Array.isArray(pp.staff) || Array.isArray(pp.dorm))) {
-      const s = Array.isArray(pp.staff) ? ALL_MODULE_KEYS.filter(k => pp.staff.indexOf(k) !== -1) : DEFAULT_TEACHING_MODULES.slice();
-      const d = Array.isArray(pp.dorm) ? ALL_MODULE_KEYS.filter(k => pp.dorm.indexOf(k) !== -1) : DEFAULT_DORM_MODULES.slice();
-      return DEFAULT_POSITION_ROLES.map(r => ({
-        id: r.id, name: r.name, modules: (isDormPositionName(r.name) ? d : s).slice()
-      }));
-    }
-  } catch (e) { /* 读取失败回退默认 */ }
-  return DEFAULT_POSITION_ROLES.map(r => ({ id: r.id, name: r.name, modules: r.modules.slice() }));
-}
-// 仅用于旧配置迁移：按职务名判断归属宿舍类
-function isDormPositionName(name) {
-  const n = String(name || '');
-  return n.indexOf('宿管') !== -1 || n.indexOf('宿舍') !== -1;
-}
 function moduleNames(keys) {
   const names = PERMISSION_MODULES.filter(m => (keys || []).indexOf(m.key) !== -1).map(m => m.name);
   return names.length ? names.join('、') : '无（全部模块仅可查看）';
 }
-// 读取部门权限配置（系统设置 → 职位权限 → 部门权限区）：按部门名匹配后并入教师的后台可管理模块
+// 读取部门权限配置（系统设置 → 组织架构权限）：按部门名匹配后决定教师的后台可管理模块
 function readDeptPerms() {
   try {
     const dp = readSettings().deptPermissions;
@@ -170,69 +125,77 @@ function readDeptPerms() {
   } catch (e) { /* 读取失败回退空 */ }
   return [];
 }
-// 解析教师档案命中的职务权限：精确匹配职务名；未命中时回退「遗留关键字」兜底（兼容历史档案）
-// 返回 { modules, matched, legacy, unconfigured } 或 null（无行政职位 / 已离岗，不能登录后台）；
-// matched 即身份展示用的职务名；unconfigured = 有行政职位但未配置任何可管理模块（可登录、仅可查看）
-function resolveTeacherPerm(tea, roles) {
+// 组织架构部门树索引：部门名（小写）→ 部门、id → 部门
+function deptTreeIndex() {
+  const depts = readDepartments();
+  const byName = {};
+  const byId = {};
+  depts.forEach(d => {
+    const nk = String(d.name || '').trim().toLowerCase();
+    if (nk) byName[nk] = d;
+    byId[d.id] = d;
+  });
+  return { byName, byId, depts };
+}
+// 部门权限（含层级继承）：给定部门名，向上回溯所有祖先部门，
+// 命中「组织架构权限」清单的模块全部并入（子部门自动继承上级部门权限）
+function deptPermChain(dept) {
+  const name = String(dept || '').trim();
+  if (!name) return null;
+  const perms = readDeptPerms();
+  if (!perms.length) return null;
+  const { byName, byId } = deptTreeIndex();
+  const start = byName[name.toLowerCase()];
+  if (!start) return null;
+  const mods = new Set();
+  const chain = [];
+  let cur = start, guard = 0;
+  while (cur && guard++ < 30) {
+    chain.push(cur.name);
+    const dp = perms.find(d => String(d.name || '').trim().toLowerCase() === String(cur.name || '').trim().toLowerCase());
+    if (dp && Array.isArray(dp.modules)) dp.modules.forEach(m => mods.add(m));
+    cur = cur.parentId ? byId[cur.parentId] : null;
+  }
+  return { name: chain.join(' / '), modules: [...mods] };
+}
+// 解析教师档案命中的后台权限：仅按「所属部门」（含上级继承）判定，行政职务 / 职称不参与
+// 返回 { modules, matched, matchedType, unconfigured } 或 null（无所属部门 / 已离岗，不能登录后台）；
+// matched 即身份展示用的部门链；unconfigured = 有部门但未配置任何可管理模块（可登录、仅可查看）
+function resolveTeacherPerm(tea) {
   if (!tea) return null;
   // 人事：离职 / 退休教师不具备后台登录与写权限
   if (OFF_DUTY_STATUS.indexOf(normalizeStatus(tea.status)) !== -1) return null;
-  const list = roles || readPositionRoles();
-  const pos = String(tea.position || '').trim();
-  let posHit = null;
-  if (pos) {
-    const key = pos.toLowerCase();
-    const hit = list.find(r => String(r.name || '').trim().toLowerCase() === key);
-    if (hit) posHit = { name: hit.name, modules: (hit.modules || []).slice(), legacy: false };
-  }
-  if (!posHit) {
-    // 遗留兼容：旧档案把职责关键字写在职称或职务里（如「教务处干事」），按默认模板授权
-    const duty = teacherDutyText(tea);
-    if (duty.indexOf('教务') !== -1) posHit = { name: '遗留关键字（教学类）', modules: DEFAULT_TEACHING_MODULES.slice(), legacy: true };
-    else if (duty.indexOf('宿管') !== -1 || duty.indexOf('宿舍管理') !== -1) posHit = { name: '遗留关键字（宿舍类）', modules: DEFAULT_DORM_MODULES.slice(), legacy: true };
-  }
-  // 部门权限（含层级继承）：教师档案「所属部门」命中部门后，向上回溯所有祖先部门，
-  // 命中部门权限清单的模块全部并入（与职务权限取并集）。子部门自动继承上级部门权限。
-  let deptHit = null;
   const dept = String(tea.department || '').trim();
-  if (dept) {
-    const depts = readDepartments();
-    const byName = {};
-    const byId = {};
-    depts.forEach(d => {
-      const nk = String(d.name || '').trim().toLowerCase();
-      if (nk) byName[nk] = d;
-      byId[d.id] = d;
-    });
-    const start = byName[dept.toLowerCase()];
-    if (start) {
-      const mods = new Set();
-      const chain = [];
-      let cur = start, guard = 0;
-      while (cur && guard++ < 30) {
-        chain.push(cur.name);
-        const dp = readDeptPerms().find(d => String(d.name || '').trim().toLowerCase() === String(cur.name || '').trim().toLowerCase());
-        if (dp && Array.isArray(dp.modules)) dp.modules.forEach(m => mods.add(m));
-        cur = cur.parentId ? byId[cur.parentId] : null;
-      }
-      if (mods.size) deptHit = { name: chain.join(' / '), modules: [...mods] };
-    }
+  // 未归属任何部门：纯任课教师，不进入管理后台（走教师端）
+  if (!dept) return null;
+  const hit = deptPermChain(dept);
+  // 属于某部门但未授权任何模块：仍可登录管理后台，只是全部模块仅可查看
+  if (!hit || !hit.modules.length) {
+    return { modules: [], matched: hit ? hit.name : dept, matchedType: 'dept', unconfigured: true };
   }
-  // 拥有行政职位即可登录管理后台（身份即职务）：未列入职位权限清单、且部门也没有配置权限时，
-  // 仍可登录，只是没有任何可管理模块（全部模块仅可查看）。无行政职位的纯任课教师不进入后台。
-  if (!posHit && !deptHit) {
-    return pos ? { modules: [], matched: pos, matchedType: 'position', legacy: false, unconfigured: true } : null;
-  }
-  const mods = new Set();
-  (posHit ? posHit.modules : []).forEach(m => mods.add(m));
-  (deptHit ? deptHit.modules : []).forEach(m => mods.add(m));
-  let matched, legacy = false, matchedType = 'position';
-  if (posHit && deptHit) { matched = posHit.name + ' / ' + deptHit.name; matchedType = 'both'; legacy = !!posHit.legacy; }
-  else if (posHit) { matched = posHit.name; legacy = !!posHit.legacy; }
-  else { matched = '部门·' + deptHit.name; matchedType = 'dept'; }
-  return { modules: [...mods], matched, matchedType, legacy };
+  return { modules: hit.modules, matched: hit.name, matchedType: 'dept' };
 }
-// 职务账号会话当前实际可写模块：按该教师职务命中的条目计算
+// 每个部门继承后的实际生效模块（部门名 → 模块 key 数组），供前端预判「某部门会带来哪些后台权限」
+function deptPermEffective() {
+  const perms = readDeptPerms();
+  const out = {};
+  if (!perms.length) return out;
+  const { byId, depts } = deptTreeIndex();
+  depts.forEach(d => {
+    const name = String(d.name || '').trim();
+    if (!name) return;
+    const mods = new Set();
+    let cur = d, guard = 0;
+    while (cur && guard++ < 30) {
+      const dp = perms.find(p => String(p.name || '').trim().toLowerCase() === String(cur.name || '').trim().toLowerCase());
+      if (dp && Array.isArray(dp.modules)) dp.modules.forEach(m => mods.add(m));
+      cur = cur.parentId ? (byId[cur.parentId] || null) : null;
+    }
+    out[name] = [...mods];
+  });
+  return out;
+}
+// 部门账号会话当前实际可写模块：按该教师所属部门命中的条目计算
 function sessionPerm(u) {
   if (!u || u.role !== ROLES.POSITION) return null;
   return resolveTeacherPerm(findTeacherOfAuth(u));
@@ -258,14 +221,8 @@ const DEFAULT_SETTINGS = {
     time: '03:00',           // 自动备份时刻（本地时间 HH:MM）
     keep: 7                  // 自动备份保留份数（超出自动删除最旧）
   },
-  // 职位权限（系统设置 → 职位权限）：按「行政职务名」配置 { 职务名 → 登录身份 + 可管理模块 }
-  // v2 结构：{ v: 2, roles: [{ id, name, role, modules }] }；教师按档案中的行政职务精确匹配条目
-  positionPermissions: {
-    v: 2,
-    roles: DEFAULT_POSITION_ROLES.map(r => ({ id: r.id, name: r.name, modules: r.modules.slice() }))
-  },
-  // 部门权限（系统设置 → 职位权限 → 部门权限区）：按「部门名」配置该部门教师的后台可管理模块；
-  // 与职务权限并集生效（教师档案的「所属部门」命中此处部门名即叠加对应模块）。默认未配置任何部门授权。
+  // 组织架构权限（系统设置 → 组织架构权限）：按「部门名」配置该部门教师的后台可管理模块
+  // 结构：{ v: 1, depts: [{ id, name, modules }] }；教师按档案中的「所属部门」精确匹配条目（含上级继承）
   deptPermissions: { v: 1, depts: [] }
 };
 
@@ -687,7 +644,7 @@ function normalizePosition(raw, idx) {
 }
 const readPositions = () => readJsonFile(POSITIONS_FILE, []);
 const writePositions = l => writeJsonFile(POSITIONS_FILE, l);
-// 部门基础信息（人事管理 → 部门设置维护）：名称唯一、可填描述；部门权限在「系统设置 → 职位权限」配置
+// 部门基础信息（人事管理 → 部门设置维护）：名称唯一、可填描述；部门权限在「系统设置 → 组织架构权限」配置
 // 部门档案规范化：支持层级（parentId 指向上级部门 id）与负责人（leaderId + leaderType：teacher / logistics）
 function normalizeDepartment(raw, idx) {
   const o = (raw && typeof raw === 'object') ? raw : {};
@@ -1238,16 +1195,15 @@ function applyHrEffect(tea, rec) {
   }
   return notes;
 }
-// 某职务对应的后台权限描述（无权限时返回「无后台权限」）
+// 某教师当前后台权限描述（无权限时返回「无后台权限」）
 function permLabel(p) {
   if (!p) return '无后台权限';
-  return (p.matched || '职务账号') + '：' + moduleNames(p.modules);
+  return (p.matched || '部门账号') + '：' + moduleNames(p.modules);
 }
-// 职务变动带来的后台权限变化（空串 = 无变化），用于人事异动留痕与前端预警
-function permEffectText(tea, newPosition, roles) {
-  const list = roles || readPositionRoles();
-  const before = resolveTeacherPerm(tea, list);
-  const after = resolveTeacherPerm(Object.assign({}, tea, { position: newPosition }), list);
+// 部门变动带来的后台权限变化（空串 = 无变化），用于人事异动留痕与前端预警
+function permEffectText(tea, newDepartment) {
+  const before = resolveTeacherPerm(tea);
+  const after = resolveTeacherPerm(Object.assign({}, tea, { department: newDepartment }));
   const b = permLabel(before), a = permLabel(after);
   return b === a ? '' : ('后台权限 ' + b + ' → ' + a);
 }
@@ -1269,11 +1225,13 @@ function maskIdCard(no) {
   if (s.length <= 8) return s.slice(0, 2) + '****' + s.slice(-2);
   return s.slice(0, 4) + '**********' + s.slice(-4);
 }
-// 教师初始密码 = 身份证号后 6 位（未登记 / 不足 6 位返回空串）
-function teacherInitPassword(tea) {
-  const id = String((tea && tea.idCard) || '').trim();
+// 自助端统一初始密码规则 = 身份证号后 6 位（未登记 / 不足 6 位返回空串）
+// 教师与后勤 / 职工共用同一规则：工号 + 身份证号后 6 位首次登录
+function idCardInitPassword(rec) {
+  const id = String((rec && rec.idCard) || '').trim();
   return id.length >= 6 ? id.slice(-6) : '';
 }
+
 // 全部学生（未分班学生 + 各班名单），供跨模块引用
 function allStudentsFlat() {
   const pool = readStudents();
@@ -1306,6 +1264,16 @@ function findTeacherByNo(no) {
   const key = String(no || '').trim();
   if (!key) return null;
   return readTeachers().find(t => String(t.teacherNo || '').trim() === key) || null;
+}
+// 从后勤 / 职工档案中按工号找职工（安保、保洁、食堂、维修等，独立于教师序列）
+function findLogisticsByNo(no) {
+  const key = String(no || '').trim();
+  if (!key) return null;
+  return readLogistics().find(x => String(x.staffNo || '').trim() === key) || null;
+}
+// 按工号匹配自助端档案：教师优先，其次后勤 / 职工
+function findStaffByNo(no) {
+  return findTeacherByNo(no) || findLogisticsByNo(no);
 }
 
 // ===== 学生自助端辅助 =====
@@ -1440,6 +1408,47 @@ function buildTeacherPortalHome(t) {
       specialty: s.specialty || '',
       dorm: dormOf[s.id] || ''
     }))
+  };
+}
+// 后勤 / 职工端首页档案聚合（复用教师端门户的字段口径，教学相关一律为空）
+function buildLogisticsPortalHome(x) {
+  return {
+    tid: x.id,
+    teacherNo: x.staffNo || '',
+    staffNo: x.staffNo || '',
+    name: x.name || '',
+    gender: x.gender || '',
+    subject: '',                          // 后勤职工不参与教学，无任教学科
+    title: '',
+    position: x.post || '',               // 具体岗位（保安队长 / 食堂厨师 …）
+    department: x.department || '',       // 所属部门
+    status: normalizeStatus(x.status),
+    phone: x.phone || '',
+    joinYear: (x.joinDate || '').slice(0, 4),
+    idCardMasked: maskIdCard(x.idCard),
+    post: x.post || '',
+    employType: x.employType || '',       // 用工性质（在编 / 合同制 / 劳务派遣 …）
+    vendor: x.vendor || '',               // 外包单位
+    shift: x.shift || '',                 // 班次
+    area: x.area || '',                   // 负责区域
+    joinDate: x.joinDate || '',
+    contractEnd: x.contractEnd || '',
+    healthCertEnd: x.healthCertEnd || '',
+    contractDays: daysUntil(x.contractEnd),
+    healthDays: daysUntil(x.healthCertEnd),
+    address: x.address || '',
+    emergencyName: '',                    // 后勤档案仅登记紧急联系电话
+    emergencyPhone: x.emergencyPhone || '',
+    // 后勤职工不带班，花名册 / 请假审批一律为空
+    isHead: false,
+    classId: null,
+    className: null,
+    grade: '',
+    headTeacher: '',
+    rosterCount: 0,
+    maleCount: 0,
+    femaleCount: 0,
+    roster: []
   };
 }
 // 把学生从全部宿舍房间中移除（退宿）
@@ -1590,7 +1599,7 @@ function authUser(req) {
     const data = JSON.parse(unb64url(payload));
     if (!data.u || typeof data.exp !== 'number' || data.exp < Date.now()) return null;
     const user = findUser(data.u);
-    // 职务账号会话对应 users.json 中的教师账号；旧版签发的 staff / dorm 会话归一为 position
+    // 部门账号会话对应 users.json 中的教师账号；旧版签发的 staff / dorm 会话归一为 position
     const sessionRole = LEGACY_POSITION_ROLES.indexOf(data.r) !== -1 ? ROLES.POSITION : data.r;
     const sessionOnTeacher = !!user && sessionRole === ROLES.POSITION && user.role === ROLES.TEACHER;
     if (!user || (user.role !== sessionRole && !sessionOnTeacher)) return null;
@@ -1646,9 +1655,9 @@ function authTeacher(req) {
     if (!data.u || data.r !== ROLES.TEACHER || typeof data.exp !== 'number' || data.exp < Date.now()) return null;
     const user = findUser(data.u);
     if (!user || user.role !== ROLES.TEACHER) return null;
-    // 人事管理：教师被登记为离职 / 退休后，其已登录会话立即失效
-    const tea = findTeacherOfAuth({ username: user.u });
-    if (tea && OFF_DUTY_STATUS.indexOf(normalizeStatus(tea.status)) !== -1) return null;
+    // 人事管理：教师 / 后勤职工被登记为离职 / 退休后，其已登录会话立即失效
+    const staff = findStaffOfAuth({ username: user.u });
+    if (staff && OFF_DUTY_STATUS.indexOf(normalizeStatus(staff.status)) !== -1) return null;
     return { username: user.u, role: user.role, tid: user.tid || '', name: user.name || '', must: !!user.must };
   } catch (e) { return null; }
 }
@@ -1666,15 +1675,31 @@ function findTeacherOfAuth(t) {
   }
   return teachers.find(x => String(x.teacherNo || '').trim() === t.username) || null;
 }
-// 教师职称 + 行政职务的合并文本：教务 / 宿管等职位判定同时认这两处，
-// 便于管理员把「职称」留给专业技术职称（高级教师…）、把职务填在「职务」字段
-function teacherDutyText(t) {
-  if (!t) return '';
-  return String(t.title || '') + ' ' + String(t.position || '');
+// 通过登录用户名解析后勤 / 职工档案（优先 user.lid，其次按工号匹配）
+function findLogisticsOfAuth(t) {
+  const user = findUser(t.username);
+  const list = readLogistics();
+  if (user && user.lid) {
+    const hit = list.find(x => x.id === user.lid);
+    if (hit) return hit;
+  }
+  return list.find(x => String(x.staffNo || '').trim() === t.username) || null;
 }
-// 后台登录与写权限一律由 resolveTeacherPerm（职务权限矩阵）决定；
-// 此处不再按「职称 / 职务含关键字」判定，职称纯属专业技术等级，与系统权限无关。
-// 历史档案（把「教务」「宿管」写在职称或职务里）由 resolveTeacherPerm 的遗留关键字分支兜底。
+// 登录账号是否属于后勤 / 职工序列（建档时写入 user.kind；旧账号按工号归属推断）
+function isLogisticsUser(user) {
+  if (!user) return false;
+  if (user.kind === 'logistics') return true;
+  if (user.kind === 'teacher') return false;
+  return !findTeacherByNo(user.u) && !!findLogisticsByNo(user.u);
+}
+// 解析自助端档案：教师账号取教师档案，后勤账号取职工档案
+function findStaffOfAuth(t) {
+  const user = findUser(t.username);
+  if (isLogisticsUser(user)) return findLogisticsOfAuth(t) || findTeacherOfAuth(t);
+  return findTeacherOfAuth(t) || findLogisticsOfAuth(t);
+}
+// 后台登录与写权限一律由 resolveTeacherPerm（组织架构权限：按所属部门，含上级继承）决定；
+// 职称属专业技术等级、行政职务仅作岗位展示，二者均不参与权限判定。
 function forbiddenPage(msg) {
   return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>403 · 无权限</title></head>' +
     '<body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#eef1f8;color:#1f2937">' +
@@ -1720,28 +1745,9 @@ function validPassword(pw) {
 function sanitizeSettings(body) {
   const s = readSettings();
   const clip = (v, max) => String(v).trim().slice(0, max);
-  // 职位权限：仅接受白名单模块 key；角色字段缺失时保留原值，传入 null 时恢复默认
-  // 职位权限矩阵：传 null 恢复默认；传 { roles: [...] } 按条目保存（职务名 / 身份 / 模块均走白名单）
-  if (body.positionPermissions !== undefined) {
-    const b = body.positionPermissions;
-    if (b === null) {
-      s.positionPermissions = {
-        v: 2, roles: DEFAULT_POSITION_ROLES.map(r => ({ id: r.id, name: r.name, modules: r.modules.slice() }))
-      };
-    } else if (b && typeof b === 'object' && Array.isArray(b.roles)) {
-      const seen = {};
-      const roles = b.roles.map(normalizePositionRole).filter(r => {
-        if (!r.name) return false;
-        const key = r.name.toLowerCase();
-        if (seen[key]) return false;   // 同名条目去重（匹配按名称，重复无意义）
-        seen[key] = 1;
-        return true;
-      }).slice(0, 50);
-      // 空清单视为非法提交（至少保留一条职务），保留原配置不变
-      if (roles.length) s.positionPermissions = { v: 2, roles };
-    }
-  }
-  // 部门权限（系统设置 → 职位权限 → 部门权限区）：按部门名配置该部门教师的后台可管理模块
+  // 已废弃的「职位权限（职务权限矩阵）」配置：不再读写，历史文件里残留的字段直接清除
+  delete s.positionPermissions;
+  // 组织架构权限（系统设置 → 组织架构权限）：按部门名配置该部门教师的后台可管理模块
   if (body.deptPermissions !== undefined) {
     const b = body.deptPermissions;
     if (b && typeof b === 'object' && Array.isArray(b.depts)) {
@@ -2131,12 +2137,12 @@ async function handle(req, res) {
   // 教师自助端接口（独立会话，自行鉴权），不走后台权限闸门（注意与后台 /api/teachers 区分）
   const isTeacherApi = pathname.startsWith('/api/teacher/');
   // 个人偏好接口（前端筛选记忆 / 工作台页签状态）：不涉及业务数据，登录即可写，
-  // 不按职位模块闸门拦截（否则教务 / 宿管 / 查看模式在功能页保存筛选会全部 403）
+  // 不按模块闸门拦截（否则部门账号 / 查看模式在功能页保存筛选会全部 403）
   const isPrefWrite = req.method !== 'GET'
     && (pathname === '/api/filters' || pathname === '/api/workbench');
-  // 职位权限矩阵（可在「系统设置 → 职位权限」按职务配置）：教师按其「行政职务」命中的条目授权，
-  // 仅可写该职务条目勾选的模块接口，其余一律只读；教师管理 / 智能分班 / 系统设置 / 备份审计等
-  // 仅限管理员，不开放配置。同一职务只命中一条条目，不做合并。
+  // 组织架构权限闸门（可在「系统设置 → 组织架构权限」按部门配置）：教师按其「所属部门」命中的条目授权，
+  // 仅可写该部门（含继承的上级部门）勾选的模块接口，其余一律只读；教师管理 / 智能分班 / 系统设置 / 备份审计等
+  // 仅限管理员，不开放配置。
   if (pathname.startsWith('/api/') && !isAuthEndpoint && !isStudentApi && !isTeacherApi && !publicRead) {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
@@ -2158,9 +2164,9 @@ async function handle(req, res) {
         msg: isPosRole
           ? (perm
             ? (permNames.indexOf('无') === 0
-              ? '当前职务「' + (perm.matched || '') + '」未获授权任何可管理模块（可在「系统设置 → 职位权限」调整），仅可查看'
-              : '当前职务「' + (perm.matched || '') + '」仅可管理：' + permNames + '（可在「系统设置 → 职位权限」调整），其余模块仅可查看')
-            : '当前账号的行政职务已不在「职位权限」清单中（或已办理离职 / 退休），无任何后台管理权限')
+              ? '当前部门「' + (perm.matched || '') + '」未获授权任何可管理模块（可在「系统设置 → 组织架构权限」调整），仅可查看'
+              : '当前部门「' + (perm.matched || '') + '」仅可管理：' + permNames + '（可在「系统设置 → 组织架构权限」调整），其余模块仅可查看')
+            : '当前账号未设置「所属部门」（或已办理离职 / 退休），无任何后台管理权限')
           : '当前账号为「查看模式」，仅可查看，不能修改数据'
       });
     }
@@ -2170,7 +2176,7 @@ async function handle(req, res) {
       registerAudit(res, {
         actor: u.username,
         actorRole: u.role,
-        actorLabel: perm ? (perm.matched || '') : '',   // 职务账号：审计直接记录职务名
+        actorLabel: perm ? (perm.matched || '') : '',   // 部门账号：审计直接记录所属部门
         method: req.method,
         module: auditModuleOf(pathname),
         path: pathname,
@@ -2230,31 +2236,33 @@ async function handle(req, res) {
       return sendJson(res, 403, { code: 1, msg: '该账号为学生账号，请前往「学生登录入口」登录' });
     }
     if (user.role === ROLES.TEACHER) {
-      // 职务账号教师：行政职务命中职位权限清单即可登录管理后台，权限由命中的职务条目决定
+      // 部门账号教师：所属部门（含上级继承）命中组织架构权限即可登录管理后台，权限由命中的部门决定
       const tea = findTeacherOfAuth({ username: user.u });
       const perm = tea ? resolveTeacherPerm(tea) : null;
       if (!tea || !perm) {
-        // 已离岗（离职 / 退休）或职务未列入职位权限清单的教师不能进入后台
+        // 已离岗（离职 / 退休）或未归属任何部门的教师不能进入后台
         if (tea && OFF_DUTY_STATUS.indexOf(normalizeStatus(tea.status)) !== -1) {
           return sendJson(res, 403, { code: 1, msg: '该教师档案为「' + normalizeStatus(tea.status) + '」状态，不能登录管理后台' });
         }
-        return sendJson(res, 403, { code: 1, msg: '该账号为教师账号，请前往「教师登录入口」登录' });
-      }
-      if (perm) {
-        if (user.must) {
-          return sendJson(res, 403, { code: 1, msg: '请先通过「教师登录入口」完成首次密码修改，再登录管理后台' });
-        }
-        loginMarkSuccess(req, username);
-        const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
-        const token = makeToken(user.u, ROLES.POSITION, ttl);
-        res.setHeader('Set-Cookie', cookieHeader(token, ttl));
-        // label = 命中的职务名（身份即职务），顶栏徽章直接显示它
-        return sendJson(res, 200, {
-          code: 0, msg: '登录成功（' + (perm.matched || '职务账号') + '）',
-          data: { username: user.u, role: ROLES.POSITION, nickname: user.nickname || '', label: perm.matched || '职务账号' }
+        return sendJson(res, 403, {
+          code: 1,
+          msg: tea
+            ? '该教师未设置「所属部门」，不能登录管理后台；如需授权请先在教师档案中填写所属部门，并在「系统设置 → 组织架构权限」为该部门勾选模块'
+            : '该账号为教师账号，请前往「教师登录入口」登录'
         });
       }
-      return sendJson(res, 403, { code: 1, msg: '该账号为教师账号，请前往「教师登录入口」登录' });
+      if (user.must) {
+        return sendJson(res, 403, { code: 1, msg: '请先通过「教师登录入口」完成首次密码修改，再登录管理后台' });
+      }
+      loginMarkSuccess(req, username);
+      const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
+      const token = makeToken(user.u, ROLES.POSITION, ttl);
+      res.setHeader('Set-Cookie', cookieHeader(token, ttl));
+      // label = 命中的部门（身份即部门），顶栏徽章直接显示它
+      return sendJson(res, 200, {
+        code: 0, msg: '登录成功（' + (perm.matched || '部门账号') + '）',
+        data: { username: user.u, role: ROLES.POSITION, nickname: user.nickname || '', label: perm.matched || '部门账号' }
+      });
     }
     loginMarkSuccess(req, username);
     const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
@@ -2280,7 +2288,7 @@ async function handle(req, res) {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '未登录' });
     const full = findUser(u.username);
-    // writable：当前会话可写模块 key 列表（admin 全量、viewer 空、教务/宿管按其职务命中的条目），
+    // writable：当前会话可写模块 key 列表（admin 全量、viewer 空、部门账号按其所属部门命中的条目），
     // 供前端按页面隐藏 / 显示写操作按钮（服务端仍以闸门拦截为准）
     const perm = (u.role === ROLES.POSITION) ? sessionPerm(u) : null;
     const writable = u.role === ROLES.ADMIN
@@ -2292,22 +2300,24 @@ async function handle(req, res) {
         username: u.username,
         role: u.role,
         nickname: (full && full.nickname) || '',
-        // label：职务账号直接显示职务名（身份即职务），管理员 / 查看模式等用角色名
+        // label：部门账号直接显示所属部门（身份即部门），管理员 / 查看模式等用角色名
         label: perm ? (perm.matched || ROLE_LABEL[u.role]) : ROLE_LABEL[u.role],
         writable,
         permMatched: perm ? (perm.matched || '') : '',
-        permLegacy: perm ? !!perm.legacy : false
+        permUnconfigured: perm ? !!perm.unconfigured : false
       }
     });
   }
 
-  // 职位权限矩阵（供教师管理 / 人事管理预判「某职务会带来哪些后台权限」）
-  if (pathname === '/api/position-perms' && req.method === 'GET') {
+  // 组织架构权限（供教师管理 / 人事管理预判「某部门会带来哪些后台权限」）
+  // depts 为配置原值；effective 为按部门层级继承后每个部门实际生效的模块（部门名 → 模块 key）
+  if (pathname === '/api/dept-perms' && req.method === 'GET') {
     return sendJson(res, 200, {
       code: 0,
       data: {
-        roles: readPositionRoles(),
-        modules: PERMISSION_MODULES.map(m => ({ key: m.key, name: m.name }))
+        depts: readDeptPerms(),
+        modules: PERMISSION_MODULES.map(m => ({ key: m.key, name: m.name })),
+        effective: deptPermEffective()
       }
     });
   }
@@ -2371,9 +2381,10 @@ async function handle(req, res) {
       initPwd = cur.u;                 // 学生初始密码 = 学号
       desc = `学号「${initPwd}」`;
     } else if (cur.role === ROLES.TEACHER) {
-      initPwd = teacherInitPassword(findTeacherByNo(cur.u)); // 教师初始密码 = 身份证号后 6 位
+      // 教师 / 后勤职工初始密码 = 身份证号后 6 位
+      initPwd = idCardInitPassword(findStaffByNo(cur.u));
       if (!initPwd) {
-        return sendJson(res, 400, { code: 1, msg: '该教师档案未登记身份证号（或不足 6 位），无法确定初始密码，请改用「重设密码」设置新密码' });
+        return sendJson(res, 400, { code: 1, msg: '该教师 / 职工档案未登记身份证号（或不足 6 位），无法确定初始密码，请改用「重设密码」设置新密码' });
       }
       desc = '身份证号后 6 位';
     } else {
@@ -2442,7 +2453,7 @@ async function handle(req, res) {
         if (cur.role === ROLES.STUDENT || cur.role === ROLES.TEACHER) {
           let initPwd = '';
           if (cur.role === ROLES.STUDENT) initPwd = cur.u; // 学生初始密码 = 学号
-          else initPwd = teacherInitPassword(findTeacherByNo(cur.u)); // 教师初始密码 = 身份证后 6 位
+          else initPwd = idCardInitPassword(findStaffByNo(cur.u)); // 教师 / 后勤职工初始密码 = 身份证后 6 位
           cur.must = !!initPwd && body.password === initPwd;
         }
       }
@@ -2660,21 +2671,28 @@ async function handle(req, res) {
 
   // ===== 教师自助端 API（教师入口，账号 = 工号，初始密码 = 身份证号后 6 位）=====
 
-  // 教师登录：账号 = 工号；首次登录密码 = 身份证号后 6 位（无账号时自动建档），登录后强制修改密码
+  // 自助端登录：账号 = 工号；首次登录密码 = 身份证号后 6 位（无账号时自动建档），登录后强制修改密码
+  // 教师与后勤 / 职工（安保、保洁、食堂、维修等）共用此入口，按工号归属区分档案
   if (pathname === '/api/teacher/login' && req.method === 'POST') {
     const body = await readBody(req);
     const no = String(body.username || '').trim();
     const pw = String(body.password || '');
     if (!no) return sendJson(res, 400, { code: 1, msg: '请输入工号' });
+    // 优先匹配教师档案；未命中再匹配后勤 / 职工档案（两套工号序列互不冲突）
     const tea = findTeacherByNo(no);
-    if (!tea) return sendJson(res, 401, { code: 1, msg: '未查询到该工号的教师档案，请与学校核对' });
-    // 人事管理：已离职 / 退休教师不再具备登录资格（管理员可在人事异动中办理复职后恢复）
-    if (OFF_DUTY_STATUS.indexOf(normalizeStatus(tea.status)) !== -1) {
-      return sendJson(res, 403, { code: 1, msg: '该教师档案为「' + normalizeStatus(tea.status) + '」状态，无法登录教师端，请联系管理员' });
+    const logi = tea ? null : findLogisticsByNo(no);
+    if (!tea && !logi) return sendJson(res, 401, { code: 1, msg: '未查询到该工号的教师 / 职工档案，请与学校核对' });
+    const staff = tea || logi;
+    const kind = tea ? 'teacher' : 'logistics';
+    const who = tea ? '教师' : '职工';
+    const where = tea ? '教师管理' : '后勤/职工管理';
+    // 人事管理：已离职 / 退休人员不再具备登录资格（管理员可在人事异动中办理复职后恢复）
+    if (OFF_DUTY_STATUS.indexOf(normalizeStatus(staff.status)) !== -1) {
+      return sendJson(res, 403, { code: 1, msg: '该' + who + '档案为「' + normalizeStatus(staff.status) + '」状态，无法登录自助端，请联系管理员' });
     }
-    const initPwd = teacherInitPassword(tea);
+    const initPwd = idCardInitPassword(staff);
     if (!initPwd) {
-      return sendJson(res, 403, { code: 1, msg: '教师档案未登记身份证号，请联系管理员在「教师管理」中补录后再登录' });
+      return sendJson(res, 403, { code: 1, msg: who + '档案未登记身份证号，请联系管理员在「' + where + '」中补录后再登录' });
     }
     const locked = loginLockLeft(req, no);
     if (locked) return sendJson(res, 429, { code: 1, msg: lockMsg(locked) });
@@ -2700,21 +2718,25 @@ async function handle(req, res) {
         u: no, salt,
         hash: hashPassword(initPwd, salt),
         role: ROLES.TEACHER,
-        tid: tea.id,
-        name: tea.name,
-        nickname: tea.name,
-        must: true,               // 首次登录，需强制修改密码
+        kind: kind,                 // teacher / logistics：决定自助端取哪套档案
+        tid: tea ? tea.id : '',
+        lid: logi ? logi.id : '',
+        name: staff.name,
+        nickname: staff.name,
+        must: true,                 // 首次登录，需强制修改密码
         createdAt: now,
         updatedAt: now
       };
       const list = readUsers();
       list.push(user);
       writeUsers(list);
-    } else if (user.tid !== tea.id || user.name !== tea.name) {
-      // 后台维护教师档案后，同步最新姓名/档案 id
-      user.tid = tea.id;
-      user.name = tea.name;
-      user.nickname = tea.name || user.nickname;
+    } else if (kind === 'logistics' ? (user.lid !== logi.id || user.name !== logi.name)
+                                   : (user.tid !== tea.id || user.name !== tea.name)) {
+      // 后台维护档案后，同步最新姓名 / 档案 id
+      if (kind === 'logistics') { user.kind = 'logistics'; user.lid = logi.id; user.tid = user.tid || ''; }
+      else { user.kind = 'teacher'; user.tid = tea.id; }
+      user.name = staff.name;
+      user.nickname = staff.name || user.nickname;
       user.updatedAt = new Date().toISOString();
       writeUsers(readUsers().map(x => (x.u === user.u ? user : x)));
     }
@@ -2725,9 +2747,10 @@ async function handle(req, res) {
       code: 0, msg: '登录成功',
       data: {
         username: user.u,
-        name: tea.name,
+        name: staff.name,
         role: user.role,
-        label: ROLE_LABEL[user.role] || '教师',
+        kind: kind,
+        label: kind === 'logistics' ? '职工' : (ROLE_LABEL[user.role] || '教师'),
         must: !!user.must
       }
     });
@@ -2742,20 +2765,21 @@ async function handle(req, res) {
     return sendJson(res, 200, { code: 0, msg: '已退出登录' });
   }
 
-  // 教师端会话信息（强制改密状态 + 个人档案聚合）
+  // 自助端会话信息（强制改密状态 + 个人档案聚合；教师与后勤职工共用）
   if (pathname === '/api/teacher/me' && req.method === 'GET') {
     const t = authTeacher(req);
-    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录自助端' });
     const user = findUser(t.username);
-    const teachers = readTeachers();
-    const tea = teachers.find(x => x.id === (user && user.tid)) || teachers.find(x => String(x.teacherNo || '').trim() === t.username) || null;
-    if (!user || !tea) {
+    const isLogi = isLogisticsUser(user);
+    const staff = findStaffOfAuth(t);
+    if (!user || !staff) {
       return sendJson(res, 200, {
         code: 0,
         data: {
           username: t.username,
           name: (user && user.name) || t.username,
-          role: 'teacher', label: '教师',
+          role: 'teacher', kind: isLogi ? 'logistics' : 'teacher',
+          label: isLogi ? '职工' : '教师',
           must: !!(user && user.must),
           gone: true,
           profile: null
@@ -2766,25 +2790,44 @@ async function handle(req, res) {
       code: 0,
       data: {
         username: t.username,
-        name: tea.name || t.username,
-        role: 'teacher', label: '教师',
+        name: staff.name || t.username,
+        role: 'teacher', kind: isLogi ? 'logistics' : 'teacher',
+        label: isLogi ? '职工' : '教师',
         must: !!user.must,
-        profile: buildTeacherPortalHome(tea)
+        profile: isLogi ? buildLogisticsPortalHome(staff) : buildTeacherPortalHome(staff)
       }
     });
   }
 
-  // 教师端完善个人身份信息：性别 / 任教学科 / 职称 / 联系电话 / 入职年份
-  // （工号、姓名、身份证号、班主任班级等关键身份由管理员在后台维护，教师不可自行修改）
+  // 自助端完善个人身份信息：教师可改任教学科 / 职称等，后勤职工仅可改联系方式
+  // （工号、姓名、身份证号、岗位 / 班主任班级等关键身份由管理员在后台维护，本人不可自行修改）
   if (pathname === '/api/teacher/profile' && req.method === 'PUT') {
     const t = authTeacher(req);
-    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录自助端' });
     const body = await readBody(req);
     const user = findUser(t.username);
+    if (!user) return sendJson(res, 404, { code: 1, msg: '账号不存在，请重新登录' });
+
+    // 后勤 / 职工档案：仅开放联系方式类字段（岗位、部门、班次等由管理员维护）
+    if (isLogisticsUser(user)) {
+      const list = readLogistics();
+      let li = user.lid ? list.findIndex(x => x.id === user.lid) : -1;
+      if (li === -1) li = list.findIndex(x => String(x.staffNo || '').trim() === t.username);
+      if (li === -1) return sendJson(res, 404, { code: 1, msg: '职工档案不存在或已被删除，请联系管理员' });
+      const lg = list[li];
+      if (body.gender !== undefined) lg.gender = body.gender === '女' ? '女' : '男';
+      if (body.phone !== undefined) lg.phone = String(body.phone).trim().slice(0, 20);
+      if (body.address !== undefined) lg.address = String(body.address).trim().slice(0, 100);
+      if (body.emergencyPhone !== undefined) lg.emergencyPhone = String(body.emergencyPhone).trim().slice(0, 20);
+      lg.updatedAt = new Date().toISOString();
+      writeLogistics(list);
+      return sendJson(res, 200, { code: 0, msg: '个人信息已更新', data: buildLogisticsPortalHome(lg) });
+    }
+
     const teachers = readTeachers();
     let idx = user && user.tid ? teachers.findIndex(x => x.id === user.tid) : -1;
     if (idx === -1) idx = teachers.findIndex(x => String(x.teacherNo || '').trim() === t.username);
-    if (!user || idx === -1) return sendJson(res, 404, { code: 1, msg: '教师档案不存在或已被删除，请联系管理员' });
+    if (idx === -1) return sendJson(res, 404, { code: 1, msg: '教师档案不存在或已被删除，请联系管理员' });
     const cur = teachers[idx];
     if (body.gender !== undefined) cur.gender = body.gender === '女' ? '女' : '男';
     if (body.subject !== undefined) cur.subject = String(body.subject).trim().slice(0, 50);
@@ -2802,10 +2845,10 @@ async function handle(req, res) {
     return sendJson(res, 200, { code: 0, msg: '个人信息已更新', data: buildTeacherPortalHome(cur) });
   }
 
-  // 教师端修改密码：普通修改需验证旧密码；首次登录强制改密(must=true)直接设置新密码，无需旧密码
+  // 自助端修改密码：普通修改需验证旧密码；首次登录强制改密(must=true)直接设置新密码，无需旧密码
   if (pathname === '/api/teacher/password' && req.method === 'PUT') {
     const t = authTeacher(req);
-    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录自助端' });
     const body = await readBody(req);
     const user = findUser(t.username);
     if (!user) return sendJson(res, 401, { code: 1, msg: '账号不存在，请重新登录' });
@@ -2816,7 +2859,7 @@ async function handle(req, res) {
     const np = String(body.newPassword || '');
     if (!validPassword(np)) return sendJson(res, 400, { code: 1, msg: '新密码需为 6～64 位字符' });
     if (np === user.u) return sendJson(res, 400, { code: 1, msg: '出于安全考虑，密码不能与工号相同，请重新设置' });
-    const initPwd = teacherInitPassword(findTeacherByNo(user.u));
+    const initPwd = idCardInitPassword(findStaffOfAuth({ username: user.u }));
     if (initPwd && np === initPwd) {
       return sendJson(res, 400, { code: 1, msg: '出于安全考虑，密码不能与身份证号后 6 位相同，请重新设置' });
     }
@@ -3694,15 +3737,14 @@ async function handle(req, res) {
   // ===== 教师管理 API =====
   if (pathname === '/api/teachers' && req.method === 'GET') {
     const classes = readClasses();
-    const roles = readPositionRoles();   // 职务权限矩阵（只读一次，避免逐教师重复读文件）
     const list = readTeachers().map(t => {
       const cls = t.classId ? classes.find(c => c.id === t.classId) : null;
-      const p = resolveTeacherPerm(t, roles);
+      const p = resolveTeacherPerm(t);
       return Object.assign({}, normalizeTeacher(t), {
         className: cls ? cls.name : '',
         classGrade: cls ? (cls.grade || '') : '',
-        // 后台权限命中情况（职务 → 可管理模块），供管理页提示与人事异动预警
-        perm: p ? { matched: p.matched, legacy: !!p.legacy, modules: p.modules } : null
+        // 后台权限命中情况（所属部门 → 可管理模块），供管理页提示与人事异动预警
+        perm: p ? { matched: p.matched, modules: p.modules, unconfigured: !!p.unconfigured } : null
       });
     });
     return sendJson(res, 200, { code: 0, data: list });
@@ -3847,9 +3889,9 @@ async function handle(req, res) {
     if (!rec.before) rec.before = [tea.position, tea.department].filter(Boolean).join(' / ');
     const u = authUser(req);
     rec.operator = (u && (u.nickname || u.username)) || '';
-    // 职务变动会改变后台权限：在此留痕（前端提交前已用同一矩阵做过预警与二次确认）
-    rec.effect = (rec.after && ['调岗', '晋升', '入职', '转正', '其他'].indexOf(rec.type) !== -1)
-      ? permEffectText(tea, rec.after) : '';
+    // 部门变动会改变后台权限：在此留痕（前端提交前已用同一规则做过预警与二次确认）
+    rec.effect = (rec.department && ['调岗', '晋升', '入职', '转正', '借调', '其他'].indexOf(rec.type) !== -1)
+      ? permEffectText(tea, rec.department) : '';
     const classes = readClasses();
     const notes = applyHrEffect(tea, rec);
     if (rec.effect) notes.push(rec.effect);
@@ -3890,9 +3932,9 @@ async function handle(req, res) {
       merged.teacherNo = tea.teacherNo || '';
     }
     const classes = readClasses();
-    // 编辑异动：同样按职务矩阵计算权限变化并留痕
-    merged.effect = (merged.after && ['调岗', '晋升', '入职', '转正', '其他'].indexOf(merged.type) !== -1 && tea)
-      ? permEffectText(tea, merged.after) : (merged.effect || '');
+    // 编辑异动：同样按所属部门计算权限变化并留痕
+    merged.effect = (merged.department && ['调岗', '晋升', '入职', '转正', '借调', '其他'].indexOf(merged.type) !== -1 && tea)
+      ? permEffectText(tea, merged.department) : (merged.effect || '');
     const notes = applyHrEffect(tea, merged);
     if (merged.effect) notes.push(merged.effect);
     let clsDirty = false;
@@ -3973,7 +4015,7 @@ async function handle(req, res) {
     list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh'));
     return sendJson(res, 200, { code: 0, data: list });
   }
-  // PUT：全量替换部门列表（支持层级 parentId 与负责人）。写操作纳入 'hr' 模块闸门——仅管理员或获「人事管理」授权的职务账号可维护。
+  // PUT：全量替换部门列表（支持层级 parentId 与负责人）。写操作纳入 'hr' 模块闸门——仅管理员或获「人事管理」授权的部门账号可维护。
   if (pathname === '/api/departments' && req.method === 'PUT') {
     const body = await readBody(req);
     if (!Array.isArray(body)) return sendJson(res, 400, { code: 1, msg: '数据格式不正确' });
@@ -4017,7 +4059,7 @@ async function handle(req, res) {
       || String(a.name || '').localeCompare(String(b.name || ''), 'zh'));
     return sendJson(res, 200, { code: 0, data: list });
   }
-  // PUT：全量替换职位列表（支持按部门归类）。写操作纳入 'hr' 模块闸门——仅管理员或获「人事管理」授权的职务账号可维护。
+  // PUT：全量替换职位列表（支持按部门归类）。写操作纳入 'hr' 模块闸门——仅管理员或获「人事管理」授权的部门账号可维护。
   if (pathname === '/api/positions' && req.method === 'PUT') {
     const body = await readBody(req);
     if (!Array.isArray(body)) return sendJson(res, 400, { code: 1, msg: '数据格式不正确' });
@@ -4615,7 +4657,7 @@ async function handle(req, res) {
     s.subjects = readSubjects(); // 始终返回生效科目
     s.version = APP_VERSION;     // 版本号（来自 package.json），供 [data-app-version] 渲染
     // 未登录（登录页 / 学生端 / 教师端 / 大屏等公开场景）仅返回品牌展示字段，
-    // 避免向匿名访客泄露职位权限 / 备份策略 / 服务器控制等内部配置
+    // 避免向匿名访客泄露组织架构权限 / 备份策略 / 服务器控制等内部配置
     if (!authUser(req)) {
       const pub = {};
       ['schoolName', 'logoDataUrl', 'schoolYear', 'slogan', 'schoolAddress',
@@ -5013,6 +5055,9 @@ async function handle(req, res) {
   if (pathname === '/api/teacher/timetable' && req.method === 'GET') {
     const t = authTeacher(req);
     if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    if (isLogisticsUser(findUser(t.username))) {
+      return sendJson(res, 403, { code: 1, msg: '后勤 / 职工档案不参与教学排课，无个人课表' });
+    }
     const tea = findTeacherOfAuth(t);
     if (!tea) return sendJson(res, 404, { code: 1, msg: '教师档案不存在或已被删除，请联系管理员' });
     const data = teacherTimetableOf(tea);
@@ -5143,6 +5188,9 @@ async function handle(req, res) {
   if (pathname === '/api/teacher/leaves' && req.method === 'GET') {
     const t = authTeacher(req);
     if (!t) return sendJson(res, 401, { code: 1, msg: '请先登录教师端' });
+    if (isLogisticsUser(findUser(t.username))) {
+      return sendJson(res, 403, { code: 1, msg: '后勤 / 职工不带班，暂无请假审批事项' });
+    }
     const tea = findTeacherOfAuth(t);
     if (!tea) return sendJson(res, 404, { code: 1, msg: '教师档案不存在或已被删除，请联系管理员' });
     if (!tea.classId) return sendJson(res, 403, { code: 1, msg: '您目前不是班主任，暂无请假审批权限' });

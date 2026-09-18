@@ -31,7 +31,7 @@ function maskIdCard(no) {
   if (s.length <= 8) return s.slice(0, 1) + '****';
   return s.slice(0, 4) + '****' + s.slice(-4);
 }
-// 是否可写：管理员全量；职务账号需在「系统设置 → 职位权限」中勾选「后勤/职工管理」
+// 是否可写：管理员全量；部门账号需在「系统设置 → 组织架构权限」中勾选「后勤/职工管理」
 // （服务端同样按模块拦截写接口，此处仅为前端提示与隐藏）
 function canWrite() {
   const a = window.AUTH;
@@ -50,7 +50,7 @@ function applyWriteScope() {
     tip.id = 'lgReadonly';
     tip.className = 'lg-tip warn';
     tip.style.marginBottom = '12px';
-    tip.textContent = '当前账号仅可查看后勤职工档案；新增 / 修改 / 删除需管理员在「系统设置 → 职位权限」中为该职务勾选「后勤/职工管理」模块。';
+    tip.textContent = '当前账号仅可查看后勤职工档案；新增 / 修改 / 删除需管理员在「系统设置 → 组织架构权限」中为该部门勾选「后勤/职工管理」模块。';
     main.insertBefore(tip, main.firstChild);
   }
 }
@@ -407,5 +407,5 @@ function init() {
   loadPositions();
 }
 init();
-// 登录态就绪后按「职位权限」重渲染一次（未授权时隐藏写操作入口）
+// 登录态就绪后按「组织架构权限」重渲染一次（未授权时隐藏写操作入口）
 window.addEventListener('cb-auth-ready', function () { render(); }, { once: true });

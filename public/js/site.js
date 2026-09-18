@@ -260,7 +260,7 @@
     var a = window.AUTH;
     if (!a) return;
 
-    // 查看模式 / 职务账号（按职务授权的教师）：隐藏「系统设置 / 智能分班」等管理与写操作入口
+    // 查看模式 / 部门账号（按所属部门授权的教师）：隐藏「系统设置 / 智能分班」等管理与写操作入口
     // （工作台侧边栏菜单项用 data-mod 标识且无 href，需单独匹配 data-mod="allocate"）
     if (a.role === 'viewer' || a.role === 'position') {
       var hid = document.querySelectorAll(
@@ -276,7 +276,7 @@
           var el = document.querySelector(SEL[j]);
           if (el) el.style.display = 'none';
         }
-        var ROLE_LBL = { viewer: '查看模式', position: '职务账号' };
+        var ROLE_LBL = { viewer: '查看模式', position: '部门账号' };
         var panel = document.querySelector('.control-right');
         if (panel) {
           var tip = document.createElement('span');
@@ -288,7 +288,7 @@
       }
     }
 
-    // 职务账号 / 查看模式：按「职位权限设置」（AUTH.writable）隐藏当前页面（未授权模块）的写操作按钮
+    // 部门账号 / 查看模式：按「组织架构权限」（AUTH.writable）隐藏当前页面（未授权模块）的写操作按钮
     // 服务端同样拦截写接口；页面 → 模块映射，未列出的页面（教师管理 / 总览 / 分析等）一律隐藏写按钮
     // （查看模式 writable 恒为空，等价于所有页面只读）
     if (a.role === 'viewer' || a.role === 'position') {
@@ -329,8 +329,8 @@
 
     var chip = document.createElement('span');
     chip.className = 'auth-chip';
-    var ROLE_TITLE = { viewer: '查看模式', position: '职务账号' };
-    var ROLE_BADGE = { viewer: '查看', position: '职务账号' };
+    var ROLE_TITLE = { viewer: '查看模式', position: '部门账号' };
+    var ROLE_BADGE = { viewer: '查看', position: '部门账号' };
     chip.title = '当前账号：' + a.username + '（' + (a.label || ROLE_TITLE[a.role] || '管理员') + '）';
     chip.innerHTML =
       IC_USER +

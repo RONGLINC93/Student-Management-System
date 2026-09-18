@@ -2,11 +2,11 @@
 const HR_API = '/api/hr';
 const TEA_API = '/api/teachers';
 const LOG_API = '/api/logistics';
-const PERM_API = '/api/position-perms';
+const PERM_API = '/api/dept-perms';
 let records = [];
 let teachers = [];
-// 职位权限矩阵（职务名 → 登录身份 + 可管理模块）
-let permRoles = [];
+// 组织架构权限（部门 → 可管理模块，服务端已按层级算好继承）
+let deptPermMap = {};
 let permModules = [];
 const OFF_DUTY = ['离职', '退休'];
 
@@ -29,7 +29,7 @@ function fmtTime(iso) {
   const p = n => (n < 10 ? '0' + n : '' + n);
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
-// 按「职位权限设置」判定是否可登记 / 编辑人事异动：管理员全量；职务账号需被授权 hr 模块
+// 按「组织架构权限」判定是否可登记 / 编辑人事异动：管理员全量；部门账号需被授权 hr 模块
 // （服务端同样按模块拦截写接口，此处仅为前端提示与隐藏）
 function canWrite() {
   const a = window.AUTH;
@@ -51,7 +51,7 @@ function applyWriteScope() {
     tip.id = 'hrReadonly';
     tip.className = 'hr-tip warn';
     tip.style.marginBottom = '12px';
-    tip.textContent = '当前账号仅可查看人事异动台账；登记 / 修改需管理员在「系统设置 → 职位权限」中为该职务勾选「人事管理」模块。';
+    tip.textContent = '当前账号仅可查看人事异动台账；登记 / 修改需管理员在「系统设置 → 组织架构权限」中为该部门勾选「人事管理」模块。';
     main.insertBefore(tip, main.firstChild);
   }
 }
@@ -70,10 +70,10 @@ async function loadPerms() {
   try {
     const res = await fetch(PERM_API);
     const json = await res.json();
-    permRoles = (json.data && json.data.roles) || [];
+    deptPermMap = (json.data && json.data.effective) || {};
     permModules = (json.data && json.data.modules) || [];
   } catch (e) {
-    permRoles = [];
+    deptPermMap = {};
     permModules = [];
   }
 }
@@ -81,53 +81,58 @@ function moduleNames(keys) {
   const names = permModules.filter(m => (keys || []).indexOf(m.key) !== -1).map(m => m.name);
   return names.length ? names.join('、') : '无';
 }
-// 按职务名匹配权限条目（与服务端精确匹配分支一致）
-function matchPerm(position) {
-  const pos = String(position || '').trim();
-  if (!pos) return null;
-  const key = pos.toLowerCase();
-  return permRoles.find(r => String(r.name || '').trim().toLowerCase() === key) || null;
+// 按部门名匹配权限条目（服务端下发的 effective 已含上级部门继承，与服务端判定一致）
+function matchPerm(dept) {
+  const n = String(dept || '').trim();
+  if (!n) return null;
+  const mods = deptPermMap[n];
+  return Array.isArray(mods) ? { name: n, modules: mods } : null;
 }
 function permDesc(p) {
   if (!p) return '无后台权限（仅教师端）';
   return moduleNames(p.modules || []);
 }
-// 有行政职位但未配置任何可管理模块：仍可登录管理后台（身份即职务），只是全部模块仅可查看
+// 有所属部门但未配置任何可管理模块：仍可登录管理后台（身份即部门），只是全部模块仅可查看
 const UNCONFIGURED_PERM = '可登录后台，未配置可管理模块（全部仅可查看）';
-// 教师当前生效的权限描述（服务端已在 /api/hr 下发 curPosition 等快照，此处按职务实时计算）
+// 教师当前生效的权限描述（优先用服务端 /api/teachers 算好的 perm，其次按所属部门实时计算）
 function teacherPermDesc(t) {
   if (!t) return '无后台权限（仅教师端）';
   if (OFF_DUTY.indexOf(t.status || '在职') !== -1) return '无后台权限（已离岗）';
-  const hit = matchPerm(t.position);
-  return hit ? permDesc(hit) : (t.position ? UNCONFIGURED_PERM : '无后台权限（仅教师端）');
+  if (t.perm && t.perm.matched) {
+    const mods = t.perm.modules || [];
+    return mods.length ? moduleNames(mods) : UNCONFIGURED_PERM;
+  }
+  const hit = matchPerm(t.department);
+  return hit ? permDesc(hit) : (t.department ? UNCONFIGURED_PERM : '无后台权限（仅教师端）');
 }
-function hrWritesPosition(type) {
-  return ['调岗', '晋升', '入职', '转正', '其他'].indexOf(type) !== -1;
+function hrWritesDept(type) {
+  return ['调岗', '晋升', '入职', '转正', '借调', '其他'].indexOf(type) !== -1;
 }
-// 权限变更预警：职务变化会同步改变后台身份与可管理范围
+// 权限变更预警：所属部门变化会同步改变后台身份与可管理范围
 function updatePermWarn(t) {
   const warn = $('#permWarn');
   const ackBox = $('#permAckBox');
   const ack = $('#permAck');
   if (!warn || !ackBox) return;
   const type = $('#fType').value;
-  const after = String($('#fAfter').value || '').trim();
-  if (!t || !hrWritesPosition(type) || !after) {
+  const dept = String($('#fDept').value || '').trim();
+  if (!t || !hrWritesDept(type) || !dept) {
     warn.hidden = true; ackBox.hidden = true;
     if (ack) ack.checked = false;
     return;
   }
   const before = teacherPermDesc(t);
-  const now = permDesc(matchPerm(after));
+  const hit = matchPerm(dept);
+  const now = permDesc(hit) || UNCONFIGURED_PERM;
   if (before === now) {
     warn.hidden = true; ackBox.hidden = true;
     if (ack) ack.checked = false;
     return;
   }
   warn.hidden = false;
-  warn.innerHTML = '该异动会把「<b>' + escapeHtml(t.name) + '</b>」的行政职位改为「<b>' + escapeHtml(after)
+  warn.innerHTML = '该异动会把「<b>' + escapeHtml(t.name) + '</b>」的所属部门改为「<b>' + escapeHtml(dept)
     + '</b>」，其后台权限将由 <b>' + escapeHtml(before) + '</b> 变为 <b>' + escapeHtml(now)
-    + '</b>。请确认这是本次调岗 / 晋升的真实授权意图。';
+    + '</b>。请确认这是本次调岗 / 借调的真实授权意图。';
   ackBox.hidden = false;
 }
 
@@ -177,7 +182,7 @@ function renderTable() {
 
   $('#hrBody').innerHTML = list.map(r => {
     const tea = teachers.find(t => t.id === r.teacherId) || null;
-    const pHit = tea ? matchPerm(tea.position) : null;
+    const pHit = tea ? matchPerm(tea.department) : null;
     const cur = tea
       ? `<span class="hr-sub">现：${escapeHtml([tea.position, tea.department, tea.status || '在职'].filter(Boolean).join(' · ')) || '未填写'}${pHit ? ' · 后台' + escapeHtml(moduleNames(pHit.modules)) : ''}</span>`
       : '<span class="hr-sub">档案已删除</span>';
@@ -271,7 +276,7 @@ async function saveRec(e) {
     remark: $('#fRemark').value.trim()
   };
   if (!data.teacherId) { toast('请选择要登记异动的教师', 'error'); return; }
-  // 权限变更：必须勾选确认并二次确认后才允许提交（职务即权限来源）
+  // 权限变更：必须勾选确认并二次确认后才允许提交（所属部门即权限来源）
   const t = teachers.find(x => x.id === data.teacherId);
   updatePermWarn(t);
   const warn = $('#permWarn');
@@ -280,7 +285,8 @@ async function saveRec(e) {
       toast('该异动会改变其后台权限，请先勾选确认', 'error');
       return;
     }
-    const now = permDesc(matchPerm(data.after));
+    const hit = matchPerm(data.department);
+    const now = permDesc(hit) || UNCONFIGURED_PERM;
     const ok = await confirmDlg(
       `「${t ? t.name : ''}」的后台权限将由「${teacherPermDesc(t)}」变为「${now}」，确定继续保存该人事异动吗？`,
       { title: '权限变更确认', okText: '确认变更', danger: true }
@@ -371,9 +377,10 @@ function bindEvents() {
     $('#fDept').value = tea.department || '';
     updatePermWarn(tea);
   };
-  // 职务 / 类型变化时刷新权限变更预警
+  // 所属部门 / 类型变化时刷新权限变更预警
   const permWatch = () => updatePermWarn(teachers.find(t => t.id === $('#fTeacher').value));
-  $('#fAfter').addEventListener('input', permWatch);
+  $('#fDept').addEventListener('input', permWatch);
+  $('#fDept').addEventListener('change', permWatch);
   $('#fType').addEventListener('change', permWatch);
   $('#hrBody').onclick = (e) => {
     const btn = e.target.closest('[data-act]');

@@ -31,7 +31,7 @@
       return j.data;
     });
   }
-  // 按「职位权限设置」判定当前账号是否可排课（管理员全量；教务默认已授权课程表）
+  // 按「组织架构权限」判定当前账号是否可排课（管理员全量；部门账号需被授权课程表）
   function canWrite() {
     var a = window.AUTH;
     if (!a) return false;

@@ -5,7 +5,7 @@ const GRADES_API = '/api/grades';
 
 const GENDER_TEXT = { any: '混合', male: '男生', female: '女生' };
 
-// 按「职位权限设置」判定宿舍模块是否可写（管理员可写；教务 / 宿管需被授权 dorms 模块）
+// 按「组织架构权限」判定宿舍模块是否可写（管理员可写；部门账号需被授权 dorms 模块）
 function canWriteDorm() {
   const a = window.AUTH;
   if (!a) return true;

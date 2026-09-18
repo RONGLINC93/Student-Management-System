@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="author" content="RONGLINC (chenronglin1993@hotmail.com)" />
   <link rel="icon" type="image/png" href="/favicon.png" />
-  <title>教师中心 · 学生管理系统</title>
+  <title>教师 / 职工中心 · 学生管理系统</title>
   <link rel="stylesheet" href="/css/timetable.css" />
   <style>
     /* 我的课表：卡片内自适应收紧表格间距 */
@@ -182,7 +182,7 @@
         </span>
         <div class="brand-txt">
           <div class="site" data-site-name>学生管理系统</div>
-          <div class="sub">TEACHER SERVICE PORTAL</div>
+          <div class="sub" id="portalEn">TEACHER &amp; STAFF SERVICE PORTAL</div>
         </div>
       </div>
       <div class="user">
@@ -229,11 +229,11 @@
     <!-- 概览 -->
     <div class="stats">
       <div class="stat-card">
-        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>任教学科</div>
+        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span id="lbSubject">任教学科</span></div>
         <div class="v sm" id="stSubject">—</div>
       </div>
       <div class="stat-card">
-        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>职称 / 职务</div>
+        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span id="lbTitle">职称 / 职务</span></div>
         <div class="v sm" id="stTitle">—</div>
       </div>
       <div class="stat-card">
@@ -241,11 +241,11 @@
         <div class="v sm" id="stDept">—</div>
       </div>
       <div class="stat-card">
-        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>班主任班级</div>
+        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span id="lbClass">班主任班级</span></div>
         <div class="v sm" id="stClass">—</div>
       </div>
       <div class="stat-card">
-        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>班级人数</div>
+        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span id="lbCount">班级人数</span></div>
         <div class="v" id="stCount">—</div>
       </div>
     </div>
@@ -306,17 +306,17 @@
             </div>
             <!-- 编辑表单：完善身份信息（工号 / 姓名 / 身份证号由管理员维护，不可自行修改） -->
             <form id="profileForm" style="display:none" onsubmit="return false">
-              <div class="f-sec">任教信息</div>
+              <div class="f-sec" id="secTeach">任教信息</div>
               <div class="f-field">
                 <label for="pfGender">性别</label>
                 <select id="pfGender" class="f-inp"><option value="男">男</option><option value="女">女</option></select>
               </div>
-              <div class="f-field">
+              <div class="f-field" data-tea-only="1">
                 <label for="pfSubject">任教学科</label>
                 <input type="text" id="pfSubject" class="f-inp" list="pfSubjectList" placeholder="如：语文 / 数学" maxlength="50" />
                 <datalist id="pfSubjectList"></datalist>
               </div>
-              <div class="f-field">
+              <div class="f-field" data-tea-only="1">
                 <label for="pfTitle">职称 / 职务</label>
                 <select id="pfTitle" class="f-inp">
                   <option value="">请选择</option>
@@ -334,7 +334,7 @@
                 </select>
                 <p style="margin:-2px 0 0;font-size:12px;color:#6b7280;line-height:1.6">行政职位 / 所属部门 / 在职状态由管理员在「教师管理 · 人事管理」维护，如需变更请联系教务处。</p>
               </div>
-              <div class="f-field">
+              <div class="f-field" data-tea-only="1">
                 <label for="pfJoinYear">入职年份</label>
                 <input type="text" id="pfJoinYear" class="f-inp" placeholder="如：2018" maxlength="10" />
               </div>
@@ -343,15 +343,15 @@
                 <label for="pfPhone">联系电话</label>
                 <input type="text" id="pfPhone" class="f-inp" placeholder="手机号 / 固话" maxlength="30" />
               </div>
-              <div class="f-field">
+              <div class="f-field" data-tea-only="1">
                 <label for="pfEthnic">民族</label>
                 <input type="text" id="pfEthnic" class="f-inp" placeholder="如：汉族" maxlength="20" />
               </div>
-              <div class="f-field">
+              <div class="f-field" data-tea-only="1">
                 <label for="pfHometown">籍贯</label>
                 <input type="text" id="pfHometown" class="f-inp" placeholder="如：广东广州" maxlength="50" />
               </div>
-              <div class="f-field">
+              <div class="f-field" data-tea-only="1">
                 <label for="pfPolitical">政治面貌</label>
                 <select id="pfPolitical" class="f-inp">
                   <option value="">请选择</option>
@@ -362,7 +362,7 @@
                   <option value="群众">群众</option>
                 </select>
               </div>
-              <div class="f-field">
+              <div class="f-field" data-tea-only="1">
                 <label for="pfEducation">学历 / 学位</label>
                 <select id="pfEducation" class="f-inp">
                   <option value="">请选择</option>
@@ -377,7 +377,7 @@
                 <label for="pfAddress">家庭住址</label>
                 <input type="text" id="pfAddress" class="f-inp" placeholder="省 / 市 / 区 / 详细地址" maxlength="100" />
               </div>
-              <div class="f-field">
+              <div class="f-field" data-tea-only="1">
                 <label for="pfEmergencyName">紧急联系人</label>
                 <input type="text" id="pfEmergencyName" class="f-inp" placeholder="姓名（如家属）" maxlength="30" />
               </div>
@@ -418,7 +418,7 @@
       </div>
     </div>
 
-    <footer>学生管理系统 · 教师服务门户 · 作者：RONGLINC</footer>
+    <footer>学生管理系统 · 教师 / 职工服务门户 · 作者：RONGLINC</footer>
   </main>
 
   <div class="toast" id="toast"></div>
@@ -429,7 +429,9 @@
     (function () {
       'use strict';
 
-      var ME = null; // /api/teacher/me 返回的 data
+      var ME = null;       // /api/teacher/me 返回的 data
+      var IS_LOGI = false; // 后勤 / 职工身份（工号命中后勤档案，而非教师档案）
+      var SITE = '学生管理系统';
 
       function $(id) { return document.getElementById(id); }
       function esc(s) {
@@ -443,9 +445,10 @@
         var s = (j && j.data) || {};
         var name = String(s.schoolName || '').trim();
         if (name && name !== '学生管理系统') {
+          SITE = name;
           var els = document.querySelectorAll('[data-site-name]');
           for (var i = 0; i < els.length; i++) els[i].textContent = name;
-          document.title = '教师中心 · ' + name;
+          syncTitle();
         }
         if (s.logoDataUrl) {
           var host = document.querySelector('.logo');
@@ -478,17 +481,46 @@
         render();
       }).catch(function () { location.href = '/tlogin.html'; });
 
+      // 身份切换：教师 / 后勤职工共用门户，按 kind 调整文案与可见模块
+      function applyKind() {
+        IS_LOGI = ME.kind === 'logistics';
+        syncTitle();
+        $('portalEn').textContent = IS_LOGI ? 'STAFF SERVICE PORTAL' : 'TEACHER SERVICE PORTAL';
+        // 后勤职工不带班：隐藏课表 / 花名册 / 请假审批，档案表单仅保留联系方式
+        $('ttCard').style.display = IS_LOGI ? 'none' : '';
+        $('rosterCard').style.display = IS_LOGI ? 'none' : '';
+        $('leaveCard').style.display = IS_LOGI ? 'none' : '';
+        var only = document.querySelectorAll('[data-tea-only]');
+        for (var i = 0; i < only.length; i++) only[i].style.display = IS_LOGI ? 'none' : '';
+        $('secTeach').textContent = IS_LOGI ? '基本信息' : '任教信息';
+      }
+      function syncTitle() {
+        document.title = (IS_LOGI ? '职工中心 · ' : '教师中心 · ') + SITE;
+      }
+
+      // 合同到期文案（后勤 / 职工：临近到期时提示剩余天数）
+      function contractText(p) {
+        if (!p.contractEnd) return '未登记';
+        var d = p.contractDays;
+        if (d == null) return p.contractEnd;
+        if (d < 0) return p.contractEnd + '（已过期）';
+        if (d <= 30) return p.contractEnd + '（' + d + ' 天后到期）';
+        return p.contractEnd;
+      }
+
       function render() {
         var p = ME.profile;
-        var name = ME.name || ME.username || '老师';
-        $('uName').textContent = name + ' · 教师';
+        applyKind();
+        var name = ME.name || ME.username || (IS_LOGI ? '职工' : '老师');
+        var roleTxt = IS_LOGI ? '职工' : '教师';
+        $('uName').textContent = name + ' · ' + roleTxt;
         $('uNo').textContent = '工号 ' + (ME.username || '-');
-        $('uAvatar').textContent = name.charAt(0) || '师';
-        $('heroName').textContent = name + ' 老师';
+        $('uAvatar').textContent = name.charAt(0) || (IS_LOGI ? '工' : '师');
+        $('heroName').textContent = IS_LOGI ? name : (name + ' 老师');
 
         if (ME.gone || !p) {
-          // 教师档案已被删除
-          $('heroSub').textContent = '您的教师档案已被移除或未找到，请联系管理员核对。';
+          // 档案已被删除
+          $('heroSub').textContent = '您的' + roleTxt + '档案已被移除或未找到，请联系管理员核对。';
           $('rosterBody').innerHTML = '<div class="empty">暂无可用数据</div>';
           $('leaveBody').innerHTML = '<div class="empty">暂无可用数据</div>';
           $('ttCnt').textContent = '';
@@ -497,9 +529,56 @@
         }
         if (ME.must) $('forceCover').style.display = 'flex';
 
+        // ===== 后勤 / 职工视图 =====
+        if (IS_LOGI) {
+          $('heroSub').textContent = [
+            p.post ? '岗位：' + p.post : '',
+            p.department ? '部门：' + p.department : '',
+            p.shift ? '班次：' + p.shift : '',
+            p.area ? '负责区域：' + p.area : ''
+          ].filter(Boolean).join(' · ') || '欢迎回来，祝您工作顺利';
+
+          $('lbSubject').textContent = '具体岗位';
+          $('stSubject').textContent = p.post || '未填写';
+          $('lbTitle').textContent = '用工性质';
+          $('stTitle').textContent = p.employType || '未填写';
+          $('stDept').textContent = p.department || '未填写';
+          $('lbClass').textContent = '班次';
+          $('stClass').textContent = p.shift || '未填写';
+          $('lbCount').textContent = '合同到期';
+          $('stCount').textContent = contractText(p);
+          $('stCount').className = 'v' + (p.contractDays != null && p.contractDays <= 30 ? ' muted' : '');
+
+          $('profileKv').innerHTML =
+            '<div class="k">工号</div><div class="v">' + esc(p.staffNo || p.teacherNo || '-') + '</div>' +
+            '<div class="k">姓名</div><div class="v">' + esc(p.name || '-') + '</div>' +
+            '<div class="k">身份证号</div><div class="v">' + esc(p.idCardMasked || '未登记') + '</div>' +
+            '<div class="k">性别</div><div class="v">' + esc(p.gender || '-') + '</div>' +
+            '<div class="k">具体岗位</div><div class="v">' + esc(p.post || '-') + '</div>' +
+            '<div class="k">用工性质</div><div class="v">' + esc(p.employType || '-') + '</div>' +
+            '<div class="k">外包单位</div><div class="v">' + esc(p.vendor || '-') + '</div>' +
+            '<div class="k">所属部门</div><div class="v">' + esc(p.department || '-') + '</div>' +
+            '<div class="k">在职状态</div><div class="v">' + esc(p.status || '在职') + '</div>' +
+            '<div class="k">班次</div><div class="v">' + esc(p.shift || '-') + '</div>' +
+            '<div class="k">负责区域</div><div class="v">' + esc(p.area || '-') + '</div>' +
+            '<div class="k">入职日期</div><div class="v">' + esc(p.joinDate || '-') + '</div>' +
+            '<div class="k">合同到期</div><div class="v">' + esc(contractText(p)) + '</div>' +
+            '<div class="k">健康证到期</div><div class="v">' + esc(p.healthCertEnd || '-') + '</div>' +
+            '<div class="k">联系电话</div><div class="v">' + esc(p.phone || '-') + '</div>' +
+            '<div class="k">家庭住址</div><div class="v">' + esc(p.address || '-') + '</div>' +
+            '<div class="k">紧急联系电话</div><div class="v">' + esc(p.emergencyPhone || '-') + '</div>';
+          $('profileForm').style.display = 'none';
+          $('profileKv').style.display = 'grid';
+          return;
+        }
+
         $('heroSub').textContent = (p.subject ? '任教学科：' + p.subject + ' · ' : '')
           + (p.isHead ? '您是 ' + (p.grade ? p.grade + ' ' : '') + p.className + ' 的班主任' : '欢迎回来，祝您工作顺利');
 
+        $('lbSubject').textContent = '任教学科';
+        $('lbTitle').textContent = '职称 / 职务';
+        $('lbClass').textContent = '班主任班级';
+        $('lbCount').textContent = '班级人数';
         $('stSubject').textContent = p.subject || '未填写';
         $('stTitle').textContent = [p.title, p.position].filter(Boolean).join(' · ') || '未填写';
         $('stDept').textContent = p.department || '未填写';
@@ -849,7 +928,7 @@
           if (j.code !== 0) throw new Error(j.msg || '修改失败');
           $('forceCover').style.display = 'none';
           if (ME) ME.must = false;
-          toast('密码设置成功，欢迎使用教师服务门户', 'ok');
+          toast('密码设置成功，欢迎使用' + (IS_LOGI ? '职工' : '教师') + '服务门户', 'ok');
         }).catch(function (e) { toast(e.message || '修改失败', 'err'); })
           .then(function () { btn.disabled = false; });
       });
