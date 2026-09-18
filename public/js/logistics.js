@@ -9,6 +9,16 @@ const DUE_DAYS = 30;   // 合同 / 健康证到期预警阈值（天）
 let staff = [];
 let deptCache = [];
 const DEPT_API = '/api/departments';
+// 左侧部门树筛选：kind = all（全部）/ dept（部门，含下属部门）/ post（部门下的岗位）/ none（未分配部门）
+let treeSel = { kind: 'all', value: '', dept: '', post: '' };
+// 部门树折叠状态（键：'__root__' / 'd:部门名'），默认展开
+const deptCollapsed = new Set();
+// 树节点图标：全部职工 / 部门 / 岗位
+const TREE_ICONS = {
+  root: '<svg class="gico school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg>',
+  dept: '<svg class="gico grade" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 14l9 5 9-5"/></svg>',
+  post: '<svg class="gico cls" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M16 10h.01"/><path d="M16 14h.01"/></svg>'
+};
 // 职位（岗位）联动来源：人事管理 → 组织架构 → 职位管理
 const POS_API = '/api/positions';
 let posCache = [];
@@ -127,6 +137,156 @@ function fillPostSelect() {
   else sel.value = '';
 }
 
+// ===== 左侧「所属部门」树：点击节点筛选职工 =====
+// 部门来自人事管理 → 组织架构（/api/departments），职工通过 department（部门名称）归属
+function deptKidsOf(pid) {
+  const p = String(pid || '');
+  return deptCache.filter(d => String(d.parentId || '') === p);
+}
+// 某部门的所有下属部门名（用于「含下属部门」统计与筛选）
+function descendantNames(name) {
+  const out = [];
+  (function walk(list) {
+    list.forEach(d => {
+      const kids = deptKidsOf(d.id);
+      kids.forEach(k => out.push(String(k.name || '').trim()));
+      walk(kids);
+    });
+  })(deptCache.filter(d => String(d.name || '').trim() === name));
+  return out;
+}
+// 职工中出现、但组织架构里已不存在的部门名（如部门改名 / 删除），单独挂出以免这些职工无处查找
+function extraDeptNames() {
+  const known = deptCache.map(d => String(d.name || '').trim());
+  const names = [];
+  staff.forEach(s => {
+    const n = String(s.department || '').trim();
+    if (n && known.indexOf(n) === -1 && names.indexOf(n) === -1) names.push(n);
+  });
+  return names;
+}
+// 部门下已有职工的岗位（岗位来自「组织架构 → 职位管理」，此处只列实际有人的岗位）
+function postsOfDept(name) {
+  const posts = [];
+  staff.forEach(s => {
+    if (String(s.department || '').trim() !== name) return;
+    const p = String(s.post || '').trim();
+    if (p && posts.indexOf(p) === -1) posts.push(p);
+  });
+  return posts.sort();
+}
+function matchTree(s, sel) {
+  if (!sel || sel.kind === 'all') return true;
+  const dept = String(s.department || '').trim();
+  if (sel.kind === 'none') return !dept;
+  if (sel.kind === 'dept') {
+    if (!dept) return false;
+    return dept === sel.value || descendantNames(sel.value).indexOf(dept) !== -1;
+  }
+  if (sel.kind === 'post') return dept === sel.dept && String(s.post || '').trim() === sel.post;
+  return true;
+}
+function treeRow(o) {
+  const toggle = o.hasKids
+    ? '<button type="button" class="gtree-toggle' + (o.collapsed ? ' collapsed' : '') + '" data-toggle="' + escapeHtml(o.nodeId || '') + '" aria-label="展开 / 收起"></button>'
+    : '<span class="gtree-toggle leaf"></span>';
+  return '<div class="gtree-row' + (o.selected ? ' selected' : '') + '" data-kind="' + escapeHtml(o.kind) + '" data-value="' + escapeHtml(o.value || '') + '"'
+    + (o.dept ? ' data-dept="' + escapeHtml(o.dept) + '"' : '')
+    + (o.title ? ' title="' + escapeHtml(o.title) + '"' : '') + '>'
+    + toggle + o.icon
+    + '<span class="gname">' + escapeHtml(o.name) + '</span>'
+    + (o.meta ? '<span class="gmeta">' + escapeHtml(o.meta) + '</span>' : '')
+    + '</div>';
+}
+// 递归渲染部门节点：下属部门 + 本部门岗位
+function deptNode(d, isSel, countOf) {
+  const name = String(d.name || '').trim();
+  const kids = deptKidsOf(d.id);
+  const posts = postsOfDept(name);
+  const collapsed = deptCollapsed.has('d:' + name);
+  let node = '<div class="gnode' + (collapsed ? ' collapsed' : '') + '">' + treeRow({
+    icon: TREE_ICONS.dept, name, kind: 'dept', value: name,
+    meta: countOf({ kind: 'dept', value: name }) + ' 人',
+    selected: isSel('dept', name, ''), hasKids: kids.length > 0 || posts.length > 0,
+    collapsed, nodeId: 'd:' + name,
+    title: name + (kids.length ? '（含 ' + kids.length + ' 个下属部门）' : '')
+  });
+  if (kids.length || posts.length) {
+    let inner = kids.map(k => deptNode(k, isSel, countOf)).join('');
+    posts.forEach(p => {
+      inner += '<div class="gnode">' + treeRow({
+        icon: TREE_ICONS.post, name: p, kind: 'post', value: p, dept: name,
+        meta: countOf({ kind: 'post', dept: name, post: p }) + ' 人',
+        selected: isSel('post', p, name), title: name + ' · ' + p
+      }) + '</div>';
+    });
+    node += '<div class="gchildren">' + inner + '</div>';
+  }
+  return node + '</div>';
+}
+function renderDeptTree() {
+  const host = $('#deptTree');
+  if (!host) return;
+  const isSel = (kind, value, dept) => treeSel.kind === kind
+    && String(treeSel.value || '') === String(value || '')
+    && String(treeSel.dept || '') === String(dept || '');
+  const countOf = sel => staff.filter(s => matchTree(s, sel)).length;
+  const rootCollapsed = deptCollapsed.has('__root__');
+  const extras = extraDeptNames();
+  let kids = '<div class="gnode">' + treeRow({
+    icon: TREE_ICONS.post, name: '未分配部门', kind: 'none', value: '',
+    meta: countOf({ kind: 'none' }) + ' 人', selected: isSel('none', '', ''),
+    title: '尚未分配部门的职工'
+  }) + '</div>';
+  deptKidsOf('').forEach(d => { kids += deptNode(d, isSel, countOf); });
+  extras.forEach(n => { kids += deptNode({ id: '__ext__:' + n, name: n }, isSel, countOf); });
+  const empty = !deptCache.length && !extras.length;
+  host.innerHTML = '<div class="gnode gnode-root' + (rootCollapsed ? ' collapsed' : '') + '">'
+    + treeRow({
+      icon: TREE_ICONS.root, name: '全部职工', kind: 'all', value: '',
+      meta: staff.length + ' 人', selected: isSel('all', '', ''),
+      hasKids: true, collapsed: rootCollapsed, nodeId: '__root__', title: '显示全部后勤职工'
+    })
+    + '<div class="gchildren">' + kids + '</div></div>'
+    + (empty ? '<p class="sidebar-tip" style="margin-top:8px">暂无部门，请先在「人事管理 → 组织架构」中建立部门。</p>' : '');
+}
+function bindDeptTree() {
+  const host = $('#deptTree');
+  if (!host || host.dataset.bound) return;
+  host.dataset.bound = '1';
+  host.addEventListener('click', e => {
+    const tg = e.target.closest('.gtree-toggle');
+    if (tg && !tg.classList.contains('leaf')) {
+      const id = tg.dataset.toggle || '';
+      if (deptCollapsed.has(id)) deptCollapsed.delete(id);
+      else deptCollapsed.add(id);
+      renderDeptTree();
+      return;
+    }
+    const row = e.target.closest('.gtree-row');
+    if (!row) return;
+    const kind = row.dataset.kind || 'all';
+    const value = row.dataset.value || '';
+    const dept = row.dataset.dept || '';
+    // 已选中则保持不变（避免重复刷新）；切换其它节点或点「全部职工」即恢复
+    if (treeSel.kind === kind && String(treeSel.value || '') === value && String(treeSel.dept || '') === dept) return;
+    treeSel = { kind, value, dept, post: kind === 'post' ? value : '' };
+    renderDeptTree();
+    renderTable();
+  });
+}
+// 工具栏中的筛选提示 chip（显示当前部门 / 岗位与命中人数，可一键清除）
+function updateTreeChip(count) {
+  const chip = $('#treeChip');
+  if (!chip) return;
+  if (treeSel.kind === 'all') { chip.hidden = true; return; }
+  let label = '未分配部门';
+  if (treeSel.kind === 'dept') label = '部门：' + treeSel.value;
+  else if (treeSel.kind === 'post') label = '岗位：' + treeSel.value + '（' + treeSel.dept + '）';
+  chip.hidden = false;
+  $('#treeChipText').textContent = label + ' · ' + count + ' 人';
+}
+
 // ===== 到期渲染 =====
 function dueCell(dateStr, days) {
   if (!dateStr) return '<span class="head-none">—</span>';
@@ -152,6 +312,8 @@ function filtered() {
   const emp = $('#employFilter') ? $('#employFilter').value : '';
   const due = $('#dueFilter') ? $('#dueFilter').value : '';
   return staff.filter(s => {
+    // 左侧部门树筛选（与工具栏其它条件为「且」关系）
+    if (!matchTree(s, treeSel)) return false;
     if (st && s.status !== st) return false;
     if (emp && s.employType !== emp) return false;
     if (due === 'contract' && !(s.contractDays !== null && s.contractDays !== undefined && s.contractDays <= DUE_DAYS)) return false;
@@ -176,10 +338,13 @@ function renderStats() {
 }
 function renderTable() {
   const list = filtered();
+  updateTreeChip(list.length);
   const body = $('#lgBody');
   if (!list.length) {
     body.innerHTML = '<tr><td colspan="13" class="empty-tip">' +
-      (staff.length ? '没有符合条件的职工，换个关键词或调整筛选试试' : '暂无后勤职工档案，点击右上角「添加职工」开始') +
+      (!staff.length ? '暂无后勤职工档案，点击右上角「添加职工」开始'
+        : (treeSel.kind === 'all' ? '没有符合条件的职工，换个关键词或调整筛选试试'
+          : '该部门 / 岗位下没有符合条件的职工，点击左侧「全部职工」查看全部')) +
       '</td></tr>';
     return;
   }
@@ -215,6 +380,7 @@ function renderTable() {
 function render() {
   renderStats();
   renderTable();
+  renderDeptTree(); // 部门树人数随档案变化（新增 / 编辑 / 删除后同步）
   applyWriteScope();
 }
 
@@ -380,6 +546,16 @@ function bindEvents() {
   $('#statusFilter').onchange = renderTable;
   $('#employFilter').onchange = renderTable;
   $('#dueFilter').onchange = renderTable;
+  // 左侧部门树：点击节点筛选职工；chip 上的 × 与侧栏「全部职工」按钮清除筛选
+  bindDeptTree();
+  const clearTree = () => {
+    if (treeSel.kind === 'all') return;
+    treeSel = { kind: 'all', value: '', dept: '', post: '' };
+    renderDeptTree();
+    renderTable();
+  };
+  if ($('#btnTreeAll')) $('#btnTreeAll').onclick = clearTree;
+  if ($('#treeChipClear')) $('#treeChipClear').onclick = clearTree;
   // 选择部门后，「具体岗位」联想词联动为该部门下定义的职位
   $('#fDepartment').onchange = fillPostSelect;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Esc') closeModal(); });
@@ -403,7 +579,8 @@ function init() {
   initOptions();
   bindEvents();
   loadList();
-  loadDept().then(fillDeptSelect);
+  // 部门树依赖组织架构数据，拉到部门后再渲染一次
+  loadDept().then(() => { fillDeptSelect(); renderDeptTree(); });
   loadPositions();
 }
 init();

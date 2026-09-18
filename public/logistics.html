@@ -49,8 +49,63 @@
     }
     .lg-tip.warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
 
+    /* ===== 左侧「所属部门」侧栏 ===== */
+    .lg-layout { display: flex; gap: 18px; align-items: flex-start; }
+    .lg-sidebar {
+      flex: 0 0 250px; position: sticky; top: 18px; align-self: flex-start;
+      background: #fff; border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px; max-height: calc(100vh - 45px); overflow: auto; overscroll-behavior: contain;
+    }
+    .lg-sidebar .sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .lg-sidebar .sidebar-title { font-size: 15px; font-weight: 700; margin: 0; }
+    .lg-sidebar .sidebar-tip {
+      margin: 0 0 8px; font-size: 12.5px; line-height: 1.7; color: var(--text-light);
+      background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    }
+    .lg-main { flex: 1 1 auto; min-width: 0; }
+    /* 部门 / 岗位树（结构与教师管理「任教年级」树一致） */
+    .grade-tree { margin-top: 4px; font-size: 13.5px; user-select: none; }
+    .gtree-row {
+      display: flex; align-items: center; gap: 6px; padding: 5px 6px;
+      border-radius: 6px; min-height: 28px; position: relative; cursor: pointer;
+    }
+    .gtree-row:hover { background: #f1f5ff; }
+    .gtree-row.selected { background: #e5ebff; }
+    .gtree-row.selected .gname { color: #3730a3; font-weight: 600; }
+    .gtree-toggle { flex: 0 0 14px; width: 14px; height: 14px; border: 0; background: transparent; cursor: pointer; padding: 0; position: relative; }
+    .gtree-toggle::before {
+      content: ''; position: absolute; left: 4px; top: 3px;
+      border-left: 5px solid #94a3b8; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+      transform: rotate(90deg); transition: transform .12s ease;
+    }
+    .gtree-toggle.collapsed::before { transform: rotate(0); }
+    .gtree-toggle.leaf::before { display: none; }
+    .gico { flex: 0 0 15px; width: 15px; height: 15px; }
+    .gico.school { color: var(--primary); }
+    .gico.grade { color: #4f46e5; }
+    .gico.cls { color: #9aa7b8; }
+    .gname { flex: 1 1 auto; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gmeta { flex: 0 0 auto; font-size: 12px; color: var(--text-light); max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gnode-root > .gtree-row .gname { font-weight: 700; }
+    .gchildren { position: relative; margin-left: 8px; padding-left: 14px; }
+    .gchildren::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px dashed #cbd5e1; }
+    .gchildren > .gnode { position: relative; }
+    .gchildren > .gnode > .gtree-row::before { content: ''; position: absolute; left: -14px; top: 14px; width: 12px; border-top: 1px dashed #cbd5e1; }
+    .gnode.collapsed > .gchildren { display: none; }
+    /* 工具栏中的部门 / 岗位筛选提示 */
+    .filter-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+      border-radius: 999px; background: #eef2ff; border: 1px solid #c7d2fe;
+      color: #4338ca; font-size: 13px; white-space: nowrap;
+    }
+    .filter-chip button { border: 0; background: transparent; color: #6366f1; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+    .filter-chip button:hover { color: #312e81; }
+
     /* ===== 小屏适配 ===== */
     @media (max-width: 900px) {
+      /* 侧栏在小屏改为顶部整块，内容区独占下方 */
+      .lg-layout { flex-direction: column; }
+      .lg-sidebar { flex: 1 1 auto; width: 100%; position: static; max-height: none; }
       .table-scroll { max-height: 62vh; max-height: calc(100dvh - 300px); }
       .lg-table thead th { padding: 11px 12px; }
       .lg-table tbody td { padding: 9px 12px; }
@@ -89,6 +144,16 @@
   </header>
 
   <main class="container">
+    <div class="lg-layout">
+      <aside class="lg-sidebar" id="deptSidebar">
+        <div class="sidebar-head">
+          <h3 class="sidebar-title">所属部门</h3>
+          <button type="button" class="btn btn-outline btn-sm" id="btnTreeAll">全部职工</button>
+        </div>
+        <p class="sidebar-tip">点击<b>部门</b>查看该部门<b>及其下属部门</b>的职工；展开部门后点击<b>岗位</b>只看该岗位职工。部门来自「人事管理 → 组织架构」。</p>
+        <div id="deptTree" class="grade-tree"></div>
+      </aside>
+      <div class="lg-main">
     <section class="stats">
       <div class="stat-card"><div class="stat-num" id="statAll">0</div><div class="stat-label">后勤职工总数</div></div>
       <div class="stat-card"><div class="stat-num" id="statOn">0</div><div class="stat-label">在职（含试用 / 借调）</div></div>
@@ -123,6 +188,7 @@
           <option value="contract">合同即将到期 / 已过期</option>
           <option value="health">健康证即将到期 / 已过期</option>
         </select>
+        <span class="filter-chip" id="treeChip" hidden><span id="treeChipText"></span><button type="button" id="treeChipClear" title="清除部门 / 岗位筛选">&times;</button></span>
       </div>
       <div class="toolbar-right">
         <button class="btn btn-default" id="btnExport" type="button">导出 CSV</button>
@@ -148,6 +214,8 @@
         </table>
       </div>
     </section>
+      </div>
+    </div>
   </main>
 
   <!-- 后勤职工新增 / 编辑弹窗 -->

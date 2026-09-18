@@ -142,7 +142,7 @@ input, select, textarea, button { font-family: inherit; }
 
 /* ========== 容器 ========== */
 .container {
-  max-width: 1400px;
+ /* 1400px 为设计稿宽度 max-width: 1400px; */
   margin: 0 auto;
   padding: 24px;
 }
