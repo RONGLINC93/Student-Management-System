@@ -118,6 +118,16 @@
       background: #eef2ff; color: #4f46e5; font-weight: 600; margin-right: 4px;
     }
     .tnode.collapsed .tpositions { display: none; }
+    /* 拖拽调整部门位置：拖到行中间=成为其子部门，拖到上/下边缘=调整同级顺序 */
+    .trow[draggable="true"] { cursor: grab; }
+    .trow.dragging { opacity: .4; }
+    .trow.drop-into { background: #e8ecff; box-shadow: inset 0 0 0 1px var(--primary); }
+    .trow.drop-before::after, .trow.drop-after::after {
+      content: ''; position: absolute; left: 2px; right: 2px; height: 3px;
+      border-radius: 2px; background: var(--primary); pointer-events: none;
+    }
+    .trow.drop-before::after { top: -2px; }
+    .trow.drop-after::after { bottom: -2px; }
   </style>
 </head>
 <body>
@@ -160,7 +170,7 @@
             <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加部门
           </button>
         </div>
-        <p class="hr-tip">顶层为学校名称，其下按部门层级维护（支持多级：总务处 → 安保处 / 食堂）。每行右侧「⋯」可添加子部门 / 编辑 / 删除，也可<b>添加职位</b>——职位会作为该部门下的子项展示，并供后勤职工登记时「具体岗位」联动。改完部门点「保存组织架构」。</p>
+        <p class="hr-tip">顶层为学校名称，其下按部门层级维护（支持多级：总务处 → 安保处 / 食堂）。每行右侧「⋯」可添加子部门 / 编辑 / 删除，也可<b>添加职位</b>——职位会作为该部门下的子项展示，并供后勤职工登记时「具体岗位」联动。<b>拖动部门行</b>可调整位置：拖到另一行的<b>中间</b>成为其子部门，拖到行<b>上 / 下边缘</b>调整同级先后，松手即保存。改完部门点「保存组织架构」。</p>
         <div id="deptTree" class="org-tree"></div>
 
       </aside>

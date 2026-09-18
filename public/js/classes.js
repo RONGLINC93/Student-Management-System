@@ -77,8 +77,11 @@ async function loadGradeOptions() {
 // 保存筛选设置到服务端
 async function saveFilters() {
   try {
+    // 年级筛选改由左侧树控制：普通年级存年级名，「未设年级」存 __none__
+    const g = treeSel.kind === 'grade' ? String(treeSel.value || '')
+      : (treeSel.kind === 'none' ? '__none__' : '');
     const filters = {
-      'classes:grade': $('#gradeFilter')?.value || '',
+      'classes:grade': g,
       'classes:search': $('#searchInput')?.value || ''
     };
     await fetch(FILTERS_API, {
@@ -98,11 +101,11 @@ async function loadFilters() {
     const json = await res.json();
     const savedFilters = json.data || {};
 
-    // 恢复筛选设置
-    const gradeFilter = $('#gradeFilter');
-    if (gradeFilter && savedFilters['classes:grade']) {
-      gradeFilter.value = savedFilters['classes:grade'];
-    }
+    // 恢复年级筛选（左侧树）：__none__ 表示「未设年级」
+    const g = String(savedFilters['classes:grade'] || '');
+    if (g === '__none__') treeSel = { kind: 'none', value: '' };
+    else if (g) treeSel = { kind: 'grade', value: g };
+    else treeSel = { kind: 'all', value: '' };
     const searchInput = $('#searchInput');
     if (searchInput && savedFilters['classes:search']) {
       searchInput.value = savedFilters['classes:search'];
@@ -143,13 +146,127 @@ function updateStats() {
   $('#statCapacity').textContent = classes.reduce((a, c) => a + (Number(c.capacity) || 0), 0);
 }
 
+// ===== 左侧「年级 / 班级」导航树 =====
+let treeSel = { kind: 'all', value: '' };  // all / grade / none（none = 未设年级的班级）
+let treeCollapsed = new Set();             // 已折叠的节点（根节点）
+
+const TREE_SVG = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+const TREE_ICON = {
+  all: `<svg class="gico school" ${TREE_SVG}><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>`,
+  grade: `<svg class="gico grade" ${TREE_SVG}><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 14l9 5 9-5"/></svg>`
+};
+// 一行树节点：折叠箭头 + 图标 + 名称 + 右侧统计
+function treeRowHtml(o) {
+  const toggle = o.hasKids
+    ? `<button type="button" class="gtree-toggle${o.collapsed ? ' collapsed' : ''}" data-toggle="${escapeHtml(o.nodeId || '')}" aria-label="展开 / 收起"></button>`
+    : '<span class="gtree-toggle leaf"></span>';
+  return `<div class="gtree-row${o.selected ? ' selected' : ''}" data-kind="${escapeHtml(o.kind)}" data-value="${escapeHtml(o.value || '')}"${o.title ? ` title="${escapeHtml(o.title)}"` : ''}>`
+    + toggle + o.icon
+    + `<span class="gname">${escapeHtml(o.name)}</span>`
+    + (o.meta ? `<span class="gmeta">${escapeHtml(o.meta)}</span>` : '')
+    + '</div>';
+}
+// 树中的年级清单：以「年级管理」为准，补进班级已用但年级管理中缺失的年级
+function treeGradeNames() {
+  const names = [];
+  const add = (v) => { const n = String(v || '').trim(); if (n && names.indexOf(n) === -1) names.push(n); };
+  (gradesList || []).forEach(add);
+  classes.forEach(c => add(c && c.grade));
+  return names;
+}
+function matchTreeSel(c) {
+  if (treeSel.kind === 'all') return true;
+  const g = String(c.grade || '').trim();
+  if (treeSel.kind === 'none') return !g;
+  return g === String(treeSel.value || '').trim();
+}
+function renderTree() {
+  const host = $('#classTree');
+  if (!host) return;
+  const rootCollapsed = treeCollapsed.has('__root__');
+  // 侧栏只到年级一层：全部班级 → 年级（班级数 · 学生数），不再展开具体班级
+  let kids = treeGradeNames().map(g => {
+    const list = classes.filter(c => String(c.grade || '').trim() === g);
+    let stu = 0;
+    list.forEach(c => { stu += (c.students || []).length; });
+    return '<div class="gnode">' + treeRowHtml({
+      icon: TREE_ICON.grade, name: g, kind: 'grade', value: g,
+      meta: `${list.length} 个班 · ${stu} 人`,
+      selected: treeSel.kind === 'grade' && String(treeSel.value) === g,
+      title: `只看「${g}」的班级`
+    }) + '</div>';
+  }).join('');
+  const noGrade = classes.filter(c => !String(c.grade || '').trim());
+  if (noGrade.length) {
+    kids += '<div class="gnode">' + treeRowHtml({
+      icon: TREE_ICON.grade, name: '未设年级', kind: 'none', value: '',
+      meta: `${noGrade.length} 个班`, selected: treeSel.kind === 'none',
+      title: '只看未设置年级的班级'
+    }) + '</div>';
+  }
+  host.innerHTML = '<div class="gnode gnode-root' + (rootCollapsed ? ' collapsed' : '') + '">'
+    + treeRowHtml({
+      icon: TREE_ICON.all, name: '全部班级', kind: 'all', value: '',
+      meta: classes.length + ' 个班', selected: treeSel.kind === 'all',
+      hasKids: true, collapsed: rootCollapsed, nodeId: '__root__', title: '显示全部班级'
+    })
+    + '<div class="gchildren">' + kids + '</div></div>'
+    + (classes.length ? '' : '<p class="sidebar-tip" style="margin-top:8px">暂无班级，点击「添加班级」创建。</p>');
+}
+// 侧栏筛选：设置后刷新列表并持久化
+function setTreeSel(sel) {
+  treeSel = sel || { kind: 'all', value: '' };
+  renderClasses();
+  saveFilters();
+}
+function clearTreeSel() { setTreeSel({ kind: 'all', value: '' }); }
+function bindTree() {
+  const host = $('#classTree');
+  if (!host || host.dataset.bound) return;
+  host.dataset.bound = '1';
+  host.addEventListener('click', (e) => {
+    const tg = e.target.closest('.gtree-toggle');
+    if (tg && !tg.classList.contains('leaf')) {
+      const id = tg.dataset.toggle || '';
+      if (treeCollapsed.has(id)) treeCollapsed.delete(id);
+      else treeCollapsed.add(id);
+      renderTree();
+      return;
+    }
+    const row = e.target.closest('.gtree-row');
+    if (!row) return;
+    const kind = row.dataset.kind || 'all';
+    const value = row.dataset.value || '';
+    if (kind === 'all') { clearTreeSel(); return; }
+    // 再点一次已选中的年级即恢复全部，否则只看该年级
+    if (kind === 'grade') {
+      const same = treeSel.kind === 'grade' && String(treeSel.value) === value;
+      setTreeSel(same ? { kind: 'all', value: '' } : { kind: 'grade', value });
+      return;
+    }
+    if (kind === 'none') {
+      setTreeSel(treeSel.kind === 'none' ? { kind: 'all', value: '' } : { kind: 'none', value: '' });
+    }
+  });
+}
+// 工具栏中的筛选提示 chip（当前年级 + 命中班级数，可一键清除）
+function updateTreeChip(count) {
+  const chip = $('#treeChip');
+  if (!chip) return;
+  const txt = $('#treeChipText');
+  if (treeSel.kind === 'all') { chip.hidden = true; if (txt) txt.textContent = ''; return; }
+  const label = treeSel.kind === 'none' ? '未设年级' : '年级：' + treeSel.value;
+  chip.hidden = false;
+  if (txt) txt.textContent = label + ' · ' + count + ' 个班';
+}
+
 function renderClasses() {
   const kw = ($('#searchInput').value || '').trim().toLowerCase();
-  const gradeFilter = $('#gradeFilter')?.value || '';
-  let list = classes.slice();
-  if (gradeFilter) {
-    list = list.filter(c => c.grade === gradeFilter);
+  // 年级已被删除时自动回退到全部，避免列表一直为空
+  if (treeSel.kind === 'grade' && treeGradeNames().indexOf(String(treeSel.value)) === -1) {
+    treeSel = { kind: 'all', value: '' };
   }
+  let list = classes.slice().filter(matchTreeSel);
   if (kw) {
     list = list.filter(c =>
       (c.name || '').toLowerCase().includes(kw) ||
@@ -171,6 +288,8 @@ function renderClasses() {
         </td>
       </tr>`;
     syncBatchUI();
+    updateTreeChip(0);
+    renderTree();
     return;
   }
   tbody.innerHTML = list.map(c => {
@@ -215,6 +334,8 @@ function renderClasses() {
     `;
   }).join('');
   syncBatchUI();
+  updateTreeChip(list.length);
+  renderTree();
 }
 
 // 班主任下拉：引用教师列表中的教师（以教师档案的班主任归属 classId 为准）
@@ -820,8 +941,8 @@ function bindDragSort() {
   tbody.addEventListener('dragstart', (e) => {
     const row = e.target.closest('tr.data-row');
     if (!row) return;
-    // 有筛选/搜索时只展示了部分班级，禁止拖拽排序
-    if (($('#searchInput').value || '').trim() || $('#gradeFilter')?.value) {
+    // 有筛选/搜索（含左侧树的年级筛选）时只展示了部分班级，禁止拖拽排序
+    if (($('#searchInput').value || '').trim() || treeSel.kind !== 'all') {
       toast('请先清除筛选/搜索条件，再拖拽排序', 'error');
       e.preventDefault();
       return;
@@ -891,7 +1012,11 @@ function bindEvents() {
   $('#fCount').oninput = syncAddForm;
   $('#fGrade').onchange = syncAddForm;
   $('#searchInput').oninput = () => { renderClasses(); saveFilters(); };
-  $('#gradeFilter').onchange = () => { renderClasses(); saveFilters(); };
+
+  // 左侧「年级 / 班级」树
+  bindTree();
+  if ($('#btnTreeAll')) $('#btnTreeAll').onclick = clearTreeSel;
+  if ($('#treeChipClear')) $('#treeChipClear').onclick = clearTreeSel;
   // 批量删除：表头全选 / 行首勾选 / 工具栏按钮
   $('#ckAll').onchange = onCheckAllChange;
   $('#classesTbody').onchange = onRowCheckChange;

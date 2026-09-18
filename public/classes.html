@@ -13,6 +13,28 @@
     /* 各列已按固定像素设宽（table-layout:fixed，合计约 1160px），给表格一个最小宽度，
        窄屏时保持整行完整并横向滑动，避免「容量占用」等列被压缩为 0 */
     .class-table { min-width: 1202px; }
+
+    /* ===== 左侧「年级 / 班级」侧栏 + 右侧内容区（树样式见 /css/style.css） ===== */
+    .cls-layout { display: flex; gap: 18px; align-items: flex-start; }
+    .cls-sidebar {
+      flex: 0 0 250px; position: sticky; top: 18px; align-self: flex-start;
+      background: #fff; border: 1px solid var(--border, #e5e7eb); border-radius: 12px;
+      padding: 14px; max-height: calc(100vh - 45px); overflow: auto; overscroll-behavior: contain;
+    }
+    .cls-main { flex: 1 1 auto; min-width: 0; }
+    /* 工具栏中的筛选提示（当前年级 + 命中班级数，可一键清除） */
+    .filter-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+      border-radius: 999px; background: #eef2ff; border: 1px solid #c7d2fe;
+      color: #4338ca; font-size: 13px; white-space: nowrap;
+    }
+    .filter-chip button { border: 0; background: transparent; color: #6366f1; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+    .filter-chip button:hover { color: #312e81; }
+    @media (max-width: 900px) {
+      /* 小屏：侧栏改为顶部整块，内容区独占下方 */
+      .cls-layout { flex-direction: column; }
+      .cls-sidebar { flex: 1 1 auto; width: 100%; position: static; max-height: none; }
+    }
   </style>
 </head>
 <body>
@@ -47,62 +69,74 @@
   </header>
 
   <main class="container">
-    <!-- 统计 -->
-    <section class="stats">
-      <div class="stat-card">
-        <div class="stat-num" id="statClasses">0</div>
-        <div class="stat-label">班级总数</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num" id="statAssigned">0</div>
-        <div class="stat-label">已分班学生</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num" id="statPool">0</div>
-        <div class="stat-label">未分班学生</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num" id="statCapacity">0</div>
-        <div class="stat-label">总容量</div>
-      </div>
-    </section>
+    <div class="cls-layout">
+      <!-- 左侧：年级导航树 -->
+      <aside class="cls-sidebar">
+        <div class="sidebar-head">
+          <h3 class="sidebar-title">年级</h3>
+          <button type="button" class="btn btn-outline btn-sm" id="btnTreeAll">全部班级</button>
+        </div>
+        <p class="sidebar-tip">点击<b>年级</b>只看该年级的班级，再点一次恢复全部。</p>
+        <div id="classTree" class="grade-tree"></div>
+      </aside>
 
-    <!-- 工具栏 -->
-    <section class="toolbar">
-      <div class="toolbar-left">
-        <input type="text" id="searchInput" class="search-input" placeholder="搜索班级名/班主任..." />
-        <select id="gradeFilter" class="grade-filter">
-          <option value="">全部年级</option>
-        </select>
-        <span style="font-size: 13px; color: #94a3b8;">拖拽行可调整顺序</span>
-      </div>
-      <div class="toolbar-right">
-        <button class="btn btn-danger" id="btnBatchDel" disabled>批量删除</button>
-        <button class="btn btn-primary" id="btnAdd"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加班级</button>
-      </div>
-    </section>
+      <div class="cls-main">
+        <!-- 统计 -->
+        <section class="stats">
+          <div class="stat-card">
+            <div class="stat-num" id="statClasses">0</div>
+            <div class="stat-label">班级总数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statAssigned">0</div>
+            <div class="stat-label">已分班学生</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statPool">0</div>
+            <div class="stat-label">未分班学生</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statCapacity">0</div>
+            <div class="stat-label">总容量</div>
+          </div>
+        </section>
 
-    <!-- 班级表格 -->
-    <section class="table-wrap">
-      <table class="student-table class-table">
-        <thead>
-          <tr>
-            <th class="th-check" style="width: 42px;"><input type="checkbox" id="ckAll" class="row-cbox" title="全选 / 取消全选" /></th>
-            <th style="width: 180px;">班级名称</th>
-            <th class="th-center" style="width: 90px;">所属年级</th>
-            <th class="th-center" style="width: 130px;">班主任</th>
-            <th class="th-center" style="width: 60px;">人数</th>
-            <th class="th-center" style="width: 130px;">男 / 女</th>
-            <th class="th-center" style="width: 90px;">平均分</th>
-            <th class="th-center">容量占用</th>
-            <th style="width: 310px;">操作</th>
-          </tr>
-        </thead>
-        <tbody id="classesTbody">
-          <tr><td colspan="9" class="empty-tip">加载中...</td></tr>
-        </tbody>
-      </table>
-    </section>
+        <!-- 工具栏 -->
+        <section class="toolbar">
+          <div class="toolbar-left">
+            <input type="text" id="searchInput" class="search-input" placeholder="搜索班级名/班主任..." />
+            <span class="filter-chip" id="treeChip" hidden><span id="treeChipText"></span><button type="button" id="treeChipClear" title="清除年级筛选">&times;</button></span>
+            <span style="font-size: 13px; color: #94a3b8;">拖拽行可调整顺序</span>
+          </div>
+          <div class="toolbar-right">
+            <button class="btn btn-danger" id="btnBatchDel" disabled>批量删除</button>
+            <button class="btn btn-primary" id="btnAdd"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加班级</button>
+          </div>
+        </section>
+
+        <!-- 班级表格 -->
+        <section class="table-wrap">
+          <table class="student-table class-table">
+            <thead>
+              <tr>
+                <th class="th-check" style="width: 42px;"><input type="checkbox" id="ckAll" class="row-cbox" title="全选 / 取消全选" /></th>
+                <th style="width: 180px;">班级名称</th>
+                <th class="th-center" style="width: 90px;">所属年级</th>
+                <th class="th-center" style="width: 130px;">班主任</th>
+                <th class="th-center" style="width: 60px;">人数</th>
+                <th class="th-center" style="width: 130px;">男 / 女</th>
+                <th class="th-center" style="width: 90px;">平均分</th>
+                <th class="th-center">容量占用</th>
+                <th style="width: 310px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="classesTbody">
+              <tr><td colspan="9" class="empty-tip">加载中...</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
   </main>
 
   <!-- 班级编辑弹窗 -->

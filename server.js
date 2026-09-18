@@ -655,15 +655,24 @@ function normalizeDepartment(raw, idx) {
   if (parentId && parentId === id) parentId = ''; // 不允许指向自身
   const leaderType = String(o.leaderType || '') === 'logistics' ? 'logistics'
     : (String(o.leaderType || '') === 'teacher' ? 'teacher' : '');
+  // sort：侧栏拖拽调整位置后的自定义顺序（越小越靠前）；未设置视为末位
+  const sort = (o.sort === undefined || o.sort === null || o.sort === '' || !Number.isFinite(Number(o.sort)))
+    ? null : Number(o.sort);
   return {
     id,
     name,
     parentId,
+    sort,
     leaderId: String(o.leaderId || '').trim(),
     leaderType,
     leaderName: String(o.leaderName || '').trim().slice(0, 30),
     desc: String(o.desc || '').trim().slice(0, 60)
   };
+}
+const deptSortKey = d => (d && d.sort != null ? d.sort : Number.MAX_SAFE_INTEGER);
+// 部门排序：先按自定义顺序 sort，未设置的排在最后并按名称兜底
+function deptOrderCmp(a, b) {
+  return (deptSortKey(a) - deptSortKey(b)) || String(a.name || '').localeCompare(String(b.name || ''), 'zh');
 }
 // 部门权限单行规范化：部门名去空、模块走白名单过滤
 function normalizeDeptPerm(raw, idx) {
@@ -4088,7 +4097,7 @@ async function handle(req, res) {
   // GET：所有登录用户可读（人事管理页部门联想、异动登记部门下拉、系统设置组织架构权限区均需读取）
   if (pathname === '/api/departments' && req.method === 'GET') {
     const list = readDepartments().map(normalizeDepartment);
-    list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh'));
+    list.sort(deptOrderCmp);
     return sendJson(res, 200, { code: 0, data: list });
   }
   // PUT：全量替换部门列表（支持层级 parentId 与负责人）。写操作纳入 'hr' 模块闸门——仅管理员或获「人事管理」授权的部门账号可维护。
@@ -4121,7 +4130,7 @@ async function handle(req, res) {
       while (cur && depth < 20) { cur = cur.parentId ? ids[cur.parentId] : null; depth++; }
       depthOf[d.id] = depth;
     });
-    list.sort((a, b) => depthOf[a.id] - depthOf[b.id] || String(a.name).localeCompare(String(b.name), 'zh'));
+    list.sort((a, b) => (deptSortKey(a) - deptSortKey(b)) || (depthOf[a.id] - depthOf[b.id]) || String(a.name).localeCompare(String(b.name), 'zh'));
     writeDepartments(list);
     return sendJson(res, 200, { code: 0, data: list, msg: '组织架构已保存（共 ' + list.length + ' 个部门）' });
   }

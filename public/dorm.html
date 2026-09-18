@@ -69,7 +69,7 @@
     .empty-card p { font-size:16px; color:var(--text); margin:0 0 6px; font-weight:600; }
     .empty-card .e-btn { margin-top:18px; display:flex; gap:10px; justify-content:center; }
 
-    /* ===== 左侧「楼栋 / 房间」侧栏 + 右侧房态区（树样式见 /css/style.css） ===== */
+    /* ===== 左侧「楼栋」侧栏 + 右侧房态区（树样式见 /css/style.css） ===== */
     .dorm-layout { display: flex; gap: 18px; align-items: flex-start; }
     .dorm-sidebar {
       flex: 0 0 250px; position: sticky; top: 18px; align-self: flex-start;
@@ -78,12 +78,6 @@
     }
     .dorm-main { flex: 1 1 auto; min-width: 0; }
     .gico.build { color: #4f46e5; }
-    .gico.room { color: #9aa7b8; }
-    /* 房间节点的房态色点：与房态图瓦片一致 */
-    .gtree-row .rstate { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; }
-    .rstate.st-empty { background: #22c55e; }
-    .rstate.st-part { background: #f59e0b; }
-    .rstate.st-full { background: #8b5cf6; }
 
     /* ===== 房间详情 ===== */
     #detailMask .modal { max-width:600px; }
@@ -245,13 +239,13 @@
 
   <main class="container">
     <div class="dorm-layout">
-      <!-- 左侧：楼栋 / 房间导航树 -->
+      <!-- 左侧：楼栋导航树 -->
       <aside class="dorm-sidebar">
         <div class="sidebar-head">
-          <h3 class="sidebar-title">楼栋 / 房间</h3>
+          <h3 class="sidebar-title">楼栋</h3>
           <button type="button" class="btn btn-outline btn-sm" id="btnTreeAll">全部房间</button>
         </div>
-        <p class="sidebar-tip">点击<b>楼栋</b>只看该楼栋房间；点箭头展开后点击<b>房号</b>可直接打开房间详情。房间后为「在住 / 床位」。</p>
+        <p class="sidebar-tip">点击<b>楼栋</b>只看该楼栋的房间，再点一次恢复全部。楼栋后为「房间数 · 在住/床位」。</p>
         <div id="dormTree" class="grade-tree"></div>
       </aside>
 

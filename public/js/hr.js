@@ -399,6 +399,8 @@ function bindEvents() {
   $('#deptModalClose').onclick = closeDeptModal;
   $('#deptModal').onclick = (e) => { if (e.target === $('#deptModal')) closeDeptModal(); };
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#deptModal') && $('#deptModal').classList.contains('show')) closeDeptModal(); });
+  // 部门树拖拽排序（改变上级 / 同级顺序）
+  bindDeptDnd();
   $('#deptTree').addEventListener('click', (e) => {
     // 折叠 / 展开
     const tg = e.target.closest('.ttoggle[data-toggle]');
@@ -544,14 +546,21 @@ function renderDeptTree() {
   const host = $('#deptTree');
   if (!host) return;
   const writable = canWrite();
-  const kidsOf = pid => deptCache.filter(d => (d.parentId || '') === pid);
+  // 同级按自定义顺序 sort 排列（未设置顺序的排在最后，按名称兜底）
+  const sortKeyOf = d => (d && d.sort != null ? Number(d.sort) : Number.MAX_SAFE_INTEGER);
+  const kidsOf = pid => deptCache.filter(d => (d.parentId || '') === pid)
+    .sort((a, b) => sortKeyOf(a) - sortKeyOf(b) || String(a.name || '').localeCompare(String(b.name || ''), 'zh'));
   const roots = kidsOf('');
 
-  function row(icon, name, meta, menu, hasKids, collapsed, nodeId) {
+  function row(icon, name, meta, menu, hasKids, collapsed, nodeId, deptId) {
     const toggle = hasKids
       ? '<button type="button" class="ttoggle' + (collapsed ? ' collapsed' : '') + '" data-toggle="' + escAttr(nodeId) + '"></button>'
       : '<span class="ttoggle leaf"></span>';
-    return '<div class="trow">' + toggle + icon +
+    // 部门行可拖拽调整层级与顺序（无写权限时不开启）
+    const dragAttr = (writable && deptId)
+      ? ' draggable="true" data-dept="' + escAttr(deptId) + '" title="按住拖动可调整层级与顺序"'
+      : '';
+    return '<div class="trow"' + dragAttr + '>' + toggle + icon +
       '<span class="tname">' + escAttr(name) + '</span>' +
       (meta ? '<span class="tmeta">' + escAttr(meta) + '</span>' : '') +
       (menu || '') +
@@ -595,7 +604,7 @@ function renderDeptTree() {
     ]) : '';
     const hasKids = children.length > 0 || !!posRows;
     let html = '<div class="tnode' + (collapsed ? ' collapsed' : '') + '">' +
-      row(children.length ? TREE_ICONS.building : TREE_ICONS.staff, d.name, d.leaderName || '', menu, hasKids, collapsed, d.id);
+      row(children.length ? TREE_ICONS.building : TREE_ICONS.staff, d.name, d.leaderName || '', menu, hasKids, collapsed, d.id, d.id);
     if (children.length) html += '<div class="tchildren">' + children.map(node).join('') + '</div>';
     if (posRows) html += '<div class="tpositions">' + posRows + '</div>';
     html += '</div>';
@@ -606,7 +615,7 @@ function renderDeptTree() {
   const rootCollapsed = deptCollapsed.has('__root__');
   const rootMenu = writable ? menuHtml([{ act: 'add', id: '', label: '添加部门' }]) : '';
   let html = '<div class="tnode tnode-root">' +
-    row(TREE_ICONS.school, schoolNameCache, '共 ' + deptCache.length + ' 个部门', rootMenu, roots.length > 0, rootCollapsed, '__root__') +
+    row(TREE_ICONS.school, schoolNameCache, '共 ' + deptCache.length + ' 个部门', rootMenu, roots.length > 0, rootCollapsed, '__root__', '') +
     (roots.length ? '<div class="tchildren">' + roots.map(node).join('') + '</div>' : '') +
     '</div>';
   if (!deptCache.length) {
@@ -615,6 +624,76 @@ function renderDeptTree() {
       : '<div class="hr-tip" style="margin-top:8px">暂无部门数据。</div>';
   }
   host.innerHTML = html;
+}
+
+// ===== 拖拽调整部门位置（改变上级 / 同级顺序），松手即保存 =====
+let dragDeptId = '';   // 正在拖拽的部门 id
+let dropMode = '';     // before：插到目标前；after：插到目标后；into：成为目标的子部门
+function clearDropMarks() {
+  document.querySelectorAll('#deptTree .trow').forEach(r => r.classList.remove('drop-before', 'drop-after', 'drop-into'));
+}
+// 按当前列表顺序重写 sort，让同级顺序能持久化到服务端
+function reindexDeptSort() { deptCache.forEach((d, i) => { d.sort = i; }); }
+// 把 dragId 移到 targetId 的前 / 后 / 内部
+function moveDept(dragId, targetId, mode) {
+  if (!canWrite()) { toast('无保存权限', 'error'); return; }
+  const drag = deptCache.find(d => d.id === dragId);
+  const target = deptCache.find(d => d.id === targetId);
+  if (!drag || !target || dragId === targetId) return;
+  if (collectSubtree(dragId).indexOf(targetId) !== -1) { toast('不能移动到自己的下级部门', 'error'); return; }
+  drag.parentId = (mode === 'into') ? targetId : (target.parentId || '');
+  deptCache.splice(deptCache.indexOf(drag), 1);
+  const ti = deptCache.findIndex(d => d.id === targetId);
+  if (mode === 'before') deptCache.splice(ti, 0, drag);
+  else if (mode === 'after') deptCache.splice(ti + 1, 0, drag);
+  else deptCache.push(drag);   // 移入子级时排在该父部门子项末尾
+  reindexDeptSort();
+  if (mode === 'into') deptCollapsed.delete(targetId);  // 移入后展开，便于看到结果
+  renderDeptTree();
+  commitDept();
+}
+function bindDeptDnd() {
+  const host = $('#deptTree');
+  if (!host || host.dataset.dnd) return;
+  host.dataset.dnd = '1';
+  host.addEventListener('dragstart', (e) => {
+    const row = e.target.closest && e.target.closest('.trow[data-dept]');
+    if (!row) return;
+    dragDeptId = row.dataset.dept || '';
+    row.classList.add('dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragDeptId);
+    }
+  });
+  host.addEventListener('dragend', () => {
+    dragDeptId = ''; dropMode = '';
+    clearDropMarks();
+    document.querySelectorAll('#deptTree .trow.dragging').forEach(r => r.classList.remove('dragging'));
+  });
+  host.addEventListener('dragover', (e) => {
+    if (!dragDeptId) return;
+    const row = e.target.closest ? e.target.closest('.trow[data-dept]') : null;
+    clearDropMarks();
+    if (!row || row.dataset.dept === dragDeptId) return;
+    if (collectSubtree(dragDeptId).indexOf(row.dataset.dept) !== -1) return; // 禁止拖进自己的下级
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    // 上 / 下边缘 30% 调整为同级顺序，中间区域表示成为其子部门
+    const rect = row.getBoundingClientRect();
+    const p = (e.clientY - rect.top) / Math.max(1, rect.height);
+    dropMode = p < 0.3 ? 'before' : (p > 0.7 ? 'after' : 'into');
+    row.classList.add(dropMode === 'into' ? 'drop-into' : (dropMode === 'before' ? 'drop-before' : 'drop-after'));
+  });
+  host.addEventListener('dragleave', (e) => { if (!host.contains(e.relatedTarget)) clearDropMarks(); });
+  host.addEventListener('drop', (e) => {
+    const row = e.target.closest ? e.target.closest('.trow[data-dept]') : null;
+    const dragId = dragDeptId, mode = dropMode;
+    clearDropMarks();
+    if (!dragId || !row || !mode) return;
+    e.preventDefault();
+    moveDept(dragId, row.dataset.dept, mode);
+  });
 }
 // 打开编辑/新增表单：mode='add' 根部门；'add-child' 挂在 parentId 下；'edit' 编辑 existId
 async function openDeptEditor(mode, opts) {
@@ -706,7 +785,7 @@ async function commitDept() {
   if (!done) return false;
   try {
     const payload = deptCache.map(d => ({
-      id: d.id, name: d.name, parentId: d.parentId || '',
+      id: d.id, name: d.name, parentId: d.parentId || '', sort: (d.sort == null ? null : Number(d.sort)),
       leaderId: d.leaderId || '', leaderType: d.leaderType || '', leaderName: d.leaderName || '', desc: d.desc || ''
     }));
     const res = await fetch(DEPT_API, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
