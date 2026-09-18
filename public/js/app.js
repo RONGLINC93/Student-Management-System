@@ -592,7 +592,9 @@ function bindClassTree() {
 function updateTreeChip(count) {
   const chip = $('#treeChip');
   if (!chip) return;
-  if (treeSel.kind === 'all') { chip.hidden = true; return; }
+  const txt = $('#treeChipText');
+  // 未筛选时隐藏并清空文本，避免残留上一次的「年级：xx · N 人」
+  if (treeSel.kind === 'all') { chip.hidden = true; if (txt) txt.textContent = ''; return; }
   let label = '未分班';
   if (treeSel.kind === 'grade') label = '年级：' + treeSel.value;
   else if (treeSel.kind === 'class') {
@@ -600,7 +602,7 @@ function updateTreeChip(count) {
     label = '班级：' + (c ? c.name : '—');
   }
   chip.hidden = false;
-  $('#treeChipText').textContent = label + ' · ' + count + ' 人';
+  if (txt) txt.textContent = label + ' · ' + count + ' 人';
 }
 // 班级列表（树数据源），与「安排入班」弹窗各自按需拉取
 async function loadClassTree() {

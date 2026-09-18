@@ -282,12 +282,14 @@ function bindDeptTree() {
 function updateTreeChip(count) {
   const chip = $('#treeChip');
   if (!chip) return;
-  if (treeSel.kind === 'all') { chip.hidden = true; return; }
+  const txt = $('#treeChipText');
+  // 未筛选时隐藏并清空文本，避免残留上一次的筛选提示
+  if (treeSel.kind === 'all') { chip.hidden = true; if (txt) txt.textContent = ''; return; }
   let label = '未分配部门';
   if (treeSel.kind === 'dept') label = '部门：' + treeSel.value;
   else if (treeSel.kind === 'post') label = '岗位：' + treeSel.value + '（' + treeSel.dept + '）';
   chip.hidden = false;
-  $('#treeChipText').textContent = label + ' · ' + count + ' 人';
+  if (txt) txt.textContent = label + ' · ' + count + ' 人';
 }
 
 // ===== 到期渲染 =====

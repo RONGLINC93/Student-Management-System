@@ -415,7 +415,9 @@ function bindGradeTree() {
 function updateTreeChip(count) {
   const chip = $('#treeChip');
   if (!chip) return;
-  if (treeSel.kind === 'all') { chip.hidden = true; return; }
+  const txt = $('#treeChipText');
+  // 未筛选时隐藏并清空文本，避免残留上一次的筛选提示
+  if (treeSel.kind === 'all') { chip.hidden = true; if (txt) txt.textContent = ''; return; }
   let label = '';
   if (treeSel.kind === 'none') label = '未指定年级';
   else if (treeSel.kind === 'grade') label = '任教年级：' + treeSel.value;
@@ -424,7 +426,7 @@ function updateTreeChip(count) {
     label = '班级：' + (c ? c.name : '—') + '（班主任）';
   }
   chip.hidden = false;
-  $('#treeChipText').textContent = label + ' · ' + count + ' 人';
+  if (txt) txt.textContent = label + ' · ' + count + ' 人';
 }
 
 // 职务筛选下拉：按现有教师职务动态重建（保留当前选中值）

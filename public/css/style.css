@@ -1,5 +1,7 @@
 /* ========== 基础重置 ========== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
+/* hidden 属性默认样式优先级低于类选择器，统一兜底确保 el.hidden = true 真正隐藏 */
+[hidden] { display: none !important; }
 :root {
   --primary: #4f6df5;
   --primary-dark: #3a55d8;
