@@ -195,10 +195,10 @@ function deptPermEffective() {
   });
   return out;
 }
-// 部门账号会话当前实际可写模块：按该教师所属部门命中的条目计算
+// 部门账号会话当前实际可写模块：按其所属部门（教师 / 后勤职工档案）命中的条目计算
 function sessionPerm(u) {
   if (!u || u.role !== ROLES.POSITION) return null;
-  return resolveTeacherPerm(findTeacherOfAuth(u));
+  return resolveTeacherPerm(findStaffOfAuth(u));
 }
 const DEFAULT_SETTINGS = {
   schoolName: '学生管理系统', // 页面顶部 / 工作台品牌 / 标题展示的学校（机构）名称
@@ -1655,6 +1655,8 @@ function authTeacher(req) {
     if (!data.u || data.r !== ROLES.TEACHER || typeof data.exp !== 'number' || data.exp < Date.now()) return null;
     const user = findUser(data.u);
     if (!user || user.role !== ROLES.TEACHER) return null;
+    // 后勤职工仅限登录管理后台，自助端不开放：已登录的旧会话立即失效
+    if (isLogisticsUser(user)) return null;
     // 人事管理：教师 / 后勤职工被登记为离职 / 退休后，其已登录会话立即失效
     const staff = findStaffOfAuth({ username: user.u });
     if (staff && OFF_DUTY_STATUS.indexOf(normalizeStatus(staff.status)) !== -1) return null;
@@ -1697,6 +1699,51 @@ function findStaffOfAuth(t) {
   const user = findUser(t.username);
   if (isLogisticsUser(user)) return findLogisticsOfAuth(t) || findTeacherOfAuth(t);
   return findTeacherOfAuth(t) || findLogisticsOfAuth(t);
+}
+// 教师 / 后勤职工首次登录「管理后台」时自动建档：账号 = 工号，初始密码 = 身份证号后 6 位。
+// 与自助端同一口径，但额外要求「所属部门」命中组织架构权限——未命中不建档，避免产生无用账号
+// （后勤职工没有自助端入口，管理后台就是其唯一的建档途径）。
+// 返回：{ user } 建档成功；{ abort: true, msg } 已明确拒绝（调用方回 403）；null 表示不匹配，按账号 / 密码错误处理
+function provisionStaffUser(username, pw) {
+  if (!validUsername(username)) return null;
+  const tea = findTeacherByNo(username);
+  const logi = tea ? null : findLogisticsByNo(username);
+  const staff = tea || logi;
+  if (!staff) return null;
+  const who = tea ? '教师' : '职工';
+  const where = tea ? '教师管理' : '后勤/职工管理';
+  const initPwd = idCardInitPassword(staff);
+  if (!initPwd || String(pw || '') !== initPwd) return null;
+  if (OFF_DUTY_STATUS.indexOf(normalizeStatus(staff.status)) !== -1) {
+    return { abort: true, msg: '该' + who + '档案为「' + normalizeStatus(staff.status) + '」状态，不能登录管理后台' };
+  }
+  const perm = resolveTeacherPerm(staff);
+  if (!perm) {
+    return {
+      abort: true,
+      msg: '该' + who + '未设置「所属部门」，不能登录管理后台；如需授权请先在「' + where
+        + '」中填写所属部门，并在「系统设置 → 组织架构权限」为该部门勾选模块'
+    };
+  }
+  const salt = crypto.randomBytes(16).toString('hex');
+  const now = new Date().toISOString();
+  const user = {
+    u: username, salt,
+    hash: hashPassword(initPwd, salt),
+    role: ROLES.TEACHER,
+    kind: tea ? 'teacher' : 'logistics',
+    tid: tea ? tea.id : '',
+    lid: logi ? logi.id : '',
+    name: staff.name,
+    nickname: staff.name,
+    must: true,                 // 首次登录，登录后强制修改密码
+    createdAt: now,
+    updatedAt: now
+  };
+  const list = readUsers();
+  list.push(user);
+  writeUsers(list);
+  return { user: user };
 }
 // 后台登录与写权限一律由 resolveTeacherPerm（组织架构权限：按所属部门，含上级继承）决定；
 // 职称属专业技术等级、行政职务仅作岗位展示，二者均不参与权限判定。
@@ -2227,7 +2274,13 @@ async function handle(req, res) {
       const locked = loginLockLeft(req, username);
       if (locked) return sendJson(res, 429, { code: 1, msg: lockMsg(locked) });
     }
-    const user = findUser(username);
+    let user = findUser(username);
+    if (!user) {
+      // 教师 / 后勤职工首次登录管理后台：工号 + 身份证号后 6 位自动建档（后勤职工无自助端入口，此处是其唯一建档途径）
+      const prov = provisionStaffUser(username, body.password);
+      if (prov && prov.abort) return sendJson(res, 403, { code: 1, msg: prov.msg });
+      if (prov && prov.user) user = prov.user;
+    }
     if (!user || !verifyPassword(body.password, user.salt, user.hash)) {
       const left = username ? loginMarkFail(req, username) : 0;
       return sendJson(res, 401, { code: 1, msg: left ? lockMsg(left) : '账号或密码不正确' });
@@ -2236,24 +2289,25 @@ async function handle(req, res) {
       return sendJson(res, 403, { code: 1, msg: '该账号为学生账号，请前往「学生登录入口」登录' });
     }
     if (user.role === ROLES.TEACHER) {
-      // 部门账号教师：所属部门（含上级继承）命中组织架构权限即可登录管理后台，权限由命中的部门决定
-      const tea = findTeacherOfAuth({ username: user.u });
-      const perm = tea ? resolveTeacherPerm(tea) : null;
-      if (!tea || !perm) {
-        // 已离岗（离职 / 退休）或未归属任何部门的教师不能进入后台
-        if (tea && OFF_DUTY_STATUS.indexOf(normalizeStatus(tea.status)) !== -1) {
-          return sendJson(res, 403, { code: 1, msg: '该教师档案为「' + normalizeStatus(tea.status) + '」状态，不能登录管理后台' });
+      // 部门账号（教师 / 后勤职工）：所属部门（含上级继承）命中组织架构权限即可登录管理后台，权限由命中的部门决定
+      const staff = findStaffOfAuth({ username: user.u });
+      const perm = staff ? resolveTeacherPerm(staff) : null;
+      const isLogi = isLogisticsUser(user);
+      const who = isLogi ? '职工' : '教师';
+      if (!staff || !perm) {
+        // 已离岗（离职 / 退休）或未归属任何部门的人员不能进入后台
+        if (staff && OFF_DUTY_STATUS.indexOf(normalizeStatus(staff.status)) !== -1) {
+          return sendJson(res, 403, { code: 1, msg: '该' + who + '档案为「' + normalizeStatus(staff.status) + '」状态，不能登录管理后台' });
         }
         return sendJson(res, 403, {
           code: 1,
-          msg: tea
-            ? '该教师未设置「所属部门」，不能登录管理后台；如需授权请先在教师档案中填写所属部门，并在「系统设置 → 组织架构权限」为该部门勾选模块'
-            : '该账号为教师账号，请前往「教师登录入口」登录'
+          msg: staff
+            ? '该' + who + '未设置「所属部门」，不能登录管理后台；如需授权请先在「' + (isLogi ? '后勤/职工管理' : '教师管理')
+              + '」中填写所属部门，并在「系统设置 → 组织架构权限」为该部门勾选模块'
+            : (isLogi ? '该账号为职工账号' : '该账号为教师账号') + '，请前往「教师登录入口」登录'
         });
       }
-      if (user.must) {
-        return sendJson(res, 403, { code: 1, msg: '请先通过「教师登录入口」完成首次密码修改，再登录管理后台' });
-      }
+      // 初始密码登录（must=true）允许进入后台，但前端会强制改密后方可继续使用
       loginMarkSuccess(req, username);
       const ttl = body.remember ? REMEMBER_SECONDS : SESSION_SECONDS;
       const token = makeToken(user.u, ROLES.POSITION, ttl);
@@ -2261,7 +2315,10 @@ async function handle(req, res) {
       // label = 命中的部门（身份即部门），顶栏徽章直接显示它
       return sendJson(res, 200, {
         code: 0, msg: '登录成功（' + (perm.matched || '部门账号') + '）',
-        data: { username: user.u, role: ROLES.POSITION, nickname: user.nickname || '', label: perm.matched || '部门账号' }
+        data: {
+          username: user.u, role: ROLES.POSITION, nickname: user.nickname || '',
+          label: perm.matched || '部门账号', must: !!user.must
+        }
       });
     }
     loginMarkSuccess(req, username);
@@ -2303,6 +2360,7 @@ async function handle(req, res) {
         // label：部门账号直接显示所属部门（身份即部门），管理员 / 查看模式等用角色名
         label: perm ? (perm.matched || ROLE_LABEL[u.role]) : ROLE_LABEL[u.role],
         writable,
+        must: !!(full && full.must),
         permMatched: perm ? (perm.matched || '') : '',
         permUnconfigured: perm ? !!perm.unconfigured : false
       }
@@ -2322,21 +2380,32 @@ async function handle(req, res) {
     });
   }
 
-  // 修改自己的密码（管理员 / 查看账号均可）
+  // 修改自己的密码（管理员 / 查看账号 / 部门账号均可）
   if (pathname === '/api/auth/password' && req.method === 'PUT') {
     const u = authUser(req);
     if (!u) return sendJson(res, 401, { code: 1, msg: '登录已失效，请重新登录' });
     const body = await readBody(req);
     const user = findUser(u.username);
     if (!user) return sendJson(res, 401, { code: 1, msg: '账号不存在，请重新登录' });
-    if (!verifyPassword(body.oldPassword, user.salt, user.hash)) {
+    // 首次登录（must=true）状态：登录时已用初始密码验证过身份，直接设置新密码，无需旧密码
+    const forced = !!user.must;
+    if (!forced && !verifyPassword(body.oldPassword, user.salt, user.hash)) {
       return sendJson(res, 400, { code: 1, msg: '当前密码不正确' });
     }
-    if (!validPassword(body.newPassword)) {
+    const np = String(body.newPassword || '');
+    if (!validPassword(np)) {
       return sendJson(res, 400, { code: 1, msg: '新密码需为 6～64 位字符' });
     }
+    if (np === user.u) {
+      return sendJson(res, 400, { code: 1, msg: '出于安全考虑，密码不能与工号 / 账号相同，请重新设置' });
+    }
+    const initPwd = idCardInitPassword(findStaffByNo(user.u));
+    if (initPwd && np === initPwd) {
+      return sendJson(res, 400, { code: 1, msg: '出于安全考虑，密码不能与身份证号后 6 位相同，请重新设置' });
+    }
+    user.must = false;
     user.salt = crypto.randomBytes(16).toString('hex');
-    user.hash = hashPassword(body.newPassword, user.salt);
+    user.hash = hashPassword(np, user.salt);
     user.updatedAt = new Date().toISOString();
     writeUsers(readUsers().map(x => (x.u === user.u ? user : x)));
     // 让旧会话仍有效（密码已改），无需强制重新登录
@@ -2669,10 +2738,10 @@ async function handle(req, res) {
     return sendJson(res, 200, { code: 0, msg: '申请已撤销' });
   }
 
-  // ===== 教师自助端 API（教师入口，账号 = 工号，初始密码 = 身份证号后 6 位）=====
+  // ===== 教师自助端 API（仅教师入口，账号 = 工号，初始密码 = 身份证号后 6 位）=====
 
   // 自助端登录：账号 = 工号；首次登录密码 = 身份证号后 6 位（无账号时自动建档），登录后强制修改密码
-  // 教师与后勤 / 职工（安保、保洁、食堂、维修等）共用此入口，按工号归属区分档案
+  // 后勤 / 职工（安保、保洁、食堂、维修等）不开放本入口，统一走「管理后台入口」（/api/login）
   if (pathname === '/api/teacher/login' && req.method === 'POST') {
     const body = await readBody(req);
     const no = String(body.username || '').trim();
@@ -2710,6 +2779,13 @@ async function handle(req, res) {
       });
     }
     loginMarkSuccess(req, no);
+    // 后勤职工仅限登录管理后台（不提供自助端）：口令校验通过后再拒绝，避免泄露工号归属
+    if (kind === 'logistics') {
+      return sendJson(res, 403, {
+        code: 1,
+        msg: '后勤职工请使用「管理后台入口」登录（账号为工号，初始密码为身份证号后 6 位）；本教师端不向后勤职工开放'
+      });
+    }
     let user = exist;
     if (first) {
       const salt = crypto.randomBytes(16).toString('hex');

@@ -341,6 +341,69 @@
     host.appendChild(chip);
   }
 
+  // ===== 首次登录强制改密 =====
+  // 教师 / 后勤职工用初始密码（身份证号后 6 位）进入管理后台后，必须立即设置个人密码。
+  // 后勤职工没有自助端入口，这里是其唯一的改密途径，故做成不可关闭的遮罩。
+  function showForcePwd() {
+    if (document.getElementById('cbForcePwd')) return;
+    var wrap = document.createElement('div');
+    wrap.id = 'cbForcePwd';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.55);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif';
+    var INP = 'width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border:1px solid #d1d5db;border-radius:9px;outline:none;color:#111827;background:#fff';
+    wrap.innerHTML =
+      '<div style="width:min(400px,100%);background:#fff;border-radius:16px;padding:26px 26px 22px;box-shadow:0 24px 60px rgba(15,23,42,.3);color:#1f2937">' +
+        '<div style="font-size:17px;font-weight:700;margin-bottom:6px">首次登录 · 请设置个人密码</div>' +
+        '<div style="font-size:13px;color:#6b7280;line-height:1.75;margin-bottom:16px">当前使用的是初始密码（身份证号后 6 位）。为保障账号安全，请立即设置个人密码：6～64 位，且不能与工号或身份证号后 6 位相同。</div>' +
+        '<div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#374151">新密码</div>' +
+        '<input id="cbFp1" type="password" autocomplete="new-password" maxlength="64" style="' + INP + ';margin-bottom:12px" />' +
+        '<div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#374151">确认新密码</div>' +
+        '<input id="cbFp2" type="password" autocomplete="new-password" maxlength="64" style="' + INP + '" />' +
+        '<div id="cbFpErr" style="display:none;margin-top:12px;padding:8px 11px;font-size:13px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px"></div>' +
+        '<button id="cbFpSave" type="button" style="width:100%;margin-top:16px;padding:11px;font-size:15px;font-weight:600;color:#fff;background:linear-gradient(135deg,#4f6df5,#7b5cf5);border:0;border-radius:10px;cursor:pointer">保存并继续使用</button>' +
+        '<div style="margin-top:12px;text-align:center;font-size:12px"><a href="/api/logout" style="color:#9ca3af;text-decoration:none">退出登录</a></div>' +
+      '</div>';
+    document.body.appendChild(wrap);
+
+    var errBox = wrap.querySelector('#cbFpErr');
+    var btn = wrap.querySelector('#cbFpSave');
+    var i1 = wrap.querySelector('#cbFp1');
+    var i2 = wrap.querySelector('#cbFp2');
+    function err(msg) {
+      errBox.textContent = msg || '保存失败，请重试';
+      errBox.style.display = 'block';
+    }
+    function save() {
+      if (btn.disabled) return;
+      var v1 = i1.value, v2 = i2.value;
+      if (v1.length < 6 || v1.length > 64) { err('新密码需为 6～64 位字符'); i1.focus(); return; }
+      if (v1 !== v2) { err('两次输入的新密码不一致'); i2.focus(); return; }
+      errBox.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = '保存中…';
+      fetch('/api/auth/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: v1 })
+      }).then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j.code === 0) {
+            if (window.AUTH) window.AUTH.must = false;
+            if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+            return;
+          }
+          err((j && j.msg) || '保存失败，请重试');
+        })
+        .catch(function () { err('网络异常，请稍后重试'); })
+        .then(function () {
+          btn.disabled = false;
+          btn.textContent = '保存并继续使用';
+        });
+    }
+    btn.addEventListener('click', save);
+    wrap.addEventListener('keydown', function (e) { if (e.key === 'Enter') save(); });
+    setTimeout(function () { i1.focus(); }, 60);
+  }
+
   function loadAuth() {
     return fetch('/api/auth/me')
       .then(function (r) { return r.json(); })
@@ -350,6 +413,8 @@
       .catch(function () { window.AUTH = null; })
       .then(function () {
         renderAuthUI();
+        // 工作台内嵌的功能页不重复弹窗（顶层窗口统一提示）
+        if (window.AUTH && window.AUTH.must && window.top === window) showForcePwd();
         try {
           window.dispatchEvent(new CustomEvent('cb-auth-ready', { detail: { auth: window.AUTH } }));
         } catch (e) {}
