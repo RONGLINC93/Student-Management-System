@@ -2503,6 +2503,8 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
 /* ===== 添加班级：名称留空即按序号批量生成（班级管理） ===== */
 .label-tip { font-size: 12px; font-weight: 400; color: var(--text-light); margin-left: 2px; }
 .form-row input:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+/* 部门未选时行政职位暂不可用（级联前置条件） */
+.form-row select:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
 /* 命名预览 */
 .batch-preview {
   border: 1px dashed var(--border);

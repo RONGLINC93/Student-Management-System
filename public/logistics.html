@@ -25,17 +25,6 @@
     .lg-cell-sub { display: block; color: var(--text-light); font-size: 12px; margin-top: 1px; }
     .lg-date { font-variant-numeric: tabular-nums; white-space: nowrap; }
     .lg-phone { font-variant-numeric: tabular-nums; white-space: nowrap; }
-    /* 岗位类别标签 */
-    .cat-tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; white-space: nowrap; border: 1px solid transparent; }
-    .cat-安保 { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-    .cat-保洁 { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
-    .cat-食堂 { background: #fff7ed; border-color: #fed7aa; color: #b45309; }
-    .cat-维修 { background: #f5f3ff; border-color: #ddd6fe; color: #6d28d9; }
-    .cat-宿舍 { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
-    .cat-绿化 { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
-    .cat-司机 { background: #f1f5f9; border-color: #e2e8f0; color: #475569; }
-    .cat-校医 { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
-    .cat-其他 { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
     /* 在职状态 */
     .st-tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; white-space: nowrap; border: 1px solid transparent; }
     .st-on { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
@@ -111,9 +100,6 @@
     <section class="toolbar">
       <div class="toolbar-left">
         <input type="text" id="kw" class="search-input" placeholder="搜索姓名 / 工号 / 电话 / 岗位 / 单位 / 区域..." />
-        <select id="catFilter" class="grade-filter">
-          <option value="">全部岗位类别</option>
-        </select>
         <select id="statusFilter" class="grade-filter">
           <option value="">全部在职状态</option>
           <option value="在职">在职</option>
@@ -182,9 +168,6 @@
           </div>
           <div class="form-row"><label class="form-label">性别</label>
             <select id="fGender"><option value="男">男</option><option value="女">女</option></select>
-          </div>
-          <div class="form-row"><label class="form-label">岗位类别</label>
-            <select id="fCategory"></select>
           </div>
           <div class="form-row"><label class="form-label">所属部门</label>
             <select id="fDepartment" class="set-input"><option value="">（未分配部门）</option></select>

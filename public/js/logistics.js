@@ -1,7 +1,6 @@
 // 后勤 / 职工管理：安保、保洁、食堂、维修、宿舍、绿化、司机、校医等
 // 独立数据表（/api/logistics），与教师档案解耦：不参与教学统计、不进入课程表教师下拉与班主任候选
 const LG_API = '/api/logistics';
-const CATEGORIES = ['安保', '保洁', '食堂', '维修', '宿舍', '绿化', '司机', '校医', '其他'];
 const EMPLOY_TYPES = ['在编', '合同制', '劳务派遣', '外包', '临时', '其他'];
 const SHIFTS = ['常白班', '早班', '晚班', '夜班', '轮班', '其他'];
 const OFF_DUTY = ['离职', '退休'];
@@ -69,10 +68,8 @@ function fillDatalist(id, values) {
   dl.innerHTML = values.map(v => '<option value="' + escapeHtml(v) + '"></option>').join('');
 }
 function initOptions() {
-  fillSelect($('#fCategory'), CATEGORIES);
   fillSelect($('#fEmployType'), EMPLOY_TYPES);
   fillSelect($('#fShift'), SHIFTS, '（未指定班次）');
-  fillSelect($('#catFilter'), CATEGORIES);
 }
 // 拉取组织架构部门（与人事管理共用 /api/departments），供「所属部门」联动下拉
 async function loadDept() {
@@ -151,18 +148,16 @@ function statusClass(st) {
 // ===== 列表渲染 =====
 function filtered() {
   const kw = String(($('#kw') && $('#kw').value) || '').trim().toLowerCase();
-  const cat = $('#catFilter') ? $('#catFilter').value : '';
   const st = $('#statusFilter') ? $('#statusFilter').value : '';
   const emp = $('#employFilter') ? $('#employFilter').value : '';
   const due = $('#dueFilter') ? $('#dueFilter').value : '';
   return staff.filter(s => {
-    if (cat && s.category !== cat) return false;
     if (st && s.status !== st) return false;
     if (emp && s.employType !== emp) return false;
     if (due === 'contract' && !(s.contractDays !== null && s.contractDays !== undefined && s.contractDays <= DUE_DAYS)) return false;
     if (due === 'health' && !(s.healthDays !== null && s.healthDays !== undefined && s.healthDays <= DUE_DAYS)) return false;
     if (!kw) return true;
-    return [s.name, s.staffNo, s.phone, s.post, s.category, s.department, s.vendor, s.area, s.remark, s.emergencyPhone]
+    return [s.name, s.staffNo, s.phone, s.post, s.department, s.vendor, s.area, s.remark, s.emergencyPhone]
       .some(v => String(v || '').toLowerCase().indexOf(kw) !== -1);
   });
 }
@@ -198,7 +193,7 @@ function renderTable() {
         <span class="lg-sub">${escapeHtml(sub)}</span>
       </td>
       <td><span class="gender-tag ${s.gender === '女' ? 'gender-female' : 'gender-male'}">${escapeHtml(s.gender || '男')}</span></td>
-      <td><span class="cat-tag cat-${escapeHtml(s.category || '其他')}">${escapeHtml(s.category || '其他')}</span>${s.post ? '<span class="lg-cell-sub">' + escapeHtml(s.post) + '</span>' : ''}</td>
+      <td>${s.post ? escapeHtml(s.post) : '<span class="head-none">—</span>'}</td>
       <td>${deptCell}</td>
       <td>${escapeHtml(s.employType || '—')}</td>
       <td>${escapeHtml(s.shift || '—')}</td>
@@ -253,7 +248,6 @@ function openModal(rec) {
   $('#fName').value = rec ? (rec.name || '') : '';
   $('#fStaffNo').value = rec ? (rec.staffNo || '') : '';
   $('#fGender').value = rec ? (rec.gender || '男') : '男';
-  $('#fCategory').value = rec ? (rec.category || '其他') : '其他';
   $('#fDepartment').value = rec ? (rec.department || '') : '';
   // 职位：按所选部门联动填充，再回填已存岗位（不在列表中的追加为选项以保留原值）
   fillPostSelect();
@@ -295,7 +289,6 @@ async function saveRec(e) {
     staffNo: $('#fStaffNo').value.trim(),
     name: $('#fName').value.trim(),
     gender: $('#fGender').value,
-    category: $('#fCategory').value,
     post: $('#fPost').value.trim(),
     department: $('#fDepartment').value.trim(),
     vendor: $('#fVendor').value.trim(),
@@ -355,11 +348,11 @@ function exportCsv() {
   const list = filtered();
   if (!list.length) { window.toast('当前筛选下没有可导出的档案', 'error'); return; }
   const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-  const head = ['工号', '姓名', '性别', '岗位类别', '具体岗位', '所属部门', '用工性质', '外包/派遣单位', '班次',
+  const head = ['工号', '姓名', '性别', '具体岗位', '所属部门', '用工性质', '外包/派遣单位', '班次',
     '负责区域', '联系电话', '入职日期', '合同到期', '健康证到期', '在职状态', '紧急联系电话', '家庭住址', '备注'];
   const lines = [head.map(cell).join(',')];
   list.forEach(s => {
-    lines.push([s.staffNo, s.name, s.gender, s.category, s.post, s.department, s.employType, s.vendor, s.shift,
+    lines.push([s.staffNo, s.name, s.gender, s.post, s.department, s.employType, s.vendor, s.shift,
       s.area, s.phone, s.joinDate, s.contractEnd, s.healthCertEnd, s.status, s.emergencyPhone, s.address, s.remark]
       .map(cell).join(','));
   });
@@ -384,7 +377,6 @@ function bindEvents() {
   $('#modalMask').onclick = (e) => { if (e.target === $('#modalMask')) closeModal(); };
   $('#lgForm').onsubmit = saveRec;
   $('#kw').oninput = renderTable;
-  $('#catFilter').onchange = renderTable;
   $('#statusFilter').onchange = renderTable;
   $('#employFilter').onchange = renderTable;
   $('#dueFilter').onchange = renderTable;

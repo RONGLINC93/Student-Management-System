@@ -171,7 +171,8 @@ function readDeptPerms() {
   return [];
 }
 // 解析教师档案命中的职务权限：精确匹配职务名；未命中时回退「遗留关键字」兜底（兼容历史档案）
-// 返回 { modules, matched, legacy } 或 null（无后台权限 / 已离岗）；matched 即身份展示用的职务名
+// 返回 { modules, matched, legacy, unconfigured } 或 null（无行政职位 / 已离岗，不能登录后台）；
+// matched 即身份展示用的职务名；unconfigured = 有行政职位但未配置任何可管理模块（可登录、仅可查看）
 function resolveTeacherPerm(tea, roles) {
   if (!tea) return null;
   // 人事：离职 / 退休教师不具备后台登录与写权限
@@ -217,7 +218,11 @@ function resolveTeacherPerm(tea, roles) {
       if (mods.size) deptHit = { name: chain.join(' / '), modules: [...mods] };
     }
   }
-  if (!posHit && !deptHit) return null;
+  // 拥有行政职位即可登录管理后台（身份即职务）：未列入职位权限清单、且部门也没有配置权限时，
+  // 仍可登录，只是没有任何可管理模块（全部模块仅可查看）。无行政职位的纯任课教师不进入后台。
+  if (!posHit && !deptHit) {
+    return pos ? { modules: [], matched: pos, matchedType: 'position', legacy: false, unconfigured: true } : null;
+  }
   const mods = new Set();
   (posHit ? posHit.modules : []).forEach(m => mods.add(m));
   (deptHit ? deptHit.modules : []).forEach(m => mods.add(m));
@@ -1095,7 +1100,6 @@ function normalizeStatus(v) {
 }
 // ===== 后勤 / 职工档案（安保、保洁、食堂、维修、宿舍、绿化、司机、校医等）=====
 // 独立数据表：与教师档案解耦，不进入课程表教师下拉、班主任候选与教职工教学统计口径。
-const LOGISTICS_CATEGORIES = ['安保', '保洁', '食堂', '维修', '宿舍', '绿化', '司机', '校医', '其他'];
 const EMPLOY_TYPES = ['在编', '合同制', '劳务派遣', '外包', '临时', '其他'];
 const WORK_SHIFTS = ['常白班', '早班', '晚班', '夜班', '轮班', '其他'];
 const DATE_STR_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -1124,7 +1128,6 @@ function normalizeLogistics(raw) {
     staffNo: String(o.staffNo || '').trim().slice(0, 30),      // 工号（后勤序列，与教师工号互不冲突校验）
     name: String(o.name || '').trim().slice(0, 30),
     gender: o.gender === '女' ? '女' : '男',
-    category: pick(o.category, LOGISTICS_CATEGORIES) || '其他', // 岗位类别
     post: String(o.post || '').trim().slice(0, 30),             // 具体岗位（保安队长 / 食堂厨师 …）
     department: String(o.department || '').trim().slice(0, 30), // 所属部门（总务处 / 后勤处 …）
     vendor: String(o.vendor || '').trim().slice(0, 40),         // 外包单位（劳务派遣 / 外包时填写）
@@ -3910,17 +3913,11 @@ async function handle(req, res) {
   // ===== 后勤 / 职工管理 API（独立数据表：安保 / 保洁 / 食堂 / 维修等）=====
   // 与教师档案完全解耦：不参与教学统计、不进入课程表教师下拉与班主任候选。
   if (pathname === '/api/logistics' && req.method === 'GET') {
-    const catIdx = c => {
-      const i = LOGISTICS_CATEGORIES.indexOf(c);
-      return i === -1 ? LOGISTICS_CATEGORIES.length : i;
-    };
     const list = readLogistics().map(normalizeLogistics).map(withLogisticsDue);
     list.sort((a, b) => {
       const oa = OFF_DUTY_STATUS.indexOf(a.status) !== -1 ? 1 : 0;
       const ob = OFF_DUTY_STATUS.indexOf(b.status) !== -1 ? 1 : 0;
       if (oa !== ob) return oa - ob;
-      const ca = catIdx(a.category), cb = catIdx(b.category);
-      if (ca !== cb) return ca - cb;
       return String(a.staffNo || '').localeCompare(String(b.staffNo || ''))
         || String(a.name || '').localeCompare(String(b.name || ''));
     });

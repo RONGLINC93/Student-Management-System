@@ -92,11 +92,14 @@ function permDesc(p) {
   if (!p) return '无后台权限（仅教师端）';
   return moduleNames(p.modules || []);
 }
+// 有行政职位但未配置任何可管理模块：仍可登录管理后台（身份即职务），只是全部模块仅可查看
+const UNCONFIGURED_PERM = '可登录后台，未配置可管理模块（全部仅可查看）';
 // 教师当前生效的权限描述（服务端已在 /api/hr 下发 curPosition 等快照，此处按职务实时计算）
 function teacherPermDesc(t) {
   if (!t) return '无后台权限（仅教师端）';
   if (OFF_DUTY.indexOf(t.status || '在职') !== -1) return '无后台权限（已离岗）';
-  return permDesc(matchPerm(t.position));
+  const hit = matchPerm(t.position);
+  return hit ? permDesc(hit) : (t.position ? UNCONFIGURED_PERM : '无后台权限（仅教师端）');
 }
 function hrWritesPosition(type) {
   return ['调岗', '晋升', '入职', '转正', '其他'].indexOf(type) !== -1;
@@ -122,7 +125,7 @@ function updatePermWarn(t) {
     return;
   }
   warn.hidden = false;
-  warn.innerHTML = '该异动会把「<b>' + escapeHtml(t.name) + '</b>」的行政职务改为「<b>' + escapeHtml(after)
+  warn.innerHTML = '该异动会把「<b>' + escapeHtml(t.name) + '</b>」的行政职位改为「<b>' + escapeHtml(after)
     + '</b>」，其后台权限将由 <b>' + escapeHtml(before) + '</b> 变为 <b>' + escapeHtml(now)
     + '</b>。请确认这是本次调岗 / 晋升的真实授权意图。';
   ackBox.hidden = false;

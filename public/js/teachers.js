@@ -10,6 +10,11 @@ let gradeList = [];
 // 职位权限矩阵（职务名 → 登录身份 + 可管理模块），用于职务提示与人事异动权限预警
 let permRoles = [];
 let permModules = [];
+// 组织架构部门 / 职位（行政职位级联来源：教师也可能担任后勤等部门的职位）
+const DEPT_API = '/api/departments';
+const POS_API = '/api/positions';
+let deptCache = [];
+let posCache = [];
 // 离岗状态：不计入在职教师、不担任班主任、不可登录教师端
 const OFF_DUTY = ['离职', '退休'];
 const isOffDuty = (t) => OFF_DUTY.indexOf(t.status || '在职') !== -1;
@@ -50,34 +55,103 @@ async function loadPerms() {
     permRoles = [];
     permModules = [];
   }
-  // 行政职务下拉与系统设置「职位权限」清单联动：直接复用职务名，保证教师档案填写与权限配置一致
-  refreshPositionList();
+  // 行政职位下拉来源为组织架构职位（/api/positions）；permRoles 仅用于下方权限提示，不再作为下拉选项来源
+  refreshPositionList($('#fPosDept') ? $('#fPosDept').value : '');
 }
-// 用职位权限清单中的职务名刷新行政职务下拉框（清单为空时保留默认占位选项）
-function refreshPositionList() {
+// 拉取组织架构部门（与人事管理共用 /api/departments），供行政职位「部门」级联下拉
+async function loadDept() {
+  try {
+    const res = await fetch(DEPT_API);
+    const json = await res.json();
+    deptCache = (json && json.code === 0 && Array.isArray(json.data)) ? json.data : [];
+  } catch (e) { deptCache = []; }
+}
+// 拉取组织架构职位（人事管理 → 组织架构 → 职位管理），供行政职位级联（含后勤等部门的职位）
+async function loadPositions() {
+  try {
+    const res = await fetch(POS_API);
+    const json = await res.json();
+    posCache = (json && json.code === 0 && Array.isArray(json.data)) ? json.data : [];
+  } catch (e) { posCache = []; }
+}
+// 职位归属部门名：优先取冗余的 department，缺省时按 departmentId 回查部门表（避免只存 id 时联动不上）
+function posDeptName(p) {
+  if (!p) return '';
+  if (String(p.department || '').trim()) return String(p.department).trim();
+  if (p.departmentId) {
+    const d = (deptCache || []).find(x => x.id === p.departmentId);
+    if (d && d.name) return String(d.name).trim();
+  }
+  return '';
+}
+// 行政职位的「部门」级联下拉（组织架构部门，树形缩进；空值表示未分配部门）
+function fillPosDeptSelect() {
+  const sel = document.getElementById('fPosDept');
+  if (!sel) return;
+  const kidsOf = pid => deptCache.filter(d => (d.parentId || '') === pid);
+  let html = '<option value="">（未分配部门）</option>';
+  (function walk(pid, prefix) {
+    kidsOf(pid).forEach(d => {
+      html += '<option value="' + escapeHtml(d.name) + '">' + escapeHtml(prefix + d.name) + '</option>';
+      walk(d.id, prefix + '　');
+    });
+  })('', '');
+  sel.innerHTML = html;
+}
+// 行政职位下拉：来源 = 组织架构职位（按部门级联收窄）。
+// 不再使用旧「职位权限」矩阵的职务清单作为选项来源；仅以组织架构（人事 → 组织架构 → 职位管理）中定义的职位为准。
+// opts.keep：需要保留的职务（编辑回填时的历史值）；opts.keepLegacy：true 时允许保留不在清单中的旧职务。
+// 未选部门时禁用行政职位，仅显示「请先选择所属部门」。
+function refreshPositionList(dept, opts) {
+  const o = opts || {};
   const sel = document.getElementById('fPosition');
   if (!sel) return;
-  const names = Array.from(new Set((permRoles || []).map(r => r.name).filter(Boolean)));
-  if (!names.length) return;
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">（未设置行政职务）</option>';
-  names.forEach(n => {
-    const o = document.createElement('option');
-    o.value = n;
-    o.textContent = n;
-    sel.appendChild(o);
-  });
-  // 恢复当前选中的职务（仍在清单内则保留，否则补回该历史值避免选中丢失）
-  if (cur) {
-    if (Array.from(sel.options).some(o => o.value === cur)) sel.value = cur;
-    else {
-      const o = document.createElement('option');
-      o.value = cur;
-      o.textContent = cur;
-      sel.appendChild(o);
-      sel.value = cur;
-    }
+  const cur = String(o.keep || sel.value || '').trim();
+  // 未选择所属部门：行政职位不可选
+  if (!dept && !cur) {
+    sel.innerHTML = '<option value="">（请先选择所属部门）</option>';
+    sel.disabled = true;
+    return;
   }
+  // 仅以组织架构职位为来源（按所选部门收窄）
+  let names = (posCache || []).map(p => p.name).filter(Boolean);
+  if (dept) {
+    const set = new Set((posCache || []).filter(p => posDeptName(p) === dept).map(p => p.name));
+    names = names.filter(n => set.has(n));
+  }
+  names = Array.from(new Set(names));
+  const keepCur = cur && (names.indexOf(cur) !== -1 || !!o.keepLegacy);
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">' + (names.length ? '（未设置行政职位）' : '（该部门暂无职位，请先到组织架构添加）') + '</option>';
+  names.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n;
+    sel.appendChild(opt);
+  });
+  // 保留的职务不在清单内时补回（仅编辑回填的历史值允许），否则清空以保持与部门一致
+  if (keepCur && names.indexOf(cur) === -1) {
+    const opt = document.createElement('option');
+    opt.value = cur;
+    opt.textContent = cur;
+    sel.appendChild(opt);
+  }
+  sel.value = keepCur ? cur : '';
+  sel.disabled = !names.length && !keepCur;
+}
+// 反向联动：选中行政职位后，把所属部门校正为该职位在组织架构中登记的部门，二者始终一致
+function syncDeptFromPosition() {
+  const deptSel = document.getElementById('fPosDept');
+  const posSel = document.getElementById('fPosition');
+  if (!deptSel || !posSel) return;
+  const pos = String(posSel.value || '').trim();
+  if (!pos) return;
+  const hit = (posCache || []).find(p => p.name === pos);
+  const dept = posDeptName(hit);
+  if (!dept || deptSel.value === dept) return;
+  // 该部门不在下拉选项中则不改（避免把部门清空）
+  if (!Array.from(deptSel.options).some(op => op.value === dept)) return;
+  deptSel.value = dept;
 }
 function moduleNames(keys) {
   const names = permModules.filter(m => (keys || []).indexOf(m.key) !== -1).map(m => m.name);
@@ -94,15 +168,19 @@ function permDesc(p) {
   if (!p) return '无后台权限（仅教师端）';
   return moduleNames(p.modules || []);
 }
+// 有行政职位但未配置任何可管理模块：仍可登录管理后台（身份即职务），只是全部模块仅可查看
+const UNCONFIGURED_PERM = '可登录后台，未配置可管理模块（全部仅可查看）';
 // 教师当前生效的权限描述（优先用服务端算好的 perm 命中结果）
 function teacherPermDesc(t) {
   if (!t) return '无后台权限（仅教师端）';
   if (t.perm && t.perm.matched) {
-    return moduleNames(t.perm.modules || [])
+    const mods = t.perm.modules || [];
+    return (mods.length ? moduleNames(mods) : UNCONFIGURED_PERM)
       + (t.perm.legacy ? '（遗留关键字匹配）' : '');
   }
   const hit = matchPerm(t.position);
-  return hit ? permDesc(hit) : '无后台权限（仅教师端）';
+  if (hit) return permDesc(hit);
+  return t.position ? UNCONFIGURED_PERM : '无后台权限（仅教师端）';
 }
 
 // 给下拉赋值；值不在选项里时临时追加一个选项（兼容历史档案中的旧值）
@@ -293,7 +371,7 @@ function renderTable() {
       ? `<div class="dept-sub">${escapeHtml([t.department, t.joinYear ? t.joinYear + ' 年入职' : ''].filter(Boolean).join(' · '))}</div>`
       : '';
     const permBadge = t.perm && t.perm.matched
-      ? `<span class="perm-badge${(t.perm && t.perm.legacy) ? ' legacy' : ''}" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(t.perm.matched)}</span>`
+      ? `<span class="perm-badge${t.perm.legacy ? ' legacy' : ''}${(!t.perm.modules || !t.perm.modules.length) ? ' unconf' : ''}" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(t.perm.matched)}</span>`
       : (matchPerm(t.position)
         ? `<span class="perm-badge" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(matchPerm(t.position).name)}</span>`
         : '');
@@ -347,9 +425,14 @@ async function loadTeachers() {
 function updatePermHint(t) {
   const box = $('#fPermHint');
   if (!box) return;
+  const dept = String($('#fPosDept') ? $('#fPosDept').value : '').trim();
   const pos = String($('#fPosition') ? $('#fPosition').value : '').trim();
+  if (!dept && !pos) {
+    box.textContent = '请先选择所属部门，再选择该部门下的行政职位。';
+    return;
+  }
   if (!pos) {
-    box.textContent = '未填写行政职务：该教师仅有教师端权限，不能登录管理后台。';
+    box.textContent = '未填写行政职位：该教师仅有教师端权限，不能登录管理后台。';
     return;
   }
   const hit = matchPerm(pos);
@@ -363,10 +446,11 @@ function updatePermHint(t) {
     || String(t.title || '').indexOf('宿管') !== -1
     || String(t.position || '').indexOf('宿管') !== -1
     || String(t.position || '').indexOf('宿舍管理') !== -1);
-  box.innerHTML = '职务「<b>' + escapeHtml(pos) + '</b>」不在职位权限清单中：'
+  box.innerHTML = '职务「<b>' + escapeHtml(pos) + '</b>」尚未在「系统设置 → 职位权限」中配置：'
+    + '该教师<b>仍可登录管理后台</b>（身份即职务），但没有任何可管理模块，全部模块仅可查看。'
     + (legacy
-      ? '该教师当前由<b>遗留关键字</b>兜底授权，改为新职务后兜底失效，将不能登录管理后台。'
-      : '该教师不能登录管理后台（仅教师端）。如需授权，请在「系统设置 → 职位权限」添加同名职务。');
+      ? '当前由<b>遗留关键字</b>兜底授权，改用新职务后兜底失效。'
+      : '如需其管理具体模块，请在「系统设置 → 职位权限」添加同名职务并勾选模块。');
 }
 
 function openModal(t) {
@@ -381,9 +465,16 @@ function openModal(t) {
   bindSubjectChipInput();
   // 职称：历史档案可能是「教务 / 宿管」等旧值，下拉里没有则临时补一个选项，避免误清空
   setSelectValue('#fTitle', t ? t.title : '');
-  setSelectValue('#fPosition', t ? t.position : '');
+  // 行政职位：按该职位所属部门预置级联，再回填职位（保留历史值）；无职位时沿用档案已存的所属部门
+  const posDept = (t && t.position)
+    ? posDeptName((posCache || []).find(p => p.name === t.position))
+    : (t ? (t.department || '') : '');
+  const pd = document.getElementById('fPosDept');
+  if (pd) pd.value = posDept || '';
+  const posSel = document.getElementById('fPosition');
+  if (posSel) posSel.value = '';
+  refreshPositionList(posDept, { keep: t ? t.position : '', keepLegacy: true });
   updatePermHint(t);
-  $('#fDepartment').value = t ? (t.department || '') : '';
   $('#fStatus').value = t ? (t.status || '在职') : '在职';
   $('#fJoinYear').value = t ? t.joinYear : '';
   $('#fPhone').value = t ? t.phone : '';
@@ -410,6 +501,11 @@ async function saveTeacher(e) {
   const checkedGrades = Array.from(document.querySelectorAll('#fGrades input[type="checkbox"]:checked'))
     .map(cb => String(cb.value || '').trim())
     .filter(Boolean);
+  // 所属部门随行政职位联动：优先取级联中选中的部门，其次取该职位在组织架构登记的部门，最后保留档案原值
+  const posDeptVal = String(($('#fPosDept') || {}).value || '').trim();
+  const posVal = String(($('#fPosition') || {}).value || '').trim();
+  const posHit = posVal ? (posCache || []).find(p => p.name === posVal) : null;
+  const oldTea = teachers.find(x => x.id === id);
   const data = {
     teacherNo: $('#fTeacherNo').value.trim(),
     idCard: $('#fIdCard').value.trim(),
@@ -418,7 +514,7 @@ async function saveTeacher(e) {
     subject: getSubjectChips().join('、'),
     title: $('#fTitle').value,
     position: $('#fPosition').value.trim(),
-    department: $('#fDepartment').value.trim(),
+    department: posDeptVal || posDeptName(posHit) || (oldTea && oldTea.department) || '',
     status: $('#fStatus').value,
     joinYear: $('#fJoinYear').value.trim(),
     phone: $('#fPhone').value.trim(),
@@ -522,7 +618,7 @@ function updateHrPermWarn(t) {
   }
   const before = teacherPermDesc(t);
   const hit = matchPerm(after);
-  const now = hit ? permDesc(hit) : '无后台权限（仅教师端）';
+  const now = hit ? permDesc(hit) : (after ? UNCONFIGURED_PERM : '无后台权限（仅教师端）');
   if (before === now) {
     warn.hidden = true;
     ackBox.hidden = true;
@@ -530,7 +626,7 @@ function updateHrPermWarn(t) {
     return;
   }
   warn.hidden = false;
-  warn.innerHTML = '该异动会把「<b>' + escapeHtml(t.name) + '</b>」的行政职务改为「<b>' + escapeHtml(after)
+  warn.innerHTML = '该异动会把「<b>' + escapeHtml(t.name) + '</b>」的行政职位改为「<b>' + escapeHtml(after)
     + '</b>」，其后台权限将由 <b>' + escapeHtml(before) + '</b> 变为 <b>' + escapeHtml(now)
     + '</b>。请确认这是本次调岗 / 晋升的真实授权意图。';
   ackBox.hidden = false;
@@ -585,7 +681,7 @@ async function saveHr(e) {
       return;
     }
     const hit = matchPerm(data.after);
-    const now = hit ? permDesc(hit) : '无后台权限（仅教师端）';
+    const now = hit ? permDesc(hit) : (data.after ? UNCONFIGURED_PERM : '无后台权限（仅教师端）');
     const ok = await confirmDlg(
       `「${t ? t.name : ''}」的后台权限将由「${teacherPermDesc(t)}」变为「${now}」，确定继续登记该人事异动吗？`,
       { title: '权限变更确认', okText: '确认变更', danger: true }
@@ -716,8 +812,18 @@ function bindEvents() {
   $('#hrClose').onclick = closeHrModal;
   $('#hrCancel').onclick = closeHrModal;
   $('#hrForm').onsubmit = saveHr;
-  // 职务即权限：填写时实时提示命中的后台权限 / 权限变更预警
-  $('#fPosition').addEventListener('change', () => updatePermHint(teachers.find(x => x.id === $('#fId').value)));
+  // 职务即权限：填写时实时提示命中的后台权限 / 权限变更预警；
+  // 同时反向校正所属部门，保证「所属部门 ↔ 行政职位」始终一致
+  $('#fPosition').addEventListener('change', () => {
+    syncDeptFromPosition();
+    updatePermHint(teachers.find(x => x.id === $('#fId').value));
+  });
+  // 行政职位「部门」级联：切换部门收窄职位选项（旧职位不属于新部门时清空），并刷新权限提示
+  const posDeptEl = document.getElementById('fPosDept');
+  if (posDeptEl) posDeptEl.addEventListener('change', () => {
+    refreshPositionList(posDeptEl.value);
+    updatePermHint(teachers.find(x => x.id === $('#fId').value));
+  });
   const hrWatch = () => updateHrPermWarn(teachers.find(x => x.id === $('#hTeacher').value));
   $('#hAfter').addEventListener('input', hrWatch);
   $('#hType').addEventListener('change', hrWatch);
@@ -767,7 +873,13 @@ function bindEvents() {
 
 window.cbEmbedRefresh = function () { loadClasses().then(loadGrades).then(loadTeachers); };
 
-loadPerms().then(loadClasses).then(() => loadGrades()).then(() => {
-  bindEvents();
-  loadTeachers();
-});
+loadPerms()
+  .then(loadDept)
+  .then(loadPositions)
+  .then(() => { fillPosDeptSelect(); refreshPositionList($('#fPosDept') ? $('#fPosDept').value : ''); })
+  .then(loadClasses)
+  .then(() => loadGrades())
+  .then(() => {
+    bindEvents();
+    loadTeachers();
+  });

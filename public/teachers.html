@@ -102,6 +102,8 @@
     .perm-badge.staff { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
     .perm-badge.dorm { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
     .perm-badge.legacy { background: #fff7e6; border-color: #fde68a; color: #b45309; }
+    /* 有行政职位但未配置任何可管理模块：可登录后台，全部模块仅可查看 */
+    .perm-badge.unconf { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
     .hr-tip.warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
     .perm-ack {
       display: flex; align-items: center; gap: 7px; margin-top: 6px;
@@ -293,15 +295,17 @@
               <option value="未定级">未定级</option>
             </select>
           </div>
-          <div class="form-row"><label class="form-label">行政职务</label>
-            <select id="fPosition">
-              <option value="">（未设置行政职务）</option>
+          <div class="form-row"><label class="form-label" title="先选择所属部门，行政职位下拉才会列出该部门下的职位；该部门同时作为教师的所属部门保存（部门权限来源）">所属部门</label>
+            <select id="fPosDept">
+              <option value="">（未分配部门）</option>
             </select>
           </div>
-          <div class="form-row form-row-full"><div class="hr-tip" id="fPermHint">该职务未命中职位权限清单，仅有教师端权限</div></div>
-          <div class="form-row"><label class="form-label">所属部门</label>
-            <input type="text" id="fDepartment" list="departmentList" placeholder="如：教务处" maxlength="30" />
+          <div class="form-row"><label class="form-label">行政职位</label>
+            <select id="fPosition" disabled>
+              <option value="">（请先选择所属部门）</option>
+            </select>
           </div>
+          <div class="form-row form-row-full"><div class="hr-tip" id="fPermHint">拥有行政职位即可登录管理后台，可管理哪些模块由「系统设置 → 职位权限」中该职务勾选的模块决定</div></div>
           <div class="form-row"><label class="form-label">在职状态</label>
             <select id="fStatus">
               <option value="在职">在职</option>
