@@ -296,7 +296,7 @@
         '/students.html': 'students', '/classes.html': 'classes', '/grades.html': 'grades',
         '/exams.html': 'exams', '/conduct.html': 'conduct', '/leaves.html': 'leaves',
         '/announcements.html': 'announcements', '/dorm.html': 'dorms',
-        '/timetable.html': 'timetables', '/courses.html': 'courses'
+        '/timetable.html': 'timetables', '/courses.html': 'courses', '/hr.html': 'hr'
       };
       var pageMod = PAGE_MODULE[location.pathname] || '';
       var writable = Array.isArray(a.writable) ? a.writable : [];

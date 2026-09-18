@@ -636,6 +636,7 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="/js/dialog.js"></script>
   <script src="/js/timetable-view.js"></script>
   <script>
     (function () {
@@ -1137,8 +1138,10 @@
           .catch(function () { showErr('lvErr', '网络异常，请稍后重试'); })
           .then(function () { btn.disabled = false; });
       }
-      function cancelLeaf(id) {
-        if (!window.confirm('确定撤销这条请假申请吗？撤销后如需请假请重新提交。')) return;
+      async function cancelLeaf(id) {
+        if (typeof window.confirmDlg === 'function') {
+          if (!(await window.confirmDlg('确定撤销这条请假申请吗？撤销后如需请假请重新提交。', { title: '撤销请假申请', okText: '撤销', danger: true }))) return;
+        } else if (!window.confirm('确定撤销这条请假申请吗？撤销后如需请假请重新提交。')) return;
         fetch('/api/student/leaves/' + encodeURIComponent(id), { method: 'DELETE' })
           .then(function (r) { return r.json(); })
           .then(function (j) {

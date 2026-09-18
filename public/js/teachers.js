@@ -53,18 +53,31 @@ async function loadPerms() {
   // 行政职务下拉与系统设置「职位权限」清单联动：直接复用职务名，保证教师档案填写与权限配置一致
   refreshPositionList();
 }
-// 用职位权限清单中的职务名刷新行政职务 datalist（清单为空时保留 HTML 里的默认选项）
+// 用职位权限清单中的职务名刷新行政职务下拉框（清单为空时保留默认占位选项）
 function refreshPositionList() {
-  const dl = document.getElementById('positionList');
-  if (!dl) return;
+  const sel = document.getElementById('fPosition');
+  if (!sel) return;
   const names = Array.from(new Set((permRoles || []).map(r => r.name).filter(Boolean)));
   if (!names.length) return;
-  dl.innerHTML = '';
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">（未设置行政职务）</option>';
   names.forEach(n => {
     const o = document.createElement('option');
     o.value = n;
-    dl.appendChild(o);
+    o.textContent = n;
+    sel.appendChild(o);
   });
+  // 恢复当前选中的职务（仍在清单内则保留，否则补回该历史值避免选中丢失）
+  if (cur) {
+    if (Array.from(sel.options).some(o => o.value === cur)) sel.value = cur;
+    else {
+      const o = document.createElement('option');
+      o.value = cur;
+      o.textContent = cur;
+      sel.appendChild(o);
+      sel.value = cur;
+    }
+  }
 }
 function moduleNames(keys) {
   const names = permModules.filter(m => (keys || []).indexOf(m.key) !== -1).map(m => m.name);
@@ -368,7 +381,7 @@ function openModal(t) {
   bindSubjectChipInput();
   // 职称：历史档案可能是「教务 / 宿管」等旧值，下拉里没有则临时补一个选项，避免误清空
   setSelectValue('#fTitle', t ? t.title : '');
-  $('#fPosition').value = t ? (t.position || '') : '';
+  setSelectValue('#fPosition', t ? t.position : '');
   updatePermHint(t);
   $('#fDepartment').value = t ? (t.department || '') : '';
   $('#fStatus').value = t ? (t.status || '在职') : '在职';
@@ -704,7 +717,7 @@ function bindEvents() {
   $('#hrCancel').onclick = closeHrModal;
   $('#hrForm').onsubmit = saveHr;
   // 职务即权限：填写时实时提示命中的后台权限 / 权限变更预警
-  $('#fPosition').addEventListener('input', () => updatePermHint(teachers.find(x => x.id === $('#fId').value)));
+  $('#fPosition').addEventListener('change', () => updatePermHint(teachers.find(x => x.id === $('#fId').value)));
   const hrWatch = () => updateHrPermWarn(teachers.find(x => x.id === $('#hTeacher').value));
   $('#hAfter').addEventListener('input', hrWatch);
   $('#hType').addEventListener('change', hrWatch);
@@ -736,7 +749,11 @@ function bindEvents() {
   };
 
   window.addEventListener('resize', closeCtxMenu);
-  window.addEventListener('scroll', closeCtxMenu, true);
+  window.addEventListener('scroll', (e) => {
+    const t = e.target;
+    if (t && t.nodeType === 1 && t.closest && t.closest('#ctxMenu')) return; // 菜单内滚动不关
+    closeCtxMenu();
+  }, true);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtxMenu(); });
 
   window.addEventListener('cb-site-ready', () => {

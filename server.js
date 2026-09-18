@@ -77,7 +77,10 @@ const PERMISSION_MODULES = [
   { key: 'announcements', name: '通知公告', apis: ['/api/announcements'] },
   { key: 'timetables',    name: '课程表',   apis: ['/api/timetables'] },
   { key: 'courses',       name: '课程管理', apis: ['/api/course-plans'] },
-  { key: 'dorms',         name: '宿舍管理', apis: ['/api/dorms', '/api/dorm-apps'] }
+  { key: 'dorms',         name: '宿舍管理', apis: ['/api/dorms', '/api/dorm-apps'] },
+  // 人事管理（可授权）：登记异动会改写教师的「职务」，而职务即权限来源，因此只宜授予人事类岗位，
+  // 获授权者可通过调岗 / 晋升间接改变他人后台权限（服务端已强制留痕，禁止改自己的档案除外场景由管理员把握）
+  { key: 'hr',            name: '人事管理', apis: ['/api/hr'] }
 ];
 // ===== 职位权限矩阵（v2）=====
 // 权限由「行政职务名」驱动：系统设置里维护若干条目，每条 = 职务名 + 登录身份（教务 staff / 宿管 dorm）+ 可管理模块。

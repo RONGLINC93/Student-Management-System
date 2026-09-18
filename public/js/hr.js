@@ -28,6 +28,30 @@ function fmtTime(iso) {
   const p = n => (n < 10 ? '0' + n : '' + n);
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
+// 按「职位权限设置」判定是否可登记 / 编辑人事异动：管理员全量；职务账号需被授权 hr 模块
+// （服务端同样按模块拦截写接口，此处仅为前端提示与隐藏）
+function canWrite() {
+  const a = window.AUTH;
+  if (!a) return true;
+  if (a.role === 'admin') return true;
+  return Array.isArray(a.writable) && a.writable.includes('hr');
+}
+// 未授权时页面只读：隐藏「登记异动」与行内编辑 / 删除，并给出说明
+function applyWriteScope() {
+  if (canWrite()) return;
+  const add = $('#btnAdd');
+  if (add) add.style.display = 'none';
+  document.querySelectorAll('.row-actions').forEach(el => { el.remove(); });
+  const main = document.querySelector('main.container');
+  if (main && !$('#hrReadonly')) {
+    const tip = document.createElement('div');
+    tip.id = 'hrReadonly';
+    tip.className = 'hr-tip warn';
+    tip.style.marginBottom = '12px';
+    tip.textContent = '当前账号仅可查看人事异动台账；登记 / 修改需管理员在「系统设置 → 职位权限」中为该职务勾选「人事管理」模块。';
+    main.insertBefore(tip, main.firstChild);
+  }
+}
 function typeClass(type) {
   if (type === '入职' || type === '转正') return 'type-in';
   if (type === '离职' || type === '退休') return 'type-out';
@@ -361,5 +385,5 @@ window.cbEmbedRefresh = function () { loadTeachers().then(loadHR); };
 
 loadPerms().then(loadTeachers).then(() => {
   bindEvents();
-  loadHR();
+  loadHR().then(applyWriteScope);
 });

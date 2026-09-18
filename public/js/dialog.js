@@ -4,6 +4,9 @@
                    导入导出/分班动画等一切操作反馈均用它
    - confirmDlg(): 确认类模态框（确定/取消），仅用于删除、清空等
                    不可逆危险操作，需用户明确选择确认/取消
+   - confirmStrictDlg(): 高危确认框，需输入验证短语才放行
+   - promptDlg():   输入类模态框（确定/取消 + 单行/多行输入），替代
+                    window.prompt；确定返回输入文本，取消返回 null
    - notice():     强提示模态框（单确定按钮）。目前页面未使用，
                    保留以备「必须点击确认才可继续」的强提示场景
    - showStatus(): 过程性轻提示（非模态、自动消失），供动画进行中
@@ -25,6 +28,7 @@
   let resolver = null;
   let hasCancel = false;
   let verifyPhrase = ''; // 严格验证模式：需输入的验证短语（空字符串 = 普通确认）
+  let inputOpts = null;  // 输入模式：{ multiline, required, ... }（null = 非输入型对话框）
 
   function ensureDom() {
     if (mask) return;
@@ -40,6 +44,11 @@
           <input class="dialog-verify-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" />
           <div class="dialog-verify-tip"></div>
         </div>
+        <div class="dialog-input-wrap">
+          <input class="dialog-input-el dialog-input-line" type="text" autocomplete="off" />
+          <textarea class="dialog-input-el dialog-input-area" rows="3"></textarea>
+          <div class="dialog-input-tip"></div>
+        </div>
         <div class="dialog-btns">
           <button class="btn btn-default dialog-cancel" type="button">取消</button>
           <button class="btn btn-primary dialog-ok" type="button">确定</button>
@@ -49,6 +58,8 @@
     mask.querySelector('.dialog-cancel').addEventListener('click', () => closeDialog(false));
     mask.querySelector('.dialog-ok').addEventListener('click', () => closeDialog(true));
     mask.querySelector('.dialog-verify-input').addEventListener('input', syncVerifyState);
+    mask.querySelector('.dialog-input-line').addEventListener('input', syncInputState);
+    mask.querySelector('.dialog-input-area').addEventListener('input', syncInputState);
   }
 
   // 严格验证状态同步：输入文字与验证短语一致才放行「确定」按钮
@@ -63,6 +74,27 @@
     tip.className = 'dialog-verify-tip' + (pass ? ' ok' : '');
     tip.textContent = pass ? '验证通过，可点击按钮执行操作。'
       : (input.value ? '验证文字不一致，操作按钮暂未启用。' : '请在上方输入验证文字后继续。');
+  }
+
+  // 输入模式：当前生效的输入框（单行 / 多行）
+  function activeInputEl() {
+    if (!mask || !inputOpts) return null;
+    return inputOpts.multiline
+      ? mask.querySelector('.dialog-input-area')
+      : mask.querySelector('.dialog-input-line');
+  }
+  // 输入模式状态同步：必填时内容非空才放行「确定」按钮
+  function syncInputState() {
+    if (!mask || !inputOpts) return;
+    const el = activeInputEl();
+    if (!el) return;
+    const ok = mask.querySelector('.dialog-ok');
+    const tip = mask.querySelector('.dialog-input-tip');
+    const val = el.value.trim();
+    if (inputOpts.required) {
+      ok.disabled = !val;
+      tip.textContent = val ? '' : (inputOpts.emptyTip || '此项为必填，填写后「确定」才可用。');
+    }
   }
 
   function closeDialog(value) {
@@ -119,13 +151,38 @@
       ok.disabled = false;
     }
 
-    mask.classList.add('show');
-    if (verifyPhrase) setTimeout(() => verifyInput.focus(), 60);
-    else setTimeout(() => ok.focus(), 50);
+    // 输入模式：单行 / 多行文本框，required 时须填写后「确定」才可用
+    inputOpts = (opts.input && typeof opts.input === 'object') ? opts.input : null;
+    const inputWrap = mask.querySelector('.dialog-input-wrap');
+    const inputTip = mask.querySelector('.dialog-input-tip');
+    if (inputOpts) {
+      inputWrap.classList.add('on');
+      const line = mask.querySelector('.dialog-input-line');
+      const area = mask.querySelector('.dialog-input-area');
+      const el = inputOpts.multiline ? area : line;
+      line.style.display = inputOpts.multiline ? 'none' : '';
+      area.style.display = inputOpts.multiline ? '' : 'none';
+      el.value = String(inputOpts.value == null ? '' : inputOpts.value);
+      el.placeholder = inputOpts.placeholder || '';
+      if (inputOpts.maxLength) el.maxLength = Number(inputOpts.maxLength);
+      inputTip.textContent = inputOpts.tip || '';
+      syncInputState();
+    } else {
+      inputWrap.classList.remove('on');
+      inputTip.textContent = '';
+    }
 
+    mask.classList.add('show');
+    const focusDelay = (fn) => setTimeout(fn, 60);
+    if (verifyPhrase) focusDelay(() => verifyInput.focus());
+    else if (inputOpts) focusDelay(() => { const el = activeInputEl(); if (el) { el.focus(); if (el.select) el.select(); } });
+    else focusDelay(() => ok.focus());
+
+    // 多行输入时 Enter 用于换行，不作为「确定」快捷键
+    const multiInput = !!(inputOpts && inputOpts.multiline);
     const onKey = (e) => {
       if (e.key === 'Escape' && hasCancel) closeDialog(false);
-      else if (e.key === 'Enter' && !ok.disabled) closeDialog(true);
+      else if (e.key === 'Enter' && !ok.disabled && !multiInput) closeDialog(true);
     };
     document.addEventListener('keydown', onKey);
     mask._keyHandler = onKey;
@@ -167,6 +224,32 @@
       danger: true,
       phrase: '确认清空'
     }, opts, { message }));
+  };
+
+  // 输入类模态框：带单行 / 多行输入框，确定返回输入文本（trim 后），取消 / Esc 返回 null
+  // required: true 时「确定」按钮需内容非空才可用（省去「弹 alert 再反复 prompt」的旧写法）
+  window.promptDlg = function (message, opts = {}) {
+    const cfg = Object.assign({
+      type: 'info',
+      showCancel: true,
+      okText: '确定',
+      cancelText: '取消',
+      title: '请输入'
+    }, opts, { message });
+    cfg.input = Object.assign({
+      value: '',
+      placeholder: '',
+      multiline: false,
+      required: false,
+      maxLength: 0,
+      tip: '',
+      emptyTip: ''
+    }, (opts.input && typeof opts.input === 'object') ? opts.input : {});
+    return openDialog(cfg).then(function (okVal) {
+      if (!okVal) return null;
+      const el = activeInputEl();
+      return el ? String(el.value).trim() : '';
+    });
   };
 
   // 轻提示核心：写入 #toast 元素，自动消失，后到提示会顶替前一个

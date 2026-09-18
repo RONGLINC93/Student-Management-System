@@ -85,6 +85,13 @@
     }
     .acc-empty { text-align: center; color: var(--text-light); font-size: 13px; padding: 18px 0; }
     .acc-tip { font-size: 12px; color: var(--text-light); margin-top: 8px; line-height: 1.7; }
+    /* 重设密码弹窗 */
+    #pwdMask .modal { max-width: 420px; }
+    .pwd-who { margin: 0 0 12px; font-size: 13px; color: var(--text-light); line-height: 1.7; word-break: break-all; }
+    .pwd-who b { color: var(--text); }
+    .pwd-eye { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-light); cursor: pointer; user-select: none; }
+    .pwd-eye input { accent-color: var(--primary, #4f6df5); cursor: pointer; margin: 0; }
+    .hr-tip { margin: 4px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--text-light); background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
     /* 职位权限：模块复选框阵列 */
     .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; margin-top: 4px; }
     .perm-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; user-select: none; font-size: 13px; }
@@ -594,7 +601,7 @@
               <tr>
                 <td>管理员</td>
                 <td>管理员入口登录（初始账号 admin）</td>
-                <td>全部业务模块：学生档案、班级管理、年级管理、成绩管理、考勤操行、请假、通知公告、宿舍管理、课程表、课程管理</td>
+                <td>全部业务模块：学生档案、班级管理、年级管理、成绩管理、考勤操行、请假、通知公告、宿舍管理、课程表、课程管理、人事管理</td>
                 <td>另享管理员专属功能：教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、系统设置、账号与安全；固定权限，不可配置</td>
               </tr>
               <tr>
@@ -638,7 +645,7 @@
           <button class="btn btn-primary btn-sm" id="btnSavePerms">保存职位权限</button>
           <button class="btn btn-outline btn-sm" id="btnResetPerms">恢复默认</button>
         </div>
-        <p class="acc-tip">权限由「职务」驱动：教师档案中的<b>行政职务</b>与下方清单里的职务名<b>完全一致</b>时命中该条目，即获得该条目勾选的可管理模块；没命中的教师不能登录管理后台（只能在教师端使用）。职称不再参与权限判定，可管理哪些模块完全由职务条目决定。条目<b>可增删改</b>，同名职务只保留一条；未勾选的模块仅可查看；教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、系统设置始终仅限管理员，不开放配置。默认条目：教务主任、教务、教务处主任（可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管、宿管员、宿舍管理员（仅宿舍）。历史档案里把职责关键字写在职称或非标准职务上的教师，仍按旧关键字兜底授权（登录后在顶栏标注「遗留」），建议在此补一条同名职务后让其重新登录。职务即权限来源：办理调岗 / 晋升等人事异动改变职务时，会同步改变其后台权限，登记时需显式确认并留痕。权限变更保存后立即生效，新登录或刷新后的会话按新权限展示操作按钮，服务端始终以本设置硬拦截未授权的写请求。</p>
+        <p class="acc-tip">权限由「职务」驱动：教师档案中的<b>行政职务</b>与下方清单里的职务名<b>完全一致</b>时命中该条目，即获得该条目勾选的可管理模块；没命中的教师不能登录管理后台（只能在教师端使用）。职称不再参与权限判定，可管理哪些模块完全由职务条目决定。条目<b>可增删改</b>，同名职务只保留一条；未勾选的模块仅可查看。<b>人事管理</b>已开放配置，可授予人事类岗位（如人事专员、办公室主任）：因异动登记会改写教师的「行政职务」，而职务即权限来源，获此授权者可通过调岗 / 晋升间接调整他人后台权限，请按需谨慎勾选并留痕。教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、账号与安全、系统设置本身（内含本职位权限清单，开放即等于可自助提权）始终仅限管理员，不开放配置。默认条目：教务主任、教务、教务处主任（可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管、宿管员、宿舍管理员（仅宿舍）。历史档案里把职责关键字写在职称或非标准职务上的教师，仍按旧关键字兜底授权（登录后在顶栏标注「遗留」），建议在此补一条同名职务后让其重新登录。职务即权限来源：办理调岗 / 晋升等人事异动改变职务时，会同步改变其后台权限，登记时需显式确认并留痕。权限变更保存后立即生效，新登录或刷新后的会话按新权限展示操作按钮，服务端始终以本设置硬拦截未授权的写请求。</p>
       </section>
 
       <!-- 服务器管理 -->
@@ -688,6 +695,35 @@
       </div><!-- /.set-body -->
     </div>
   </main>
+
+  <!-- 账号重设密码弹窗（模态框，替代浏览器原生 prompt） -->
+  <div class="modal-mask" id="pwdMask">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="pwdTitle">重设密码</h3>
+        <button class="modal-close" id="pwdClose" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="modal-body" id="pwdForm">
+        <div class="form-row">
+          <p class="pwd-who" id="pwdWho"></p>
+          <label class="form-label" for="pwdNew">新密码 <span class="req">*</span></label>
+          <input type="password" id="pwdNew" maxlength="64" autocomplete="new-password" placeholder="6～64 位" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="pwdNew2">确认新密码 <span class="req">*</span></label>
+          <input type="password" id="pwdNew2" maxlength="64" autocomplete="new-password" placeholder="再次输入新密码" />
+        </div>
+        <div class="form-row">
+          <label class="pwd-eye"><input type="checkbox" id="pwdEye" /> 显示密码</label>
+        </div>
+        <p class="hr-tip" id="pwdTip"></p>
+      </form>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" id="pwdCancel">取消</button>
+        <button type="button" class="btn btn-primary" id="pwdSave">保存</button>
+      </div>
+    </div>
+  </div>
 
   <div class="set-toast" id="setToast"></div>
 
@@ -787,7 +823,8 @@
         { key: 'announcements', name: '通知公告' },
         { key: 'timetables',    name: '课程表' },
         { key: 'courses',       name: '课程管理' },
-        { key: 'dorms',         name: '宿舍管理' }
+        { key: 'dorms',         name: '宿舍管理' },
+        { key: 'hr',            name: '人事管理' }
       ];
       // 默认模块模板（「恢复默认」与本地预览用，不再与身份绑定）
       var PERM_DEFAULTS = {
@@ -898,12 +935,12 @@
       }
       $el('permRoles').addEventListener('input', syncPermOverview);
       $el('permRoles').addEventListener('change', syncPermOverview);
-      $el('permRoles').addEventListener('click', function (e) {
+      $el('permRoles').addEventListener('click', async function (e) {
         if (!e.target.classList || !e.target.classList.contains('perm-role-del')) return;
         var row = e.target.closest('.perm-role');
         if (!row) return;
         var name = String(row.querySelector('.pr-name').value || '').trim();
-        if (name && !ask('确定删除职务「' + name + '」的权限配置吗？\n删除后该职务的教师将无法登录管理后台。')) return;
+        if (name && !(await ask('确定删除职务「' + name + '」的权限配置吗？\n删除后该职务的教师将无法登录管理后台。', '删除职务', '删除', true))) return;
         row.remove();
         syncPermOverview();
       });
@@ -915,8 +952,8 @@
         var blank = p.roles.filter(function (r) { return !r.name; }).length;
         save({ positionPermissions: p }, '职位权限已保存' + (blank ? '（已忽略 ' + blank + ' 条未填职务名的配置）' : ''));
       });
-      $el('btnResetPerms').addEventListener('click', function () {
-        if (!ask('确定恢复职位权限为默认配置吗？\n默认：教务 / 教务主任 / 教务处主任（教务身份，可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管 / 宿管员 / 宿舍管理员（宿管身份，仅宿舍）。')) return;
+      $el('btnResetPerms').addEventListener('click', async function () {
+        if (!(await ask('确定恢复职位权限为默认配置吗？\n默认：教务 / 教务主任 / 教务处主任（教务身份，可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管 / 宿管员 / 宿舍管理员（宿管身份，仅宿舍）。', '恢复默认职位权限', '恢复', true))) return;
         save({ positionPermissions: null }, '已恢复默认职位权限');
       });
 
@@ -941,11 +978,13 @@
         }).catch(function (e) { toast(e.message || '保存失败', 'err'); });
       }
 
-      function ask(msg) {
-        try {
-          if (window.confirm) return window.confirm(msg);
-        } catch (e) {}
-        return true;
+      // 确认统一走模态框（dialog.js 的 confirmDlg），组件不可用时回退原生 confirm。
+      // 返回 Promise（异步），调用方需 await。
+      function ask(msg, title, okText, danger) {
+        if (typeof window.confirmDlg === 'function') {
+          return window.confirmDlg(msg, { title: title || '操作确认', okText: okText || '确定', danger: !!danger });
+        }
+        try { return Promise.resolve(!!window.confirm(msg)); } catch (e) { return Promise.resolve(true); }
       }
 
       // 学校信息：保存（名称/校徽/学年/校训/地址/电话）
@@ -970,9 +1009,9 @@
         this.value = '';
         if (file) readLogoFile(file);
       });
-      $el('btnClearLogo').addEventListener('click', function () {
+      $el('btnClearLogo').addEventListener('click', async function () {
         if (!logoDraft) { toast('当前没有校徽可移除'); return; }
-        if (!ask('确认移除已设置的校徽吗？（保存后生效）')) return;
+        if (!(await ask('确认移除已设置的校徽吗？（保存后生效）', '移除校徽', '移除', true))) return;
         logoDraft = '';
         renderLogo();
       });
@@ -1014,10 +1053,10 @@
         this.value = '';
         if (!file) return;
         var rd = new FileReader();
-        rd.onload = function () {
+        rd.onload = async function () {
           var obj;
           try { obj = JSON.parse(rd.result); } catch (e) { toast('文件不是有效的备份 JSON', 'err'); return; }
-          if (!ask('导入将覆盖当前全部数据，确认继续吗？')) return;
+          if (!(await ask('导入将覆盖当前全部数据，确认继续吗？', '导入备份恢复数据', '覆盖恢复', true))) return;
           var done = busyBtn($el('btnPickImport'), '导入中…');
           if (!done) return;
           fetch('/api/restore', {
@@ -1466,6 +1505,67 @@
           .finally(function () { done(); });
       });
 
+      // —— 账号「重设密码」弹窗（模态框，替代原生 prompt）——
+      var pwdTarget = null;  // 当前重设密码的账号对象
+
+      function openPwdModal(u) {
+        pwdTarget = u;
+        var label = u.role === 'student' ? '学生账号' : (u.role === 'teacher' ? '教师账号' : '账号');
+        $el('pwdTitle').textContent = '重设密码';
+        $el('pwdWho').innerHTML = '为' + label + '「<b>' + escU(u.nickname || u.username) + '</b>（@' + escU(u.username) + '）」设置新密码，保存后立即生效。';
+        $el('pwdTip').textContent = (u.role === 'student'
+          ? '设为本人学号，即可恢复「首次默认登录（学号）」状态。'
+          : (u.role === 'teacher'
+            ? '设为本人身份证号后 6 位，即可恢复「首次登录（初始密码）」强制改密状态。'
+            : '密码需为 6～64 位，保存后立即生效。'));
+        $el('pwdNew').value = '';
+        $el('pwdNew2').value = '';
+        $el('pwdEye').checked = false;
+        syncPwdMask();
+        $el('pwdMask').classList.add('show');
+        setTimeout(function () { $el('pwdNew').focus(); }, 60);
+      }
+      function closePwdModal() {
+        $el('pwdMask').classList.remove('show');
+        pwdTarget = null;
+      }
+      function syncPwdMask() {
+        var t = $el('pwdEye').checked ? 'text' : 'password';
+        $el('pwdNew').type = t;
+        $el('pwdNew2').type = t;
+      }
+      function savePwd() {
+        if (!pwdTarget) return;
+        var n1 = $el('pwdNew').value;
+        var n2 = $el('pwdNew2').value;
+        if (n1.length < 6 || n1.length > 64) { toast('密码需为 6～64 位', 'err'); $el('pwdNew').focus(); return; }
+        if (n1 !== n2) { toast('两次输入的新密码不一致', 'err'); $el('pwdNew2').focus(); return; }
+        var btn = $el('pwdSave');
+        var done = busyBtn(btn, '保存中…');
+        if (!done) return;
+        fetch('/api/users/' + encodeURIComponent(pwdTarget.username), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: n1 })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '操作失败');
+          toast('密码已重置', 'ok');
+          closePwdModal();
+        }).catch(function (e) { toast(e.message || '操作失败', 'err'); })
+          .finally(function () { done(); });
+      }
+      $el('pwdSave').addEventListener('click', savePwd);
+      $el('pwdCancel').addEventListener('click', closePwdModal);
+      $el('pwdClose').addEventListener('click', closePwdModal);
+      $el('pwdEye').addEventListener('change', syncPwdMask);
+      $el('pwdForm').addEventListener('submit', function (e) { e.preventDefault(); savePwd(); });
+      $el('pwdMask').addEventListener('click', function (e) {
+        if (e.target === $el('pwdMask')) closePwdModal();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && $el('pwdMask').classList.contains('show')) closePwdModal();
+      });
+
       // —— 账号管理（仅管理员可见）——
       var accSelf = null;
 
@@ -1516,25 +1616,12 @@
         });
 
         row.querySelector('.acc-reset').addEventListener('click', function () {
-          var np = prompt(isStudent
-            ? '为学生账号「' + u.username + '（' + (u.nickname || '') + '）」设置新密码（6～64 位）。\n设为本人学号，即可恢复“首次默认登录（学号）”状态：'
-            : (isTeacher
-              ? '为教师账号「' + u.username + '（' + (u.nickname || '') + '）」设置新密码（6～64 位）。\n设为本人身份证号后 6 位，即可恢复“首次登录（初始密码）”强制改密状态：'
-              : '为账号「' + u.username + '」设置新密码（6～64 位）：'), '');
-          if (np === null) return;
-          if (np.length < 6 || np.length > 64) return toast('密码需为 6～64 位', 'err');
-          fetch('/api/users/' + encodeURIComponent(u.username), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: np })
-          }).then(function (r) { return r.json(); }).then(function (j) {
-            toast(j.code === 0 ? '密码已重置' : (j.msg || '操作失败'), j.code === 0 ? 'ok' : 'err');
-          }).catch(function () { toast('操作失败', 'err'); });
+          openPwdModal(u);
         });
 
         var del = row.querySelector('.acc-del');
-        if (del) del.addEventListener('click', function () {
-          if (!ask('确定删除账号「' + u.username + '」吗？')) return;
+        if (del) del.addEventListener('click', async function () {
+          if (!(await ask('确定删除账号「' + u.username + '」吗？', '删除账号', '删除', true))) return;
           fetch('/api/users/' + encodeURIComponent(u.username), { method: 'DELETE' })
             .then(function (r) { return r.json(); }).then(function (j) {
               toast(j.code === 0 ? '账号已删除' : (j.msg || '删除失败'), j.code === 0 ? 'ok' : 'err');
