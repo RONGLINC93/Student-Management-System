@@ -69,6 +69,22 @@
     .empty-card p { font-size:16px; color:var(--text); margin:0 0 6px; font-weight:600; }
     .empty-card .e-btn { margin-top:18px; display:flex; gap:10px; justify-content:center; }
 
+    /* ===== 左侧「楼栋 / 房间」侧栏 + 右侧房态区（树样式见 /css/style.css） ===== */
+    .dorm-layout { display: flex; gap: 18px; align-items: flex-start; }
+    .dorm-sidebar {
+      flex: 0 0 250px; position: sticky; top: 18px; align-self: flex-start;
+      background: #fff; border: 1px solid var(--border, #e5e7eb); border-radius: 12px;
+      padding: 14px; max-height: calc(100vh - 45px); overflow: auto; overscroll-behavior: contain;
+    }
+    .dorm-main { flex: 1 1 auto; min-width: 0; }
+    .gico.build { color: #4f46e5; }
+    .gico.room { color: #9aa7b8; }
+    /* 房间节点的房态色点：与房态图瓦片一致 */
+    .gtree-row .rstate { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; }
+    .rstate.st-empty { background: #22c55e; }
+    .rstate.st-part { background: #f59e0b; }
+    .rstate.st-full { background: #8b5cf6; }
+
     /* ===== 房间详情 ===== */
     #detailMask .modal { max-width:600px; }
     #detailMask .modal-header h3 { font-size:17px; margin-right:4px; }
@@ -170,6 +186,9 @@
 
     /* ===== 小屏适配 ===== */
     @media (max-width: 900px) {
+      /* 小屏：侧栏改为顶部整块，房态区独占下方 */
+      .dorm-layout { flex-direction: column; }
+      .dorm-sidebar { flex: 1 1 auto; width: 100%; position: static; max-height: none; }
       /* 房态图：更小的瓦片，窄屏也能一行两三个 */
       .room-map { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
       .rtile { padding: 9px 10px; }
@@ -225,42 +244,56 @@
   </header>
 
   <main class="container">
-    <!-- 总览统计 -->
-    <section class="stats">
-      <div class="stat-card"><div class="stat-num" id="sBuildings">0</div><div class="stat-label">楼栋</div></div>
-      <div class="stat-card"><div class="stat-num" id="sRooms">0</div><div class="stat-label">房间</div></div>
-      <div class="stat-card"><div class="stat-num" id="sBeds">0</div><div class="stat-label">床位</div></div>
-      <div class="stat-card"><div class="stat-num" id="sIn">0</div><div class="stat-label">在住</div></div>
-      <div class="stat-card"><div class="stat-num" id="sRate">0%</div><div class="stat-label">入住率</div></div>
-    </section>
-
-    <!-- 房态工具栏 -->
-    <section class="toolbar">
-      <div class="toolbar-left">
-        <div class="state-chips" id="stateChips">
-          <button type="button" class="state-chip active" data-state="all"><i class="dot dot-s-all"></i>全部</button>
-          <button type="button" class="state-chip" data-state="empty"><i class="dot dot-s-empty"></i>空房</button>
-          <button type="button" class="state-chip" data-state="part"><i class="dot dot-s-part"></i>部分入住</button>
-          <button type="button" class="state-chip" data-state="full"><i class="dot dot-s-full"></i>满房</button>
+    <div class="dorm-layout">
+      <!-- 左侧：楼栋 / 房间导航树 -->
+      <aside class="dorm-sidebar">
+        <div class="sidebar-head">
+          <h3 class="sidebar-title">楼栋 / 房间</h3>
+          <button type="button" class="btn btn-outline btn-sm" id="btnTreeAll">全部房间</button>
         </div>
-        <select id="buildFilter" class="grade-filter"><option value="">全部楼栋</option></select>
-        <input type="text" id="roomSearch" class="search-input" placeholder="搜索房号 / 楼栋" style="width:190px" />
-      </div>
-      <div class="toolbar-right">
-        <button class="btn btn-primary" id="btnCheckin">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> 办理入住
-        </button>
-        <button class="btn btn-outline" id="btnDormApps" title="审核学生在学生端提交的入住申请">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> 学生申请<span class="app-badge" id="appCountBadge"></span>
-        </button>
-        <button class="btn btn-outline" id="btnAddRoom">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加房间
-        </button>
-      </div>
-    </section>
+        <p class="sidebar-tip">点击<b>楼栋</b>只看该楼栋房间；点箭头展开后点击<b>房号</b>可直接打开房间详情。房间后为「在住 / 床位」。</p>
+        <div id="dormTree" class="grade-tree"></div>
+      </aside>
 
-    <!-- 房态图 -->
-    <div id="roomGroups"></div>
+      <div class="dorm-main">
+        <!-- 总览统计 -->
+        <section class="stats">
+          <div class="stat-card"><div class="stat-num" id="sBuildings">0</div><div class="stat-label">楼栋</div></div>
+          <div class="stat-card"><div class="stat-num" id="sRooms">0</div><div class="stat-label">房间</div></div>
+          <div class="stat-card"><div class="stat-num" id="sBeds">0</div><div class="stat-label">床位</div></div>
+          <div class="stat-card"><div class="stat-num" id="sIn">0</div><div class="stat-label">在住</div></div>
+          <div class="stat-card"><div class="stat-num" id="sRate">0%</div><div class="stat-label">入住率</div></div>
+        </section>
+
+        <!-- 房态工具栏 -->
+        <section class="toolbar">
+          <div class="toolbar-left">
+            <div class="state-chips" id="stateChips">
+              <button type="button" class="state-chip active" data-state="all"><i class="dot dot-s-all"></i>全部</button>
+              <button type="button" class="state-chip" data-state="empty"><i class="dot dot-s-empty"></i>空房</button>
+              <button type="button" class="state-chip" data-state="part"><i class="dot dot-s-part"></i>部分入住</button>
+              <button type="button" class="state-chip" data-state="full"><i class="dot dot-s-full"></i>满房</button>
+            </div>
+            <input type="text" id="roomSearch" class="search-input" placeholder="搜索房号 / 楼栋" style="width:190px" />
+            <span class="filter-chip" id="treeChip" hidden><span id="treeChipText"></span><button type="button" id="treeChipClear" title="清除楼栋筛选">&times;</button></span>
+          </div>
+          <div class="toolbar-right">
+            <button class="btn btn-primary" id="btnCheckin">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> 办理入住
+            </button>
+            <button class="btn btn-outline" id="btnDormApps" title="审核学生在学生端提交的入住申请">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> 学生申请<span class="app-badge" id="appCountBadge"></span>
+            </button>
+            <button class="btn btn-outline" id="btnAddRoom">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加房间
+            </button>
+          </div>
+        </section>
+
+        <!-- 房态图 -->
+        <div id="roomGroups"></div>
+      </div>
+    </div>
   </main>
 
   <!-- 房间 添加 / 编辑 -->

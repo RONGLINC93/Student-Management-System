@@ -100,6 +100,11 @@ async function loadBase() {
 
 async function loadDorms() {
   dorms = await jfetch(DORM_API, { method: 'GET' });
+  // 房间较多时默认收起楼栋，避免侧栏过长（只做一次，之后保留用户的展开状态）
+  if (!treeInited) {
+    treeInited = true;
+    if (dorms.length > 24) buildingNames().forEach(b => treeCollapsed.add('b:' + b));
+  }
   render();
 }
 
@@ -111,21 +116,140 @@ async function reload() {
   refreshAppsUI();
 }
 
+// ========== 左侧「楼栋 / 房间」导航树 ==========
+// 楼栋节点的折叠状态（房间较多时默认收起，点楼栋自动展开）
+let treeCollapsed = new Set();
+let treeRoomId = '';      // 侧栏点选的房间（高亮用）
+let treeInited = false;   // 默认折叠只在首次加载时初始化，避免覆盖用户的展开状态
+
+const TREE_SVG = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+const TREE_ICON = {
+  all: `<svg class="gico school" ${TREE_SVG}><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>`,
+  build: `<svg class="gico build" ${TREE_SVG}><path d="M3 21h18"/><path d="M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M7 21v-5h10v5"/><path d="M10 6h4M10 9h4M10 12h4"/></svg>`,
+  room: `<svg class="gico room" ${TREE_SVG}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M16 10h.01"/><path d="M16 14h.01"/></svg>`
+};
+// 一行树节点：折叠箭头 + 图标 + 名称 + 右侧补充（房态色点）+ 统计
+function treeRowHtml(o) {
+  const toggle = o.hasKids
+    ? `<button type="button" class="gtree-toggle${o.collapsed ? ' collapsed' : ''}" data-toggle="${esc(o.nodeId || '')}" aria-label="展开 / 收起"></button>`
+    : '<span class="gtree-toggle leaf"></span>';
+  return `<div class="gtree-row${o.selected ? ' selected' : ''}" data-kind="${esc(o.kind)}" data-value="${esc(o.value || '')}"${o.title ? ` title="${esc(o.title)}"` : ''}>`
+    + toggle + o.icon
+    + `<span class="gname">${esc(o.name)}</span>`
+    + (o.extra || '')
+    + (o.meta ? `<span class="gmeta">${esc(o.meta)}</span>` : '')
+    + '</div>';
+}
+function buildingNames() {
+  return [...new Set(dorms.map(r => r.building))]
+    .sort((a, b) => String(a).localeCompare(String(b), 'zh-Hans-CN', { numeric: true }));
+}
+function renderDormTree() {
+  const host = $('#dormTree');
+  if (!host) return;
+  const rootCollapsed = treeCollapsed.has('__root__');
+  const kids = buildingNames().map(b => {
+    const rooms = dorms.filter(r => r.building === b).slice().sort(roomSort);
+    let gOcc = 0, gBeds = 0;
+    rooms.forEach(r => { gOcc += occ(r); gBeds += capOf(r); });
+    const collapsed = treeCollapsed.has('b:' + b);
+    let node = '<div class="gnode' + (collapsed ? ' collapsed' : '') + '">' + treeRowHtml({
+      icon: TREE_ICON.build, name: b, kind: 'build', value: b,
+      meta: `${rooms.length} 间 · ${gOcc}/${gBeds}`,
+      selected: filter.build === b, hasKids: true, collapsed, nodeId: 'b:' + b,
+      title: `只看「${b}」的房间`
+    });
+    node += '<div class="gchildren">' + rooms.map(r => '<div class="gnode">' + treeRowHtml({
+      icon: TREE_ICON.room, name: r.roomNo, kind: 'room', value: r.id,
+      meta: `${occ(r)}/${capOf(r)}`,
+      selected: !!treeRoomId && String(treeRoomId) === String(r.id),
+      title: `${r.building} ${r.roomNo} · ${STATE_TEXT[stateKey(r)]}（点击查看详情）`,
+      extra: `<span class="rstate st-${stateKey(r)}"></span>`
+    }) + '</div>').join('') + '</div>';
+    return node + '</div>';
+  }).join('');
+  host.innerHTML = '<div class="gnode gnode-root' + (rootCollapsed ? ' collapsed' : '') + '">'
+    + treeRowHtml({
+      icon: TREE_ICON.all, name: '全部房间', kind: 'all', value: '',
+      meta: dorms.length + ' 间', selected: !filter.build,
+      hasKids: true, collapsed: rootCollapsed, nodeId: '__root__', title: '显示全部楼栋的房间'
+    })
+    + '<div class="gchildren">' + kids + '</div></div>'
+    + (dorms.length ? '' : '<p class="sidebar-tip" style="margin-top:8px">还没有房间，点击右上角「添加房间」开始。</p>');
+}
+function bindDormTree() {
+  const host = $('#dormTree');
+  if (!host || host.dataset.bound) return;
+  host.dataset.bound = '1';
+  host.addEventListener('click', (e) => {
+    const tg = e.target.closest('.gtree-toggle');
+    if (tg && !tg.classList.contains('leaf')) {
+      const id = tg.dataset.toggle || '';
+      if (treeCollapsed.has(id)) treeCollapsed.delete(id); else treeCollapsed.add(id);
+      renderDormTree();
+      return;
+    }
+    const row = e.target.closest('.gtree-row');
+    if (!row) return;
+    const kind = row.dataset.kind || 'all';
+    const value = row.dataset.value || '';
+    if (kind === 'all') {
+      filter.build = '';
+      treeRoomId = '';
+      render();
+    } else if (kind === 'build') {
+      // 再点一次已选中的楼栋即恢复全部；否则只看该楼栋并展开其房间
+      const same = filter.build === value;
+      if (!same) treeCollapsed.delete('b:' + value);
+      filter.build = same ? '' : value;
+      treeRoomId = '';
+      render();
+    } else if (kind === 'room') {
+      const room = dorms.find(r => String(r.id) === String(value));
+      if (!room) return;
+      treeRoomId = String(room.id);
+      // 房间被其它筛选挡住时，先切到所在楼栋再定位
+      if (filter.build && filter.build !== room.building) {
+        filter.build = room.building;
+        render();
+      } else {
+        renderDormTree();
+      }
+      focusRoomTile(room.id);
+      openDetail(room.id);
+    }
+  });
+}
+// 房态图里定位并高亮某个房间的瓦片
+function focusRoomTile(roomId) {
+  const tile = document.querySelector(`.rtile[data-room-id="${cssEscStr(roomId)}"]`);
+  if (!tile) return;
+  tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  tile.classList.add('flash');
+  setTimeout(() => tile.classList.remove('flash'), 2200);
+}
+// 工具栏中的筛选提示 chip（当前楼栋 + 命中房间数，可一键清除）
+function updateTreeChip(count) {
+  const chip = $('#treeChip');
+  if (!chip) return;
+  const txt = $('#treeChipText');
+  if (!filter.build) { chip.hidden = true; if (txt) txt.textContent = ''; return; }
+  chip.hidden = false;
+  if (txt) txt.textContent = '楼栋：' + filter.build + ' · ' + count + ' 间';
+}
+
 // ========== 房态图 ==========
 function render() {
-  // 楼栋筛选下拉
+  // 楼栋清单（供「添加房间」弹窗联想），楼栋筛选改由左侧树控制
   const buildings = [...new Set(dorms.map(r => r.building))];
-  const bSel = $('#buildFilter');
-  const curBuild = filter.build;
-  bSel.innerHTML = '<option value="">全部楼栋</option>' + buildings.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
-  if (!buildings.includes(curBuild)) filter.build = '';
-  bSel.value = filter.build;
+  if (!buildings.includes(filter.build)) filter.build = '';
   $('#buildList').innerHTML = buildings.map(b => `<option value="${esc(b)}"></option>`).join('');
   // 状态 chips
   document.querySelectorAll('#stateChips .state-chip').forEach(c => {
     c.classList.toggle('active', c.dataset.state === filter.state);
   });
   renderStats();
+  renderDormTree();
   renderMap();
 }
 
@@ -147,6 +271,7 @@ function renderStats() {
 function renderMap() {
   const box = $('#roomGroups');
   if (!dorms.length) {
+    updateTreeChip(0);
     box.innerHTML = `
       <div class="empty-card">
         <div class="e-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M7 21v-5h10v5"/><path d="M10 6h4M10 9h4M10 12h4"/></svg></div>
@@ -164,9 +289,11 @@ function renderMap() {
   if (filter.build) list = list.filter(r => r.building === filter.build);
   if (filter.kw) list = list.filter(r => String(r.roomNo).toLowerCase().includes(filter.kw) || String(r.building).toLowerCase().includes(filter.kw));
   if (!list.length) {
+    updateTreeChip(0);
     box.innerHTML = '<div class="empty-card"><p>没有符合条件的房间</p><small>试试切换房态筛选 / 楼栋或调整关键词。</small></div>';
     return;
   }
+  updateTreeChip(list.length);
   // 按楼栋分组
   const groups = {};
   list.forEach(r => (groups[r.building] = groups[r.building] || []).push(r));
@@ -282,6 +409,10 @@ function applyRoomDeepLink() {
   if (!rid) return;
   const room = dorms.find(r => String(r.id) === String(rid));
   if (!room) return;
+  // 侧栏展开该房间所在楼栋并高亮房间节点
+  treeCollapsed.delete('b:' + room.building);
+  treeRoomId = String(room.id);
+  renderDormTree();
   focusSid = p.get('focus') || '';
   const tile = document.querySelector(`.rtile[data-room-id="${cssEscStr(rid)}"]`);
   if (tile) {
@@ -691,8 +822,13 @@ function bindEvents() {
     filter.state = c.dataset.state;
     render();
   };
-  $('#buildFilter').onchange = (e) => { filter.build = e.target.value; render(); };
   $('#roomSearch').oninput = (e) => { filter.kw = e.target.value.trim().toLowerCase(); render(); };
+
+  // 左侧「楼栋 / 房间」树
+  bindDormTree();
+  const clearTree = () => { filter.build = ''; treeRoomId = ''; render(); };
+  if ($('#btnTreeAll')) $('#btnTreeAll').onclick = clearTree;
+  if ($('#treeChipClear')) $('#treeChipClear').onclick = clearTree;
 
   // 房态图：点卡片开详情；空状态按钮
   $('#roomGroups').onclick = (e) => {
