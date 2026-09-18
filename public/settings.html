@@ -96,6 +96,26 @@
     .perm-table td:first-child { white-space: nowrap; font-weight: 600; }
     .perm-table td small { color: var(--text-light); }
     .perm-item input { accent-color: var(--primary, #4f6df5); cursor: pointer; }
+    /* 职位权限：职务清单编辑器 */
+    .perm-role {
+      border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #fff;
+    }
+    .perm-role-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .perm-role-head input[type="text"] {
+      flex: 1 1 180px; min-width: 140px; height: 34px; padding: 0 10px; font-size: 13px;
+      border: 1px solid var(--border); border-radius: 8px; background: #fff; color: inherit;
+    }
+    .perm-role-head select {
+      height: 34px; padding: 0 8px; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: inherit;
+    }
+    .perm-role-del {
+      height: 30px; padding: 0 10px; font-size: 12.5px; border: 1px solid #fecaca; color: #b91c1c;
+      background: #fff; border-radius: 8px; cursor: pointer;
+    }
+    .perm-role-del:hover { background: #fef2f2; }
+    .perm-role-mods { margin-top: 8px; }
+    .perm-role-tip { font-size: 12px; color: var(--text-light); margin-top: 6px; line-height: 1.6; }
+    .perm-role-tip b { color: #b45309; }
     /* 学校信息：校徽与表单 */
     .logo-setup { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
     .logo-preview {
@@ -222,6 +242,7 @@
         <a href="/classes.html" class="nav-item">班级管理</a>
         <a href="/grades.html" class="nav-item">年级管理</a>
         <a href="/teachers.html" class="nav-item">教师管理</a>
+        <a href="/hr.html" class="nav-item">人事管理</a>
         <a href="/exams.html" class="nav-item">成绩管理</a>
         <a href="/conduct.html" class="nav-item">考勤操行</a>
         <a href="/dorm.html" class="nav-item">宿舍管理</a>
@@ -547,7 +568,7 @@
           <div class="acc-zone" id="accZone">
             <div class="acc-empty" id="accEmpty">账号列表加载中…</div>
           </div>
-          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝；职位含「教务」或「宿管」的教师可在管理员入口登录，分别获得「教务」「宿管」角色，二者可管理的模块可在「<a href="#roles" onclick="switchSec('roles');return false;">职位权限</a>」中按需调整（默认：教务可管学生、班级、年级、成绩、考勤操行、公告，请假审批由班主任在教师端完成、宿舍归宿管管理；宿管仅宿舍；教务与宿管权限相互独立，不合并授权）。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），教师账号随教师首次登录「教师入口」自动创建（账号为工号、初始密码为身份证号后 6 位，首次登录强制修改密码），此处均可为其重设密码，但角色不可修改。</p>
+          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝；其「行政职务」命中下方「<a href="#roles" onclick="switchSec('roles');return false;">职位权限</a>」清单中的职务条目时即可登录管理后台，并仅可管理该条目勾选的模块（没命中的教师不能进入管理后台，只能在教师端使用）；职称不再参与权限判定，可管理的模块完全由职务条目决定。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），教师账号随教师首次登录「教师入口」自动创建（账号为工号、初始密码为身份证号后 6 位，首次登录强制修改密码），此处均可为其重设密码，但角色不可修改。</p>
         </div>
       </section>
 
@@ -583,16 +604,10 @@
                 <td>仅可查看各页与大屏，所有修改 / 删除操作被拒绝；固定权限，不可配置</td>
               </tr>
               <tr>
-                <td>教务</td>
-                <td>职位 / 职务含「教务」的教师，管理员入口用工号登录</td>
-                <td id="ovStaff">加载中…</td>
-                <td>未勾选的模块仅可查看；可在下方调整</td>
-              </tr>
-              <tr>
-                <td>宿管</td>
-                <td>职位 / 职务含「宿管」的教师，管理员入口用工号登录</td>
-                <td id="ovDorm">加载中…</td>
-                <td>未勾选的模块仅可查看；可在下方调整</td>
+                <td>职务账号</td>
+                <td>教师档案「行政职务」命中下方清单中对应的职务条目，即获得该条目勾选的可管理模块；管理员入口用工号登录</td>
+                <td id="ovPosition">加载中…</td>
+                <td>每个职务单独配置，见下方清单；未列入清单的职务无后台权限（仅教师端）</td>
               </tr>
               <tr>
                 <td>班主任 / 科任教师</td>
@@ -611,18 +626,19 @@
         </div>
 
         <div class="set-field">
-          <label class="set-label">教务 <span class="badge">职位含「教务」的教师</span></label>
-          <div class="perm-grid" id="permStaff"></div>
-        </div>
-        <div class="set-field">
-          <label class="set-label">宿管 <span class="badge">职位含「宿管」的教师</span></label>
-          <div class="perm-grid" id="permDorm"></div>
+          <label class="set-label">职务权限清单 <span class="badge">教师按「行政职务」精确匹配条目</span></label>
+          <div id="permRoles"></div>
+          <div style="margin-top:8px">
+            <button type="button" class="btn btn-outline btn-sm" id="btnAddPermRole">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加职务
+            </button>
+          </div>
         </div>
         <div class="set-card-foot" style="margin-top:4px">
           <button class="btn btn-primary btn-sm" id="btnSavePerms">保存职位权限</button>
           <button class="btn btn-outline btn-sm" id="btnResetPerms">恢复默认</button>
         </div>
-        <p class="acc-tip">上方总览表列出全部角色的权限：管理员、查看模式为固定权限，教师端与学生端不走管理后台，仅「教务 / 宿管」可在此配置。勾选的模块对该职位开放读写（含增删改、审批等写操作），未勾选的模块仅可查看；教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、系统设置始终仅限管理员，不开放配置。默认配置：教务可管理学生、班级、年级、成绩、考勤操行、公告（请假、宿舍默认不开放——请假审批由班主任在教师端完成，宿舍归宿管管理）；宿管仅可管理宿舍。职务同时含「教务」与「宿管」的教师按教务身份登录，仅按教务职位权限授权（不并入宿管模块）。权限变更保存后立即生效，新登录或刷新后的会话将按新权限展示操作按钮，服务端始终以本设置硬拦截未授权的写请求。</p>
+        <p class="acc-tip">权限由「职务」驱动：教师档案中的<b>行政职务</b>与下方清单里的职务名<b>完全一致</b>时命中该条目，即获得该条目勾选的可管理模块；没命中的教师不能登录管理后台（只能在教师端使用）。职称不再参与权限判定，可管理哪些模块完全由职务条目决定。条目<b>可增删改</b>，同名职务只保留一条；未勾选的模块仅可查看；教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、系统设置始终仅限管理员，不开放配置。默认条目：教务主任、教务、教务处主任（可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管、宿管员、宿舍管理员（仅宿舍）。历史档案里把职责关键字写在职称或非标准职务上的教师，仍按旧关键字兜底授权（登录后在顶栏标注「遗留」），建议在此补一条同名职务后让其重新登录。职务即权限来源：办理调岗 / 晋升等人事异动改变职务时，会同步改变其后台权限，登记时需显式确认并留痕。权限变更保存后立即生效，新登录或刷新后的会话按新权限展示操作按钮，服务端始终以本设置硬拦截未授权的写请求。</p>
       </section>
 
       <!-- 服务器管理 -->
@@ -773,53 +789,135 @@
         { key: 'courses',       name: '课程管理' },
         { key: 'dorms',         name: '宿舍管理' }
       ];
+      // 默认模块模板（「恢复默认」与本地预览用，不再与身份绑定）
       var PERM_DEFAULTS = {
-        staff: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables', 'courses'],
+        teaching: ['students', 'classes', 'grades', 'exams', 'conduct', 'announcements', 'timetables', 'courses'],
         dorm: ['dorms']
       };
+      // 默认职务条目（与服务端 DEFAULT_POSITION_ROLES 一致，用于「恢复默认」的本地预览）
+      var PERM_DEFAULT_ROLES = [
+        { id: 'pr_jwzr', name: '教务主任', modules: PERM_DEFAULTS.teaching.slice() },
+        { id: 'pr_jw', name: '教务', modules: PERM_DEFAULTS.teaching.slice() },
+        { id: 'pr_jwczr', name: '教务处主任', modules: PERM_DEFAULTS.teaching.slice() },
+        { id: 'pr_sg', name: '宿管', modules: PERM_DEFAULTS.dorm.slice() },
+        { id: 'pr_sgy', name: '宿管员', modules: PERM_DEFAULTS.dorm.slice() },
+        { id: 'pr_ssgly', name: '宿舍管理员', modules: PERM_DEFAULTS.dorm.slice() }
+      ];
 
-      function renderPerms(pp) {
-        var cur = (pp && typeof pp === 'object') ? pp : PERM_DEFAULTS;
-        [['permStaff', 'staff'], ['permDorm', 'dorm']].forEach(function (pair) {
-          var host = $el(pair[0]);
-          var allowed = Array.isArray(cur[pair[1]]) ? cur[pair[1]] : PERM_DEFAULTS[pair[1]];
-          host.innerHTML = PERM_MODULES.map(function (m) {
-            var on = allowed.indexOf(m.key) !== -1;
-            return '<label class="perm-item"><input type="checkbox" data-role="' + pair[1] +
-              '" data-mod="' + m.key + '"' + (on ? ' checked' : '') + '><span>' + m.name + '</span></label>';
-          }).join('');
-        });
-        syncPermOverview();
-      }
-
-      // 角色权限总览：教务 / 宿管行随勾选实时刷新（管理员、查看模式为固定权限，见上表）
       function modNames(keys) {
         var names = PERM_MODULES.filter(function (m) { return keys.indexOf(m.key) !== -1; }).map(function (m) { return m.name; });
         return names.length ? names.join('、') : '无（全部模块仅可查看）';
       }
-      function syncPermOverview() {
-        var p = collectPerms();
-        $el('ovStaff').textContent = modNames(p.staff);
-        $el('ovDorm').textContent = modNames(p.dorm);
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
       }
-      [$el('permStaff'), $el('permDorm')].forEach(function (host) {
-        host.addEventListener('change', syncPermOverview);
-      });
+      function newRoleId() { return 'pr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6); }
 
+      // 渲染职务清单编辑器：每行 = 职务名 + 可管理模块（不用再选身份，身份即职务本身）
+      function renderPerms(pp) {
+        var list = (pp && Array.isArray(pp.roles) && pp.roles.length) ? pp.roles : PERM_DEFAULT_ROLES;
+        var host = $el('permRoles');
+        host.innerHTML = list.map(function (r) {
+          return '<div class="perm-role" data-id="' + esc(r.id) + '">' +
+            '<div class="perm-role-head">' +
+              '<input type="text" class="pr-name" value="' + esc(r.name) + '" placeholder="职务名（须与教师档案「行政职务」完全一致）" maxlength="20" />' +
+              '<button type="button" class="perm-role-del">删除</button>' +
+            '</div>' +
+            '<div class="perm-grid perm-role-mods">' +
+              PERM_MODULES.map(function (m) {
+                var on = (r.modules || []).indexOf(m.key) !== -1;
+                return '<label class="perm-item"><input type="checkbox" data-mod="' + m.key + '"' +
+                  (on ? ' checked' : '') + '><span>' + m.name + '</span></label>';
+              }).join('') +
+            '</div>' +
+            '<div class="perm-role-tip"></div>' +
+          '</div>';
+        }).join('');
+        syncPermOverview();
+      }
+
+      function addPermRole() {
+        var box = document.createElement('div');
+        box.className = 'perm-role';
+        box.dataset.id = newRoleId();
+        box.innerHTML =
+          '<div class="perm-role-head">' +
+            '<input type="text" class="pr-name" value="" placeholder="职务名（须与教师档案「行政职务」完全一致）" maxlength="20" />' +
+            '<button type="button" class="perm-role-del">删除</button>' +
+          '</div>' +
+          '<div class="perm-grid perm-role-mods">' +
+            PERM_MODULES.map(function (m) {
+              return '<label class="perm-item"><input type="checkbox" data-mod="' + m.key + '"><span>' + m.name + '</span></label>';
+            }).join('') +
+          '</div>' +
+          '<div class="perm-role-tip"></div>';
+        $el('permRoles').appendChild(box);
+        box.querySelector('.pr-name').focus();
+      }
+
+      // 收集当前清单（职务名 + 模块）；同步刷新总览与逐行提示
       function collectPerms() {
-        var out = { staff: [], dorm: [] };
-        document.querySelectorAll('.perm-grid input[type="checkbox"]').forEach(function (cb) {
-          if (cb.checked && out[cb.getAttribute('data-role')]) out[cb.getAttribute('data-role')].push(cb.getAttribute('data-mod'));
+        var out = { v: 2, roles: [] };
+        document.querySelectorAll('#permRoles .perm-role').forEach(function (row) {
+          var name = String(row.querySelector('.pr-name').value || '').trim();
+          if (!name) return;
+          var mods = [];
+          row.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+            if (cb.checked) mods.push(cb.getAttribute('data-mod'));
+          });
+          out.roles.push({ id: row.dataset.id || newRoleId(), name: name, modules: mods });
         });
         return out;
       }
 
+      // 总览：所有职务条目覆盖的模块并集（同名职务以清单为准）
+      function syncPermOverview() {
+        var p = collectPerms();
+        var all = {}, dup = {};
+        p.roles.forEach(function (r) {
+          var key = r.name.toLowerCase();
+          if (dup[key]) return;
+          dup[key] = 1;
+          r.modules.forEach(function (k) { all[k] = 1; });
+        });
+        $el('ovPosition').textContent = modNames(Object.keys(all));
+        // 逐行提示：重名 / 空模块
+        var seen = {};
+        document.querySelectorAll('#permRoles .perm-role').forEach(function (row) {
+          var name = String(row.querySelector('.pr-name').value || '').trim();
+          var tip = row.querySelector('.perm-role-tip');
+          if (!name) { tip.innerHTML = '<b>未填写职务名</b>，该行不会被保存'; return; }
+          var key = name.toLowerCase();
+          if (seen[key]) { tip.innerHTML = '<b>职务名重复</b>，同名只保留第一条'; return; }
+          seen[key] = 1;
+          var n = row.querySelectorAll('input[type="checkbox"]:checked').length;
+          tip.innerHTML = n ? '可管理 ' + n + ' 个模块' : '<b>未勾选任何模块</b>，命中该职务的教师登录后台后全部仅可查看';
+        });
+      }
+      $el('permRoles').addEventListener('input', syncPermOverview);
+      $el('permRoles').addEventListener('change', syncPermOverview);
+      $el('permRoles').addEventListener('click', function (e) {
+        if (!e.target.classList || !e.target.classList.contains('perm-role-del')) return;
+        var row = e.target.closest('.perm-role');
+        if (!row) return;
+        var name = String(row.querySelector('.pr-name').value || '').trim();
+        if (name && !ask('确定删除职务「' + name + '」的权限配置吗？\n删除后该职务的教师将无法登录管理后台。')) return;
+        row.remove();
+        syncPermOverview();
+      });
+      $el('btnAddPermRole').addEventListener('click', function () { addPermRole(); syncPermOverview(); });
+
       $el('btnSavePerms').addEventListener('click', function () {
-        save({ positionPermissions: collectPerms() }, '职位权限已保存');
+        var p = collectPerms();
+        if (!p.roles.length) { toast('至少需要保留一条职务配置', 'err'); return; }
+        var blank = p.roles.filter(function (r) { return !r.name; }).length;
+        save({ positionPermissions: p }, '职位权限已保存' + (blank ? '（已忽略 ' + blank + ' 条未填职务名的配置）' : ''));
       });
       $el('btnResetPerms').addEventListener('click', function () {
-        if (!ask('确定恢复职位权限为默认配置吗？\n默认：教务可管理学生、班级、年级、成绩、考勤操行、公告（不含请假、宿舍）；宿管仅宿舍。')) return;
-        save({ positionPermissions: { staff: null, dorm: null } }, '已恢复默认职位权限');
+        if (!ask('确定恢复职位权限为默认配置吗？\n默认：教务 / 教务主任 / 教务处主任（教务身份，可管学生、班级、年级、成绩、考勤操行、公告、课程表、课程管理）；宿管 / 宿管员 / 宿舍管理员（宿管身份，仅宿舍）。')) return;
+        save({ positionPermissions: null }, '已恢复默认职位权限');
       });
 
       function load() {
@@ -1273,7 +1371,7 @@
       var auditKw = '';
       var auditTotal = 0;
       var AUDIT_PAGE_SIZE = 20;
-      var ROLE_LABEL = { admin: '管理员', viewer: '查看者', student: '学生', teacher: '教师', staff: '教务', dorm: '宿管' };
+      var ROLE_LABEL = { admin: '管理员', viewer: '查看者', student: '学生', teacher: '教师', position: '职务账号' };
       function loadAudit(page) {
         auditPage = Math.max(1, page || 1);
         var tb = $el('auTbody');
@@ -1290,7 +1388,9 @@
           } else {
             tb.innerHTML = rows.map(function (x) {
               var method = String(x.method || '');
-              var role = x.actorRole ? '<div class="au-role">' + escU(ROLE_LABEL[x.actorRole] || x.actorRole) + '</div>' : '';
+              // 职务账号的审计记录直接显示其职务名（actorLabel），其余回退角色名
+              var roleText = x.actorLabel || (x.actorRole ? (ROLE_LABEL[x.actorRole] || x.actorRole) : '');
+              var role = roleText ? '<div class="au-role">' + escU(roleText) + '</div>' : '';
               return '<tr>'
                 + '<td>' + escU(fmtTime(x.at)) + '</td>'
                 + '<td>' + escU(x.actor || '-') + role + '</td>'

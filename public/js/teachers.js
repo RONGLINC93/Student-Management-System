@@ -2,9 +2,17 @@
 const TEA_API = '/api/teachers';
 const CLASS_API = '/api/classes';
 const GRADES_API = '/api/grades';
+const HR_API = '/api/hr';
+const PERM_API = '/api/position-perms';
 let teachers = [];
 let classList = [];
 let gradeList = [];
+// 职位权限矩阵（职务名 → 登录身份 + 可管理模块），用于职务提示与人事异动权限预警
+let permRoles = [];
+let permModules = [];
+// 离岗状态：不计入在职教师、不担任班主任、不可登录教师端
+const OFF_DUTY = ['离职', '退休'];
+const isOffDuty = (t) => OFF_DUTY.indexOf(t.status || '在职') !== -1;
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -16,6 +24,7 @@ const IC_UNCHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 const IC_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
 const IC_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
 const IC_USER_MINUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/></svg>';
+const IC_HR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -28,6 +37,73 @@ function maskIdCard(no) {
   if (s.length <= 4) return '****';
   if (s.length <= 8) return s.slice(0, 2) + '****' + s.slice(-2);
   return s.slice(0, 4) + '**********' + s.slice(-4);
+}
+
+// ===== 职位权限矩阵（职务 → 后台权限）=====
+async function loadPerms() {
+  try {
+    const res = await fetch(PERM_API);
+    const json = await res.json();
+    permRoles = (json.data && json.data.roles) || [];
+    permModules = (json.data && json.data.modules) || [];
+  } catch (e) {
+    permRoles = [];
+    permModules = [];
+  }
+  // 行政职务下拉与系统设置「职位权限」清单联动：直接复用职务名，保证教师档案填写与权限配置一致
+  refreshPositionList();
+}
+// 用职位权限清单中的职务名刷新行政职务 datalist（清单为空时保留 HTML 里的默认选项）
+function refreshPositionList() {
+  const dl = document.getElementById('positionList');
+  if (!dl) return;
+  const names = Array.from(new Set((permRoles || []).map(r => r.name).filter(Boolean)));
+  if (!names.length) return;
+  dl.innerHTML = '';
+  names.forEach(n => {
+    const o = document.createElement('option');
+    o.value = n;
+    dl.appendChild(o);
+  });
+}
+function moduleNames(keys) {
+  const names = permModules.filter(m => (keys || []).indexOf(m.key) !== -1).map(m => m.name);
+  return names.length ? names.join('、') : '无';
+}
+// 按职务名匹配权限条目（与服务端 resolveTeacherPerm 的精确匹配分支一致）
+function matchPerm(position) {
+  const pos = String(position || '').trim();
+  if (!pos) return null;
+  const key = pos.toLowerCase();
+  return permRoles.find(r => String(r.name || '').trim().toLowerCase() === key) || null;
+}
+function permDesc(p) {
+  if (!p) return '无后台权限（仅教师端）';
+  return moduleNames(p.modules || []);
+}
+// 教师当前生效的权限描述（优先用服务端算好的 perm 命中结果）
+function teacherPermDesc(t) {
+  if (!t) return '无后台权限（仅教师端）';
+  if (t.perm && t.perm.matched) {
+    return moduleNames(t.perm.modules || [])
+      + (t.perm.legacy ? '（遗留关键字匹配）' : '');
+  }
+  const hit = matchPerm(t.position);
+  return hit ? permDesc(hit) : '无后台权限（仅教师端）';
+}
+
+// 给下拉赋值；值不在选项里时临时追加一个选项（兼容历史档案中的旧值）
+function setSelectValue(sel, value) {
+  const el = $(sel);
+  if (!el) return;
+  const v = String(value || '');
+  if (v && !Array.from(el.options).some(o => o.value === v)) {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    el.appendChild(opt);
+  }
+  el.value = v;
 }
 
 function splitSubjects(subject) {
@@ -136,9 +212,24 @@ function renderGradeChecks(checkedNames) {
   }).join('');
 }
 
+// 职务筛选下拉：按现有教师职务动态重建（保留当前选中值）
+function renderPosFilter() {
+  const sel = $('#posFilter');
+  if (!sel) return;
+  const cur = sel.value;
+  const set = new Set();
+  teachers.forEach(t => { if (t.position) set.add(t.position); });
+  sel.innerHTML = '<option value="">全部职务</option>'
+    + Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+      .map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  if (cur && Array.from(set).indexOf(cur) !== -1) sel.value = cur;
+}
+
 function renderTable() {
   const kw = ($('#searchInput').value || '').trim().toLowerCase();
   const gender = $('#genderFilter').value;
+  const status = $('#statusFilter').value;
+  const pos = $('#posFilter').value;
   const headState = $('#headFilter').value;
   let list = teachers.slice();
   if (kw) {
@@ -150,20 +241,25 @@ function renderTable() {
       (t.address || '').toLowerCase().includes(kw) ||
       (t.phone || '').toLowerCase().includes(kw) ||
       (t.subject || '').toLowerCase().includes(kw) ||
+      (t.position || '').toLowerCase().includes(kw) ||
+      (t.department || '').toLowerCase().includes(kw) ||
       (t.className || '').toLowerCase().includes(kw) ||
       (Array.isArray(t.grades) ? t.grades.join(' ') : '').toLowerCase().includes(kw));
   }
   if (gender) list = list.filter(t => t.gender === gender);
+  if (status) list = list.filter(t => (t.status || '在职') === status);
+  if (pos) list = list.filter(t => t.position === pos);
   if (headState === 'head') list = list.filter(t => !!t.classId);
   else if (headState === 'none') list = list.filter(t => !t.classId);
 
   $('#statTotal').textContent = teachers.length;
+  $('#statOn').textContent = teachers.filter(t => !isOffDuty(t)).length;
   $('#statMale').textContent = teachers.filter(t => t.gender === '男').length;
   $('#statFemale').textContent = teachers.filter(t => t.gender === '女').length;
   $('#statHead').textContent = teachers.filter(t => !!t.classId).length;
 
   if (!list.length) {
-    $('#tBody').innerHTML = '<tr><td colspan="9" class="empty-tip">暂无教师数据，点击右上角「添加教师」开始</td></tr>';
+    $('#tBody').innerHTML = '<tr><td colspan="10" class="empty-tip">暂无符合条件的教师，点击右上角「添加教师」开始</td></tr>';
     return;
   }
 
@@ -178,6 +274,19 @@ function renderTable() {
     const gradeCell = grades.length
       ? grades.map(g => `<span class="grade-chip">${escapeHtml(g)}</span>`).join('')
       : '<span class="grade-empty">未指定</span>';
+    const st = t.status || '在职';
+    const stCls = isOffDuty(t) ? 'st-off' : (st === '在职' ? 'st-on' : 'st-warn');
+    const sub = t.department || t.joinYear
+      ? `<div class="dept-sub">${escapeHtml([t.department, t.joinYear ? t.joinYear + ' 年入职' : ''].filter(Boolean).join(' · '))}</div>`
+      : '';
+    const permBadge = t.perm && t.perm.matched
+      ? `<span class="perm-badge${(t.perm && t.perm.legacy) ? ' legacy' : ''}" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(t.perm.matched)}</span>`
+      : (matchPerm(t.position)
+        ? `<span class="perm-badge" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(matchPerm(t.position).name)}</span>`
+        : '');
+    const posCell = t.position
+      ? `<div>${escapeHtml(t.position)}${permBadge}</div>${sub}`
+      : (sub ? `<div class="head-none">未设职务</div>${sub}` : '<span class="head-none">—</span>');
     return `<tr data-id="${escapeHtml(t.id)}">
       <td>
         <div class="teacher-cell">
@@ -191,14 +300,16 @@ function renderTable() {
       <td><span class="gender-tag ${t.gender === '女' ? 'gender-female' : 'gender-male'}">${escapeHtml(t.gender)}</span></td>
       <td>${chips || '<span class="head-none">—</span>'}</td>
       <td>${escapeHtml(t.title || '—')}</td>
+      <td class="pos-cell">${posCell}</td>
+      <td><span class="st-tag ${stCls}">${escapeHtml(st)}</span></td>
       <td class="t-phone">${escapeHtml(t.phone || '—')}</td>
-      <td>${escapeHtml(t.joinYear || '—')}</td>
       <td>${gradeCell}</td>
       <td>${headCell}</td>
       <td>
         <div class="row-actions">
           <button type="button" class="btn-sm btn-edit" data-act="edit">编辑</button>
           <button type="button" class="btn-sm head-btn${t.classId ? ' is-head' : ''}" data-act="head">${IC_HEAD}<span>${t.classId ? '班主任' : '任班主任'}</span>${IC_CARET}</button>
+          <button type="button" class="btn-sm btn-hr" data-act="hr">人事</button>
           <button type="button" class="btn-sm btn-del" data-act="del">删除</button>
         </div>
       </td>
@@ -211,10 +322,38 @@ async function loadTeachers() {
     const res = await fetch(TEA_API);
     const json = await res.json();
     teachers = json.data || [];
+    renderPosFilter();
+    renderHrTeacherSelect();
     renderTable();
   } catch (e) {
     toast('加载教师失败：' + e.message, 'error');
   }
+}
+
+// 编辑弹窗：按当前填写的职务实时提示其后台权限（职务即权限来源）
+function updatePermHint(t) {
+  const box = $('#fPermHint');
+  if (!box) return;
+  const pos = String($('#fPosition') ? $('#fPosition').value : '').trim();
+  if (!pos) {
+    box.textContent = '未填写行政职务：该教师仅有教师端权限，不能登录管理后台。';
+    return;
+  }
+  const hit = matchPerm(pos);
+  if (hit) {
+    box.innerHTML = '职务「<b>' + escapeHtml(pos) + '</b>」命中职位权限清单：<b>' + escapeHtml(permDesc(hit))
+      + '</b>。可在「系统设置 → 职位权限」调整该职务的可管理模块。';
+    return;
+  }
+  const legacy = t && (String(t.title || '').indexOf('教务') !== -1
+    || String(t.position || '').indexOf('教务') !== -1
+    || String(t.title || '').indexOf('宿管') !== -1
+    || String(t.position || '').indexOf('宿管') !== -1
+    || String(t.position || '').indexOf('宿舍管理') !== -1);
+  box.innerHTML = '职务「<b>' + escapeHtml(pos) + '</b>」不在职位权限清单中：'
+    + (legacy
+      ? '该教师当前由<b>遗留关键字</b>兜底授权，改为新职务后兜底失效，将不能登录管理后台。'
+      : '该教师不能登录管理后台（仅教师端）。如需授权，请在「系统设置 → 职位权限」添加同名职务。');
 }
 
 function openModal(t) {
@@ -227,7 +366,12 @@ function openModal(t) {
   // 任教学科 chip 多选
   renderSubjectChips(splitSubjects(t && t.subject));
   bindSubjectChipInput();
-  $('#fTitle').value = t ? t.title : '';
+  // 职称：历史档案可能是「教务 / 宿管」等旧值，下拉里没有则临时补一个选项，避免误清空
+  setSelectValue('#fTitle', t ? t.title : '');
+  $('#fPosition').value = t ? (t.position || '') : '';
+  updatePermHint(t);
+  $('#fDepartment').value = t ? (t.department || '') : '';
+  $('#fStatus').value = t ? (t.status || '在职') : '在职';
   $('#fJoinYear').value = t ? t.joinYear : '';
   $('#fPhone').value = t ? t.phone : '';
   $('#fEthnic').value = t ? (t.ethnic || '') : '';
@@ -260,6 +404,9 @@ async function saveTeacher(e) {
     gender: $('#fGender').value,
     subject: getSubjectChips().join('、'),
     title: $('#fTitle').value,
+    position: $('#fPosition').value.trim(),
+    department: $('#fDepartment').value.trim(),
+    status: $('#fStatus').value,
     joinYear: $('#fJoinYear').value.trim(),
     phone: $('#fPhone').value.trim(),
     ethnic: $('#fEthnic').value.trim(),
@@ -283,7 +430,7 @@ async function saveTeacher(e) {
     });
     const json = await res.json();
     if (json.code !== 0) { toast(json.msg || '保存失败', 'error'); return; }
-    toast(id ? '保存成功' : '添加成功', 'success');
+    toast(json.msg || (id ? '保存成功' : '添加成功'), 'success');
     closeModal();
     await loadTeachers();
   } catch (err) {
@@ -321,6 +468,135 @@ async function delTeacher(id, name) {
     await loadTeachers();
   } catch (e) {
     toast('删除失败：' + e.message, 'error');
+  }
+}
+
+/* ===== 人事异动登记（行内「人事」按钮） ===== */
+const HR_TYPES = ['入职', '转正', '调岗', '晋升', '职称变动', '借调', '离职', '退休', '其他'];
+const todayStr = () => {
+  const d = new Date();
+  const p = n => (n < 10 ? '0' + n : '' + n);
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+};
+
+function renderHrTeacherSelect() {
+  const sel = $('#hTeacher');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = teachers.map(t =>
+    `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}${t.teacherNo ? '（' + escapeHtml(t.teacherNo) + '）' : ''}</option>`
+  ).join('');
+  if (cur && teachers.some(t => t.id === cur)) sel.value = cur;
+  else if (cur) sel.value = cur;
+}
+
+// 人事异动：职务变化 → 后台权限变化预警（需勾选确认 + 二次确认）
+function hrWritesPosition(type) {
+  return ['调岗', '晋升', '入职', '转正', '其他'].indexOf(type) !== -1;
+}
+function updateHrPermWarn(t) {
+  const warn = $('#hPermWarn');
+  const ackBox = $('#hPermAckBox');
+  const ack = $('#hPermAck');
+  if (!warn || !ackBox) return;
+  const type = $('#hType').value;
+  const after = String($('#hAfter').value || '').trim();
+  if (!t || !hrWritesPosition(type) || !after) {
+    warn.hidden = true;
+    ackBox.hidden = true;
+    if (ack) ack.checked = false;
+    return;
+  }
+  const before = teacherPermDesc(t);
+  const hit = matchPerm(after);
+  const now = hit ? permDesc(hit) : '无后台权限（仅教师端）';
+  if (before === now) {
+    warn.hidden = true;
+    ackBox.hidden = true;
+    if (ack) ack.checked = false;
+    return;
+  }
+  warn.hidden = false;
+  warn.innerHTML = '该异动会把「<b>' + escapeHtml(t.name) + '</b>」的行政职务改为「<b>' + escapeHtml(after)
+    + '</b>」，其后台权限将由 <b>' + escapeHtml(before) + '</b> 变为 <b>' + escapeHtml(now)
+    + '</b>。请确认这是本次调岗 / 晋升的真实授权意图。';
+  ackBox.hidden = false;
+}
+
+function openHrModal(t) {
+  renderHrTeacherSelect();
+  $('#hTeacherId').value = '';
+  $('#hType').value = '调岗';
+  $('#hDate').value = todayStr();
+  $('#hBefore').value = '';
+  $('#hAfter').value = '';
+  $('#hDept').value = '';
+  $('#hReason').value = '';
+  $('#hRemark').value = '';
+  if (t) {
+    setSelectValue('#hTeacher', t.id);
+    $('#hBefore').value = [t.position, t.department].filter(Boolean).join(' / ');
+    $('#hDept').value = t.department || '';
+    $('#hrTitle').textContent = '登记人事异动 · ' + t.name;
+  } else {
+    $('#hrTitle').textContent = '登记人事异动';
+  }
+  updateHrPermWarn(t);
+  $('#hrMask').classList.add('show');
+}
+
+function closeHrModal() { $('#hrMask').classList.remove('show'); }
+
+async function saveHr(e) {
+  e.preventDefault();
+  const tid = $('#hTeacher').value;
+  if (!tid) { toast('请选择要登记异动的教师', 'error'); return; }
+  const data = {
+    teacherId: tid,
+    type: $('#hType').value,
+    date: $('#hDate').value || todayStr(),
+    before: $('#hBefore').value.trim(),
+    after: $('#hAfter').value.trim(),
+    department: $('#hDept').value.trim(),
+    reason: $('#hReason').value.trim(),
+    remark: $('#hRemark').value.trim()
+  };
+  if (HR_TYPES.indexOf(data.type) === -1) { toast('异动类型不合法', 'error'); return; }
+  // 权限变更：必须勾选确认并二次确认后才允许提交
+  const t = teachers.find(x => x.id === tid);
+  updateHrPermWarn(t);
+  const warn = $('#hPermWarn');
+  if (warn && !warn.hidden) {
+    if (!$('#hPermAck').checked) {
+      toast('该异动会改变其后台权限，请先勾选确认', 'error');
+      return;
+    }
+    const hit = matchPerm(data.after);
+    const now = hit ? permDesc(hit) : '无后台权限（仅教师端）';
+    const ok = await confirmDlg(
+      `「${t ? t.name : ''}」的后台权限将由「${teacherPermDesc(t)}」变为「${now}」，确定继续登记该人事异动吗？`,
+      { title: '权限变更确认', okText: '确认变更', danger: true }
+    );
+    if (!ok) return;
+  }
+  const btn = $('#hrForm').querySelector('button[type="submit"]');
+  const done = busyBtn(btn, '登记中…');
+  if (!done) return;
+  try {
+    const res = await fetch(HR_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if (json.code !== 0) { toast(json.msg || '登记失败', 'error'); return; }
+    toast(json.msg || '人事异动已登记', 'success');
+    closeHrModal();
+    await loadTeachers();
+  } catch (err) {
+    toast('登记失败：' + err.message, 'error');
+  } finally {
+    done();
   }
 }
 
@@ -365,6 +641,7 @@ function openCtxMenu(t, anchor) {
      ${removeRow}
      <div class="ctx-list">${classRows}</div>
      <div class="ctx-divider"></div>
+     <button type="button" class="ctx-item" data-kind="hr">${IC_HR}<span class="lbl">登记人事异动</span></button>
      <button type="button" class="ctx-item" data-kind="edit">${IC_EDIT}<span class="lbl">编辑教师</span></button>
      <button type="button" class="ctx-item danger" data-kind="del">${IC_TRASH}<span class="lbl">删除教师</span></button>`;
 
@@ -391,6 +668,7 @@ function openCtxMenu(t, anchor) {
 }
 
 async function ctxPick(t, kind, item) {
+  if (kind === 'hr') { closeCtxMenu(); openHrModal(t); return; }
   if (kind === 'edit') { closeCtxMenu(); openModal(t); return; }
   if (kind === 'del') { closeCtxMenu(); delTeacher(t.id, t.name); return; }
   if (kind === 'cancel') {
@@ -418,7 +696,19 @@ function bindEvents() {
   $('#teacherForm').onsubmit = saveTeacher;
   $('#searchInput').oninput = renderTable;
   $('#genderFilter').onchange = renderTable;
+  $('#statusFilter').onchange = renderTable;
+  $('#posFilter').onchange = renderTable;
   $('#headFilter').onchange = renderTable;
+  // 人事异动弹窗
+  $('#hrClose').onclick = closeHrModal;
+  $('#hrCancel').onclick = closeHrModal;
+  $('#hrForm').onsubmit = saveHr;
+  // 职务即权限：填写时实时提示命中的后台权限 / 权限变更预警
+  $('#fPosition').addEventListener('input', () => updatePermHint(teachers.find(x => x.id === $('#fId').value)));
+  const hrWatch = () => updateHrPermWarn(teachers.find(x => x.id === $('#hTeacher').value));
+  $('#hAfter').addEventListener('input', hrWatch);
+  $('#hType').addEventListener('change', hrWatch);
+  $('#hTeacher').addEventListener('change', hrWatch);
 
   // 悬浮菜单动作（事件委托，防止 re-render 丢失监听）
   document.addEventListener('click', (e) => {
@@ -430,7 +720,7 @@ function bindEvents() {
     const item = e.target.closest('.ctx-item');
     if (!item || item.disabled || !ctxTeacher) return;
     const kind = item.dataset.kind;
-    if (kind === 'class' || kind === 'cancel' || kind === 'edit' || kind === 'del') ctxPick(ctxTeacher, kind, item);
+    if (kind === 'class' || kind === 'cancel' || kind === 'hr' || kind === 'edit' || kind === 'del') ctxPick(ctxTeacher, kind, item);
   };
 
   $('#tBody').onclick = (e) => {
@@ -441,6 +731,7 @@ function bindEvents() {
     if (!t) return;
     if (btn.dataset.act === 'edit') openModal(t);
     else if (btn.dataset.act === 'del') delTeacher(t.id, t.name);
+    else if (btn.dataset.act === 'hr') openHrModal(t);
     else if (btn.dataset.act === 'head') openCtxMenu(t, btn);
   };
 
@@ -459,7 +750,7 @@ function bindEvents() {
 
 window.cbEmbedRefresh = function () { loadClasses().then(loadGrades).then(loadTeachers); };
 
-loadClasses().then(() => loadGrades()).then(() => {
+loadPerms().then(loadClasses).then(() => loadGrades()).then(() => {
   bindEvents();
   loadTeachers();
 });

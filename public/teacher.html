@@ -237,6 +237,10 @@
         <div class="v sm" id="stTitle">—</div>
       </div>
       <div class="stat-card">
+        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>所属部门</div>
+        <div class="v sm" id="stDept">—</div>
+      </div>
+      <div class="stat-card">
         <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>班主任班级</div>
         <div class="v sm" id="stClass">—</div>
       </div>
@@ -328,6 +332,7 @@
                   <option value="宿管员">宿管员</option>
                   <option value="德育主任">德育主任</option>
                 </select>
+                <p style="margin:-2px 0 0;font-size:12px;color:#6b7280;line-height:1.6">行政职务 / 所属部门 / 在职状态由管理员在「教师管理 · 人事管理」维护，如需变更请联系教务处。</p>
               </div>
               <div class="f-field">
                 <label for="pfJoinYear">入职年份</label>
@@ -493,7 +498,8 @@
           + (p.isHead ? '您是 ' + (p.grade ? p.grade + ' ' : '') + p.className + ' 的班主任' : '欢迎回来，祝您工作顺利');
 
         $('stSubject').textContent = p.subject || '未填写';
-        $('stTitle').textContent = p.title || '未填写';
+        $('stTitle').textContent = [p.title, p.position].filter(Boolean).join(' · ') || '未填写';
+        $('stDept').textContent = p.department || '未填写';
         $('stClass').textContent = p.isHead ? ((p.grade ? p.grade + ' · ' : '') + p.className) : '非班主任';
         $('stCount').textContent = p.isHead ? (p.rosterCount + ' 人') : '—';
         $('stCount').className = 'v' + (p.isHead ? '' : ' muted');
@@ -505,7 +511,10 @@
           '<div class="k">身份证号</div><div class="v">' + esc(p.idCardMasked || '未登记') + '</div>' +
           '<div class="k">性别</div><div class="v">' + esc(p.gender || '-') + '</div>' +
           '<div class="k">任教学科</div><div class="v">' + esc(p.subject || '-') + '</div>' +
-          '<div class="k">职称 / 职务</div><div class="v">' + esc(p.title || '-') + '</div>' +
+          '<div class="k">职称</div><div class="v">' + esc(p.title || '-') + '</div>' +
+          '<div class="k">行政职务</div><div class="v">' + esc(p.position || '-') + '</div>' +
+          '<div class="k">所属部门</div><div class="v">' + esc(p.department || '-') + '</div>' +
+          '<div class="k">在职状态</div><div class="v">' + esc(p.status || '在职') + '</div>' +
           '<div class="k">入职年份</div><div class="v">' + esc(p.joinYear || '-') + '</div>' +
           '<div class="k">民族</div><div class="v">' + esc(p.ethnic || '-') + '</div>' +
           '<div class="k">籍贯</div><div class="v">' + esc(p.hometown || '-') + '</div>' +

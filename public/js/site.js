@@ -260,9 +260,9 @@
     var a = window.AUTH;
     if (!a) return;
 
-    // 查看模式 / 教务 / 宿管：隐藏「系统设置 / 智能分班」等管理与写操作入口
+    // 查看模式 / 职务账号（按职务授权的教师）：隐藏「系统设置 / 智能分班」等管理与写操作入口
     // （工作台侧边栏菜单项用 data-mod 标识且无 href，需单独匹配 data-mod="allocate"）
-    if (a.role === 'viewer' || a.role === 'staff' || a.role === 'dorm') {
+    if (a.role === 'viewer' || a.role === 'position') {
       var hid = document.querySelectorAll(
         'a[href*="settings"], a[href*="allocate"], .menu-item[data-mod="settings"], .menu-item[data-mod="allocate"], .dq-item[href*="settings"]'
       );
@@ -276,7 +276,7 @@
           var el = document.querySelector(SEL[j]);
           if (el) el.style.display = 'none';
         }
-        var ROLE_LBL = { viewer: '查看模式', staff: '教务', dorm: '宿管' };
+        var ROLE_LBL = { viewer: '查看模式', position: '职务账号' };
         var panel = document.querySelector('.control-right');
         if (panel) {
           var tip = document.createElement('span');
@@ -288,10 +288,10 @@
       }
     }
 
-    // 教务 / 宿管 / 查看模式：按「职位权限设置」（AUTH.writable）隐藏当前页面（未授权模块）的写操作按钮
+    // 职务账号 / 查看模式：按「职位权限设置」（AUTH.writable）隐藏当前页面（未授权模块）的写操作按钮
     // 服务端同样拦截写接口；页面 → 模块映射，未列出的页面（教师管理 / 总览 / 分析等）一律隐藏写按钮
     // （查看模式 writable 恒为空，等价于所有页面只读）
-    if (a.role === 'viewer' || a.role === 'staff' || a.role === 'dorm') {
+    if (a.role === 'viewer' || a.role === 'position') {
       var PAGE_MODULE = {
         '/students.html': 'students', '/classes.html': 'classes', '/grades.html': 'grades',
         '/exams.html': 'exams', '/conduct.html': 'conduct', '/leaves.html': 'leaves',
@@ -301,9 +301,9 @@
       var pageMod = PAGE_MODULE[location.pathname] || '';
       var writable = Array.isArray(a.writable) ? a.writable : [];
       if (!pageMod || writable.indexOf(pageMod) === -1) {
-        document.body.classList.add(a.role === 'staff' ? 'role-staff' : 'role-dorm');
+        document.body.classList.add('role-limited');
         var st = document.createElement('style');
-        st.textContent = 'body.role-staff #btnAdd,body.role-staff .row-actions,body.role-staff .head-btn,body.role-dorm #btnAdd,body.role-dorm .row-actions,body.role-dorm .head-btn{display:none!important}';
+        st.textContent = 'body.role-limited #btnAdd,body.role-limited .row-actions,body.role-limited .head-btn{display:none!important}';
         document.head.appendChild(st);
       }
 
@@ -328,8 +328,8 @@
 
     var chip = document.createElement('span');
     chip.className = 'auth-chip';
-    var ROLE_TITLE = { viewer: '查看模式', staff: '教务', dorm: '宿管' };
-    var ROLE_BADGE = { viewer: '查看', staff: '教务', dorm: '宿管' };
+    var ROLE_TITLE = { viewer: '查看模式', position: '职务账号' };
+    var ROLE_BADGE = { viewer: '查看', position: '职务账号' };
     chip.title = '当前账号：' + a.username + '（' + (a.label || ROLE_TITLE[a.role] || '管理员') + '）';
     chip.innerHTML =
       IC_USER +
