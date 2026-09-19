@@ -272,7 +272,13 @@
     var sel = $('#cSubjectSel');
     return sel ? sel.value.trim() : '';
   }
+  // 当前班级所在年级（教师任教学科按年级匹配时用）
+  function curClassGrade() {
+    var cur = curId ? classes.filter(function (c) { return c.id === curId; })[0] : null;
+    return (cur && cur.grade) || '';
+  }
   // 取当前选中教师「任教学科」列表（空数组 = 未指定 / 未配置任教年级）
+  // 档案含 subjects（学科 + 年级）时只取本班年级的学科，避免把「只教一年级的语文」排到二年级
   function currentTeacherSubjects() {
     var v = $('#cTeacher');
     if (!v) return [];
@@ -285,8 +291,7 @@
       return (teacherNo && String(x.teacherNo || '').trim() === teacherNo)
           || (teacherName && String(x.name || '').trim() === teacherName);
     })[0];
-    if (!t || !t.subject) return [];
-    return String(t.subject).split(/[,，、;；\/\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    return teacherSubjectsOf(t, curClassGrade());
   }
   // 应用科目值：若不在计划内则插入一条「已不在当前年级课程计划」的临时项保留展示，避免编辑历史数据时被静默改掉
   function applySubjectValue(value) {
@@ -361,13 +366,13 @@
     applySubjectValue(savedSubject || '');
   }
   // 取某教师的任教学科列表（空数组 = 该教师未登记任教学科）
-  function teacherSubjectsOf(t) {
-    if (!t || !t.subject) return [];
-    return String(t.subject).split(/[,，、;；\/\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  // grade 传入时（本班年级）只取该年级或无年级标注的学科（subjects 记有学科-年级绑定）
+  function teacherSubjectsOf(t, grade) {
+    return window.teaSubjectNames(t, grade);
   }
   // 生成单个教师 option
   function teacherOption(t, curGrade, subject, dim) {
-    var subs = teacherSubjectsOf(t);
+    var subs = teacherSubjectsOf(t, curGrade);
     var subjStr = subs.length ? '（' + (subs.length > 2 ? subs.slice(0, 2).join('、') + '…' : subs.join('、')) + '）' : '';
     var gOk = !curGrade || (Array.isArray(t.grades) && t.grades.indexOf(curGrade) !== -1);
     var suffix = '';
@@ -438,7 +443,7 @@
       return;
     }
 
-    function subOk(t) { return teacherSubjectsOf(t).indexOf(subject) !== -1; }
+    function subOk(t) { return teacherSubjectsOf(t, curGrade).indexOf(subject) !== -1; }
     // 任教年级严格判定：必须登记了任教年级且包含本班年级，否则视为无资质
     function gradeOk(t) { return !!curGrade && Array.isArray(t.grades) && t.grades.indexOf(curGrade) !== -1; }
     function qualified(t) { return subOk(t) && gradeOk(t); }

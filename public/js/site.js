@@ -108,6 +108,44 @@
   }
   window.subjTotal = subjTotal;
 
+  // ===== 教师任教学科（全站统一口径）=====
+  // 唯一真源：subjects = [{ name, grade }]（学科 + 任教年级，由教师管理按所选年级联动写入）；
+  // 服务端读取时已规范化（旧档案自动补出明细，subject 串由 subjects 派生），前端不再读 subject 串。
+  // 传入 grade 时只取该年级（或无年级标注）的学科，供课程表 / 班主任等按年级匹配的场景使用。
+  window.teaSubjectItems = function (t, grade) {
+    if (!t) return [];
+    var src = (Array.isArray(t.subjects) ? t.subjects : []).map(function (x) {
+      return {
+        name: String((x && x.name) || '').trim(),
+        grade: String((x && x.grade) || '').trim()
+      };
+    }).filter(function (x) { return !!x.name; });
+    var g = String(grade || '').trim();
+    return g ? src.filter(function (x) { return !x.grade || x.grade === g; }) : src;
+  };
+  // 展示文案：「语文（高一）、数学」（无年级信息时只写学科名）
+  window.teaSubjectText = function (t, grade) {
+    var out = [], seen = {};
+    window.teaSubjectItems(t, grade).forEach(function (x) {
+      var k = x.name.toLowerCase();
+      if (seen[k]) return;
+      seen[k] = 1;
+      out.push(x.grade ? x.name + '（' + x.grade + '）' : x.name);
+    });
+    return out.join('、');
+  };
+  // 学科名数组（去重，保持顺序）——用于「是否教某科」之类的判定
+  window.teaSubjectNames = function (t, grade) {
+    var out = [], seen = {};
+    window.teaSubjectItems(t, grade).forEach(function (x) {
+      var k = x.name.toLowerCase();
+      if (seen[k]) return;
+      seen[k] = 1;
+      out.push(x.name);
+    });
+    return out;
+  };
+
   // 平均分（已考科目平均，无成绩科不计）
   function subjAvgScore(stu) {
     var r = subjTotal(stu);

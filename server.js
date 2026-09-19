@@ -618,7 +618,9 @@ function readJsonFile(file, def) {
 function writeJsonFile(file, list) {
   atomicWriteJson(file, list);
 }
-const readTeachers = () => readJsonFile(TEACHERS_FILE, []);
+// 读取即规范化：任教学科以 subjects（学科 + 年级）为唯一真源，subject 串由其派生；
+// 旧档案（只有 subject 串）在读取时自动补出明细，前端因此不需要任何回退分支。
+const readTeachers = () => readJsonFile(TEACHERS_FILE, []).map(normalizeTeacher);
 const writeTeachers = l => writeJsonFile(TEACHERS_FILE, l);
 const readHR = () => readJsonFile(HR_FILE, []);
 const writeHR = l => writeJsonFile(HR_FILE, l);
@@ -1121,6 +1123,61 @@ function withLogisticsDue(x) {
   });
 }
 
+// 任教学科明细：[{ name, grade }]（学科 + 任教年级），是教师任教学科的唯一真源。
+// 只接受 { name, grade } 对象数组（学科同名不同年级各占一条），按「学科 + 年级」去重。
+function normalizeTeacherSubjects(raw) {
+  const out = [];
+  const seen = {};
+  (Array.isArray(raw) ? raw.slice(0, 60) : []).forEach(x => {
+    if (!x || typeof x !== 'object') return;
+    const n = String(x.name || '').trim().slice(0, 20);
+    if (!n) return;
+    const g = String(x.grade || '').trim().slice(0, 20);
+    const key = n.toLowerCase() + '|' + g.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = 1;
+    out.push({ name: n, grade: g });
+  });
+  return out;
+}
+// 由明细派生学科名串（顿号连接、按学科名去重）——subject 字段始终由 subjects 生成，二者不可能不一致
+function subjectStringOf(subjects) {
+  const out = [];
+  const seen = {};
+  (subjects || []).forEach(x => {
+    const n = String((x && x.name) || '').trim();
+    if (!n) return;
+    const k = n.toLowerCase();
+    if (seen[k]) return;
+    seen[k] = 1;
+    out.push(n);
+  });
+  return out.join('、').slice(0, 120);
+}
+
+// 任教学科明细（学科 + 年级）：grade 传入时只取该年级或无年级标注的学科
+function teacherSubjectItems(t, grade) {
+  if (!t) return [];
+  const g = String(grade || '').trim();
+  return (Array.isArray(t.subjects) ? t.subjects : [])
+    .filter(x => String((x && x.name) || '').trim())
+    .filter(x => !g || !String((x && x.grade) || '').trim() || String(x.grade).trim() === g);
+}
+// 任教学科展示文案：「语文（高一）、数学」（无年级信息时只写学科名）
+function teacherSubjectText(t, grade) {
+  const out = [];
+  const seen = {};
+  teacherSubjectItems(t, grade).forEach(x => {
+    const n = String((x && x.name) || '').trim();
+    const k = n.toLowerCase();
+    if (!n || seen[k]) return;
+    seen[k] = 1;
+    const g = String((x && x.grade) || '').trim();
+    out.push(g ? n + '（' + g + '）' : n);
+  });
+  return out.join('、');
+}
+
 // 教师档案规范化
 function normalizeTeacher(raw) {
   const o = (raw && typeof raw === 'object') ? raw : {};
@@ -1129,12 +1186,18 @@ function normalizeTeacher(raw) {
   if (Array.isArray(o.grades)) grades = o.grades;
   else if (typeof o.grades === 'string') grades = o.grades.split(/[,，、;；\/\s]+/);
   grades = [...new Set(grades.map(g => String(g || '').trim()).filter(Boolean))].slice(0, 20);
+  // subjects 为唯一真源：未提交明细（旧口径只提交学科串）时由该串补出，年级留空
+  const subjects = Array.isArray(o.subjects)
+    ? normalizeTeacherSubjects(o.subjects)
+    : normalizeTeacherSubjects(String(o.subject || '').split(/[,，、;；\/\s]+/).map(s => ({ name: String(s).trim(), grade: '' })));
+  const subject = subjectStringOf(subjects);
   return {
     id: o.id || genId(),
     teacherNo: String(o.teacherNo || '').trim(),
     name: String(o.name || '').trim(),
     gender: o.gender === '女' ? '女' : '男',
-    subject: String(o.subject || '').trim(),   // 任教学科名
+    subject,                                  // 任教学科名（顿号串，由 subjects 派生，不可单独写入）
+    subjects,                                 // 任教学科明细：学科 + 任教年级（唯一真源）
     title: String(o.title || '').trim(),       // 职称（高级教师 / 一级教师 …）
     position: String(o.position || '').trim().slice(0, 30),   // 行政职务（教务主任 / 教研组长 / 班主任 …）
     department: String(o.department || '').trim().slice(0, 30), // 所属部门 / 科室（教务处 / 德育处 …）
@@ -1359,7 +1422,7 @@ function buildStudentPortalHome(stu) {
     className: cls ? cls.name : null,
     headTeacher: cls ? {
       name: cls.headTeacher || '',
-      subject: (head && head.subject) || '',
+      subject: (head && teacherSubjectText(head, cls.grade)) || '',   // 按本班年级展示「学科（年级）」
       title: (head && head.title) || '',
       phone: (head && head.phone) || ''
     } : null,
@@ -1386,7 +1449,9 @@ function buildTeacherPortalHome(t) {
     teacherNo: t.teacherNo || '',
     name: t.name || '',
     gender: t.gender || '',
-    subject: t.subject || '',
+    subject: t.subject || '',             // 任教学科（顿号串，由 subjects 派生，供只读展示）
+    subjectText: teacherSubjectText(t, ''), // 任教学科展示文案：「语文（高一）、数学」
+    subjects: t.subjects || [],           // 任教学科明细（学科 + 任教年级，教师端只读展示）
     title: t.title || '',
     position: t.position || '',           // 行政职务（管理员维护，教师端只读展示）
     department: t.department || '',       // 所属部门 / 科室（管理员维护，教师端只读展示）
@@ -2915,7 +2980,11 @@ async function handle(req, res) {
     if (idx === -1) return sendJson(res, 404, { code: 1, msg: '教师档案不存在或已被删除，请联系管理员' });
     const cur = teachers[idx];
     if (body.gender !== undefined) cur.gender = body.gender === '女' ? '女' : '男';
-    if (body.subject !== undefined) cur.subject = String(body.subject).trim().slice(0, 50);
+    // 任教学科只接受 subjects 明细（学科 + 年级），subject 串由明细派生、不接受直接写入
+    if (Array.isArray(body.subjects)) {
+      cur.subjects = normalizeTeacherSubjects(body.subjects);
+      cur.subject = subjectStringOf(cur.subjects);
+    }
     if (body.title !== undefined) cur.title = String(body.title).trim().slice(0, 30);
     if (body.phone !== undefined) cur.phone = String(body.phone).trim().slice(0, 30);
     if (body.joinYear !== undefined) cur.joinYear = String(body.joinYear).trim().slice(0, 10);

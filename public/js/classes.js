@@ -348,15 +348,18 @@ function renderHeadTeacherOptions(cls) {
   const nameOf = {};
   classes.forEach(c => { nameOf[c.id] = c.name; });
   const curHead = teacherList.find(t => t.classId === curId);
+  // 任教学科按本班年级展示（新档案 subjects 记有学科-年级绑定），如「张老师 · 语文（高一）」
+  const grade = cls ? String(cls.grade || '').trim() : '';
+  const subjOf = (t) => window.teaSubjectText(t, grade);
   let html = '<option value="">未设置</option>';
   teacherList.forEach(t => {
     if (t.classId === curId) return; // 当前在任班主任放在下拉首项
-    const subject = (t.subject || '').trim();
+    const subject = subjOf(t);
     const label = t.name + (subject ? ' · ' + subject : '') + (t.classId ? '（现任' + (nameOf[t.classId] || '其他班') + '班主任）' : '');
     html += `<option value="${escapeHtml(t.name)}" ${t.classId ? 'disabled' : ''}>${escapeHtml(label)}</option>`;
   });
   if (curHead) {
-    const subject = (curHead.subject || '').trim();
+    const subject = subjOf(curHead);
     const label = curHead.name + (subject ? ' · ' + subject : '') + '（在任）';
     html = `<option value="${escapeHtml(curHead.name)}">${escapeHtml(label)}</option>` + html;
   }

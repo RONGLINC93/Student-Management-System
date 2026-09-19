@@ -617,7 +617,7 @@ function memberRows() {
   teachers.forEach(t => rows.push({
     kind: 'teacher', id: t.id, name: t.name || '', no: t.teacherNo || '',
     dept: String(t.department || '').trim(), post: String(t.position || '').trim(),
-    sub: [t.title, t.subject].filter(Boolean).join(' · '),
+    sub: [t.title, window.teaSubjectText(t)].filter(Boolean).join(' · '),
     phone: t.phone || '', join: String(t.joinYear || '').trim(), status: t.status || '在职'
   }));
   staffCache.forEach(s => rows.push({

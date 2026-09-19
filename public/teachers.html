@@ -41,6 +41,8 @@
     /* 学科 / 班主任 / 状态 */
     .subj-chips { display: flex; gap: 4px; flex-wrap: wrap; }
     .subj-chip { padding: 2px 8px; border-radius: 6px; font-size: 12px; background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; white-space: nowrap; }
+    /* 学科所属年级已不在该教师任教年级中：标黄提示（列表与弹窗一致） */
+    .subj-chip.off { background: #fff7ed; border-color: #fed7aa; color: #b45309; }
     .grade-chip { padding: 2px 8px; border-radius: 6px; font-size: 12px; background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; white-space: nowrap; }
     .grade-empty { color: var(--text-light); font-size: 13px; }
     /* 任教年级复选框组（弹窗内） */
@@ -78,11 +80,20 @@
       align-items: center; justify-content: center; color: #6366f1; font-size: 14px; line-height: 1;
     }
     .chip-tag button:hover { background: #c7d2fe; color: #312e81; }
-    .chip-input input {
+    .chip-input input, .chip-input select {
       flex: 1; min-width: 160px; border: 0; outline: 0;
       padding: 4px 4px; font: inherit; color: inherit; background: transparent;
+      height: 28px; cursor: pointer;
     }
     .chip-input input::placeholder { color: #94a3b8; }
+    .chip-input select:disabled { color: #94a3b8; cursor: default; }
+    /* 已选学科不在当前任教年级的课程计划内：保留并标黄提示，不静默删除历史档案 */
+    .chip-tag.off { background: #fff7ed; border-color: #fed7aa; color: #b45309; }
+    .chip-tag.off button { color: #b45309; }
+    .chip-tag.off button:hover { background: #fed7aa; color: #7c2d12; }
+    /* 任教学科联动提示（选项来源：所选任教年级在「课程管理」中的课程计划） */
+    .subj-hint { margin: 7px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--text-light); }
+    .subj-hint.warn { color: #b45309; }
     .head-tag {
       display: inline-flex; align-items: center; gap: 5px;
       background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857;
@@ -297,14 +308,16 @@
           <div class="form-row"><label class="form-label">性别</label>
             <select id="fGender"><option value="男">男</option><option value="女">女</option></select>
           </div>
+          <div class="form-row form-row-full"><label class="form-label">任教年级</label>
+            <div id="fGrades" class="grade-checks"><span class="form-tip">加载中...</span></div>
+          </div>
           <div class="form-row form-row-full"><label class="form-label">任教学科</label>
             <div id="fSubjectBox" class="chip-input">
               <div id="fSubjectChips" class="chip-list"></div>
-              <input type="text" id="fSubjectInput" list="subjectList" placeholder="输入学科后回车 / 逗号添加（可多次添加多个学科）" autocomplete="off" />
+              <!-- 任教年级联动：选项随所选年级的课程计划重建，选中一门即加入上方已选学科 -->
+              <select id="fSubjectInput" aria-label="选择任教学科"></select>
             </div>
-          </div>
-          <div class="form-row form-row-full"><label class="form-label">任教年级</label>
-            <div id="fGrades" class="grade-checks"><span class="form-tip">加载中...</span></div>
+            <p class="subj-hint" id="fSubjectHint"></p>
           </div>
           <div class="form-row"><label class="form-label">职称</label>
             <select id="fTitle">
@@ -367,7 +380,6 @@
           <div class="form-row"><label class="form-label">紧急联系电话</label><input type="text" id="fEmergencyPhone" placeholder="联系人电话" maxlength="30" /></div>
           <div class="form-row form-row-full"><label class="form-label">备注</label><input type="text" id="fRemark" placeholder="备注（如主要任课班级、荣誉等）" /></div>
         </div>
-        <datalist id="subjectList"></datalist>
         <datalist id="departmentList">
           <option value="校长室"></option>
           <option value="教务处"></option>

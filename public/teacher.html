@@ -313,7 +313,7 @@
               </div>
               <div class="f-field" data-tea-only="1">
                 <label for="pfSubject">任教学科</label>
-                <input type="text" id="pfSubject" class="f-inp" list="pfSubjectList" placeholder="如：语文 / 数学" maxlength="50" />
+                <input type="text" id="pfSubject" class="f-inp" list="pfSubjectList" placeholder="如：语文 / 数学" maxlength="50" title="多个学科用顿号分隔；各学科的任教年级由管理员在「教师管理」中设置" />
                 <datalist id="pfSubjectList"></datalist>
               </div>
               <div class="f-field" data-tea-only="1">
@@ -498,6 +498,30 @@
         document.title = (IS_LOGI ? '职工中心 · ' : '教师中心 · ') + SITE;
       }
 
+      // 把「任教学科」文本框的内容转成学科明细 [{ name, grade }]：
+      // 仍在列表中的学科保留原有年级标注（自助端无法选择年级），新增的学科年级留空由管理员在「教师管理」补。
+      function buildSubjectsFromInput(input, oldSubjects) {
+        var names = String(input || '').split(/[,，、;；\/\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+        var keep = {};
+        names.forEach(function (n) { keep[n.toLowerCase()] = 1; });
+        var out = [], seen = {};
+        (Array.isArray(oldSubjects) ? oldSubjects : []).forEach(function (x) {
+          var n = String((x && x.name) || '').trim();
+          if (!n || !keep[n.toLowerCase()]) return;
+          var g = String((x && x.grade) || '').trim();
+          var k = n.toLowerCase() + '|' + g.toLowerCase();
+          if (seen[k]) return;
+          seen[k] = 1;
+          out.push({ name: n, grade: g });
+        });
+        names.forEach(function (n) {
+          var hit = out.some(function (x) { return x.name.toLowerCase() === n.toLowerCase(); });
+          if (hit) return;
+          out.push({ name: n, grade: '' });
+        });
+        return out;
+      }
+
       // 合同到期文案（后勤 / 职工：临近到期时提示剩余天数）
       function contractText(p) {
         if (!p.contractEnd) return '未登记';
@@ -572,14 +596,14 @@
           return;
         }
 
-        $('heroSub').textContent = (p.subject ? '任教学科：' + p.subject + ' · ' : '')
+        $('heroSub').textContent = (p.subjectText ? '任教学科：' + p.subjectText + ' · ' : '')
           + (p.isHead ? '您是 ' + (p.grade ? p.grade + ' ' : '') + p.className + ' 的班主任' : '欢迎回来，祝您工作顺利');
 
         $('lbSubject').textContent = '任教学科';
         $('lbTitle').textContent = '职称 / 职务';
         $('lbClass').textContent = '班主任班级';
         $('lbCount').textContent = '班级人数';
-        $('stSubject').textContent = p.subject || '未填写';
+        $('stSubject').textContent = p.subjectText || '未填写';
         $('stTitle').textContent = [p.title, p.position].filter(Boolean).join(' · ') || '未填写';
         $('stDept').textContent = p.department || '未填写';
         $('stClass').textContent = p.isHead ? ((p.grade ? p.grade + ' · ' : '') + p.className) : '非班主任';
@@ -592,7 +616,7 @@
           '<div class="k">姓名</div><div class="v">' + esc(p.name || '-') + '</div>' +
           '<div class="k">身份证号</div><div class="v">' + esc(p.idCardMasked || '未登记') + '</div>' +
           '<div class="k">性别</div><div class="v">' + esc(p.gender || '-') + '</div>' +
-          '<div class="k">任教学科</div><div class="v">' + esc(p.subject || '-') + '</div>' +
+          '<div class="k">任教学科</div><div class="v">' + esc(p.subjectText || '-') + '</div>' +
           '<div class="k">职称</div><div class="v">' + esc(p.title || '-') + '</div>' +
           '<div class="k">行政职位</div><div class="v">' + esc(p.position || '-') + '</div>' +
           '<div class="k">所属部门</div><div class="v">' + esc(p.department || '-') + '</div>' +
@@ -867,7 +891,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             gender: $('pfGender').value,
-            subject: $('pfSubject').value.trim(),
+            subjects: buildSubjectsFromInput($('pfSubject').value, ME && ME.profile ? ME.profile.subjects : []),
             title: $('pfTitle').value,
             joinYear: $('pfJoinYear').value.trim(),
             phone: $('pfPhone').value.trim(),

@@ -2,11 +2,15 @@
 const TEA_API = '/api/teachers';
 const CLASS_API = '/api/classes';
 const GRADES_API = '/api/grades';
+const COURSE_API = '/api/course-plans';
 const HR_API = '/api/hr';
 const PERM_API = '/api/dept-perms';
 let teachers = [];
 let classList = [];
 let gradeList = [];
+// 各年级课程计划（课程管理维护）：年级名 → 该年级课程名数组，供「任教年级 → 任教学科」联动
+let coursePlanMap = {};
+let coursePlanOk = false;
 // 左侧年级树筛选：kind = all（全部）/ grade（任教年级）/ class（班级班主任）/ none（未指定年级）
 let treeSel = { kind: 'all', value: '' };
 // 年级树折叠状态（键：'__root__' / 'g:年级名'），默认展开
@@ -206,64 +210,89 @@ function setSelectValue(sel, value) {
   el.value = v;
 }
 
-function splitSubjects(subject) {
-  if (!subject) return [];
-  return String(subject).split(/[,，、;；\/\s]+/).map(s => s.trim()).filter(Boolean);
+// ========== 任教学科：一个标签 = 一门学科 + 一个年级 ==========
+// 标签固定写作「学科（年级）」，同一学科在多个年级任教时各占一个标签（如「语文（一年级）」「语文（二年级）」）。
+// dataset.value 存学科名、dataset.grade 存年级；保存到档案时按学科名去重，年级不写入学科字段。
+function chipText(subject, grade) {
+  const g = String(grade || '').trim();
+  return g ? subject + '（' + g + '）' : subject;
 }
-
-// ========== 任教学科 chip 多选输入 ==========
-function addSubjectChip(value) {
+// 标签唯一键：学科 + 年级（忽略大小写）
+function chipKey(subject, grade) {
+  return String(subject || '').trim().toLowerCase() + '|' + String(grade || '').trim().toLowerCase();
+}
+function addSubjectChip(value, grade) {
   const v = String(value || '').trim();
   if (!v) return;
   const box = $('#fSubjectChips');
   if (!box) return;
-  // 去重（忽略大小写）
-  const norm = v.toLowerCase();
-  const exist = Array.from(box.querySelectorAll('.chip-tag')).some(el => (el.dataset.value || '').toLowerCase() === norm);
+  const g = String(grade || '').trim();
+  const key = chipKey(v, g);
+  const exist = Array.from(box.querySelectorAll('.chip-tag'))
+    .some(el => chipKey(el.dataset.value, el.dataset.grade) === key);
   if (exist) return;
   const chip = document.createElement('span');
   chip.className = 'chip-tag';
   chip.dataset.value = v;
-  chip.innerHTML = '<span>' + escapeHtml(v) + '</span><button type="button" aria-label="删除该学科">&times;</button>';
-  chip.querySelector('button').onclick = () => chip.remove();
+  chip.dataset.grade = g;
+  chip.innerHTML = '<span>' + escapeHtml(chipText(v, g)) + '</span><button type="button" aria-label="删除该学科">&times;</button>';
+  chip.querySelector('button').onclick = () => { chip.remove(); refreshSubjectOptions(); };
   box.appendChild(chip);
 }
-function renderSubjectChips(list) {
+// 回填：items 为 [{ name, grade }]（新档案）；也兼容旧的学科名数组
+function renderSubjectChips(items) {
   const box = $('#fSubjectChips');
   if (!box) return;
   box.innerHTML = '';
-  (list || []).forEach(s => addSubjectChip(s));
+  (items || []).forEach(it => {
+    if (typeof it === 'string') addSubjectChip(it, '');
+    else addSubjectChip(it && it.name, it && it.grade);
+  });
 }
-function getSubjectChips() {
+// 当前标签的「学科 + 年级」明细：提交给服务端存为 subjects
+function getSubjectItems() {
   const box = $('#fSubjectChips');
   if (!box) return [];
   return Array.from(box.querySelectorAll('.chip-tag'))
-    .map(el => (el.dataset.value || '').trim())
-    .filter(Boolean);
+    .map(el => ({ name: String(el.dataset.value || '').trim(), grade: String(el.dataset.grade || '').trim() }))
+    .filter(x => x.name);
 }
-function bindSubjectChipInput() {
-  const input = $('#fSubjectInput');
-  if (!input || input.dataset.bound) return;
-  input.dataset.bound = '1';
-  const commit = () => {
-    // 取出输入，去掉末尾分隔符，然后作为单个学科加入
-    const raw = (input.value || '').trim().replace(/[,，、;；\/\s]+$/, '');
-    if (!raw) return;
-    // 同一行多个学科：用分隔符拆开，逐个加
-    raw.split(/[,，、;；\/]+/).map(s => s.trim()).filter(Boolean).forEach(addSubjectChip);
-    input.value = '';
-  };
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      commit();
-    } else if (e.key === 'Backspace' && !input.value) {
-      const chips = $('#fSubjectChips').querySelectorAll('.chip-tag');
-      if (chips.length) chips[chips.length - 1].remove();
-    }
+// 已选学科名（去重，忽略大小写，保持添加顺序）——写入档案的任教学科
+function getSubjectChips() {
+  const box = $('#fSubjectChips');
+  if (!box) return [];
+  const out = [];
+  const seen = {};
+  Array.from(box.querySelectorAll('.chip-tag')).forEach(el => {
+    const v = String(el.dataset.value || '').trim();
+    if (!v) return;
+    const k = v.toLowerCase();
+    if (seen[k]) return;
+    seen[k] = 1;
+    out.push(v);
   });
-  // 中文输入法 / 粘贴场景：失焦时把残留值也提交
-  input.addEventListener('blur', () => { if (input.value.trim()) commit(); });
+  return out;
+}
+// 已选「学科 + 年级」组合的键集合，用于从下拉中剔除已添加项
+function chosenChipKeys() {
+  const box = $('#fSubjectChips');
+  if (!box) return new Set();
+  return new Set(Array.from(box.querySelectorAll('.chip-tag'))
+    .map(el => chipKey(el.dataset.value, el.dataset.grade)));
+}
+// 学科下拉：选中一项即加入已选学科（chip），随后复位到占位项，可继续添加下一门
+function bindSubjectSelect() {
+  const sel = $('#fSubjectInput');
+  if (!sel || sel.dataset.bound) return;
+  sel.dataset.bound = '1';
+  sel.addEventListener('change', () => {
+    const v = String(sel.value || '').trim();
+    if (!v) return;
+    // 带上选项所属年级，chip 显示成「学科（年级）」
+    const opt = sel.selectedOptions && sel.selectedOptions[0];
+    addSubjectChip(v, opt ? (opt.dataset.grade || '') : '');
+    refreshSubjectOptions(); // 已选的从下拉中移除，避免重复添加
+  });
 }
 
 async function loadClasses() {
@@ -271,15 +300,6 @@ async function loadClasses() {
     const res = await fetch(CLASS_API);
     const json = await res.json();
     classList = json.data || [];
-    const dl = $('#subjectList');
-    if (dl) {
-      dl.innerHTML = '';
-      (window.SUBJECTS || []).forEach(sj => {
-        const opt = document.createElement('option');
-        opt.value = sj.name;
-        dl.appendChild(opt);
-      });
-    }
   } catch (e) {
     console.error('加载班级失败', e);
   }
@@ -297,12 +317,118 @@ async function loadGrades() {
   }
 }
 
+// 各年级课程计划：由「课程管理」维护（/api/course-plans），是任教学科候选的唯一来源
+async function loadCoursePlans() {
+  try {
+    const res = await fetch(COURSE_API);
+    const json = await res.json();
+    const data = (json && json.data) || {};
+    const plans = data.plans || {};
+    coursePlanMap = {};
+    Object.keys(plans).forEach(g => {
+      const courses = (plans[g] && Array.isArray(plans[g].courses)) ? plans[g].courses : [];
+      coursePlanMap[g] = courses.map(c => String((c && c.name) || '').trim()).filter(Boolean);
+    });
+    coursePlanOk = true;
+  } catch (e) {
+    coursePlanMap = {};
+    coursePlanOk = false;
+  }
+  refreshSubjectOptions();
+}
+
+// 当前勾选的任教年级（弹窗内复选框）
+function selectedGrades() {
+  return Array.from(document.querySelectorAll('#fGrades input[type="checkbox"]:checked'))
+    .map(cb => String(cb.value || '').trim())
+    .filter(Boolean);
+}
+// 所选任教年级的全部课程（并集，按年级与课程计划顺序去重）
+// 未勾选任教年级时返回空：学科只能来自所选年级的课程计划，避免给出与任教年级无关的选项
+function subjectsOfGrades(grades) {
+  const gs = (grades || []).filter(Boolean);
+  if (!gs.length) return [];
+  const out = [];
+  gs.forEach(g => {
+    (coursePlanMap[g] || []).forEach(s => { if (out.indexOf(s) === -1) out.push(s); });
+  });
+  return out;
+}
+// 任教年级 → 任教学科：按所选年级重建学科下拉与提示文案；
+// 标签所属年级若被取消勾选则标黄保留（不静默删除用户已填内容）
+function refreshSubjectOptions() {
+  const sel = $('#fSubjectInput');
+  const hint = $('#fSubjectHint');
+  const grades = selectedGrades();
+  const scoped = grades.length > 0;
+  const list = subjectsOfGrades(grades);
+
+  // 已选标签的两类异常（均只标黄提示、不静默删除，鼠标悬停说明原因）：
+  //   1) 所属年级已被取消勾选；2) 该学科已不在所选年级的课程计划（课程改名 / 删除）
+  const box = $('#fSubjectChips');
+  if (box) {
+    const planSet = new Set(list.map(s => String(s).toLowerCase()));
+    Array.from(box.querySelectorAll('.chip-tag')).forEach(el => {
+      const v = String(el.dataset.value || '').trim();
+      const g = String(el.dataset.grade || '').trim();
+      const gradeOk = !scoped || !g || grades.indexOf(g) !== -1;
+      const planOk = !scoped || !list.length || planSet.has(v.toLowerCase());
+      const ok = gradeOk && planOk;
+      el.classList.toggle('off', !ok);
+      if (ok) el.removeAttribute('title');
+      else if (!gradeOk) el.setAttribute('title', '「' + g + '」已不在任教年级中（已保留，可手动删除）');
+      else el.setAttribute('title', '该学科已不在所选年级的课程计划中（已保留，可手动删除）');
+    });
+  }
+  // 下拉：按任教年级分组，选项写作「学科（年级）」；已添加的「学科 + 年级」组合不再列出
+  const chosen = chosenChipKeys();
+  let html = '';
+  let left = 0;
+  grades.forEach(g => {
+    const rest = (coursePlanMap[g] || []).filter(s => !chosen.has(chipKey(s, g)));
+    if (!rest.length) return; // 该年级课程已全部添加
+    left += rest.length;
+    html += '<optgroup label="' + escapeHtml(g) + '">'
+      + rest.map(s => '<option value="' + escapeHtml(s) + '" data-grade="' + escapeHtml(g) + '">'
+        + escapeHtml(chipText(s, g)) + '</option>').join('')
+      + '</optgroup>';
+  });
+  if (sel) {
+    bindSubjectSelect();
+    // 未选年级：下拉置空并禁用，先选任教年级才有候选学科
+    const ph = left ? '＋ 选择学科添加' : (scoped ? '（已全部添加）' : '（请先选择任教年级）');
+    sel.innerHTML = '<option value="">' + ph + '</option>' + html;
+    sel.value = '';
+    sel.disabled = !left;
+  }
+  if (!hint) return;
+  if (!scoped) {
+    hint.className = 'subj-hint warn';
+    hint.textContent = !(gradeList || []).length
+      ? '暂无年级，请先在「年级管理」中添加年级。'
+      : '请先勾选上方「任教年级」，学科下拉将按所选年级的课程计划加载。';
+    return;
+  }
+  if (!list.length) {
+    hint.className = 'subj-hint warn';
+    hint.textContent = coursePlanOk
+      ? '「' + grades.join('、') + '」尚未在「课程管理」中配置课程计划，请先去配置该年级课程。'
+      : '课程计划加载失败，请刷新页面重试或先在「课程管理」中维护各年级课程。';
+    return;
+  }
+  hint.className = 'subj-hint';
+  hint.textContent = '已加载 ' + grades.length + ' 个年级共 ' + list.length + ' 门学科'
+    + (left ? '，可添加 ' + left + ' 项' : '（已全部添加）') + '：选择后按「学科（年级）」加入标签。';
+}
+
+
 // 渲染弹窗内「任教年级」复选框组；checkedNames 为已勾选年级名数组
 function renderGradeChecks(checkedNames) {
   const box = $('#fGrades');
   if (!box) return;
   if (!gradeList || !gradeList.length) {
     box.innerHTML = '<span class="empty-tip-inline">暂无可选年级，请先在「年级管理」中添加</span>';
+    refreshSubjectOptions();
     return;
   }
   const set = new Set((checkedNames || []).map(String));
@@ -310,6 +436,7 @@ function renderGradeChecks(checkedNames) {
     const ck = set.has(g) ? ' checked' : '';
     return `<label><input type="checkbox" value="${escapeHtml(g)}"${ck}/>${escapeHtml(g)}</label>`;
   }).join('');
+  refreshSubjectOptions(); // 勾选变化 → 任教学科候选随之联动
 }
 
 // ===== 左侧「任教年级」树：点击节点筛选教师 =====
@@ -458,11 +585,11 @@ function renderTable() {
       (t.hometown || '').toLowerCase().includes(kw) ||
       (t.address || '').toLowerCase().includes(kw) ||
       (t.phone || '').toLowerCase().includes(kw) ||
-      (t.subject || '').toLowerCase().includes(kw) ||
       (t.position || '').toLowerCase().includes(kw) ||
       (t.department || '').toLowerCase().includes(kw) ||
       (t.className || '').toLowerCase().includes(kw) ||
-      (Array.isArray(t.grades) ? t.grades.join(' ') : '').toLowerCase().includes(kw));
+      (Array.isArray(t.grades) ? t.grades.join(' ') : '').toLowerCase().includes(kw) ||
+      (Array.isArray(t.subjects) ? t.subjects.map(x => (x.name || '') + ' ' + (x.grade || '')).join(' ') : '').toLowerCase().includes(kw));
   }
   if (gender) list = list.filter(t => t.gender === gender);
   if (status) list = list.filter(t => (t.status || '在职') === status);
@@ -489,7 +616,14 @@ function renderTable() {
   $('#tBody').innerHTML = list.map(t => {
     const gen = t.gender === '女' ? 'f' : 'm';
     const first = (t.name || '').trim().charAt(0) || '师';
-    const chips = splitSubjects(t.subject).map(s => `<span class="subj-chip">${escapeHtml(s)}</span>`).join('');
+    // 学科所属年级已不在该教师任教年级中（如取消勾选后未同步清理）→ 标黄提示，不静默删除
+    const tGrades = Array.isArray(t.grades) ? t.grades : [];
+    const chips = window.teaSubjectItems(t).map(x => {
+      const off = !!x.grade && tGrades.length > 0 && tGrades.indexOf(x.grade) === -1;
+      const txt = x.grade ? x.name + '（' + x.grade + '）' : x.name;
+      return `<span class="subj-chip${off ? ' off' : ''}"${off ? ' title="「' + escapeHtml(x.grade) + '」已不在该教师的任教年级中"' : ''}>${escapeHtml(txt)}</span>`;
+    }).join('');
+    const subjCell = chips ? `<div class="subj-chips">${chips}</div>` : '<span class="head-none">—</span>';
     const headCell = t.classId && t.className
       ? `<span class="head-tag">${IC_HEAD}${escapeHtml(t.className)}</span>`
       : '<span class="head-none">未担任</span>';
@@ -521,7 +655,7 @@ function renderTable() {
         </div>
       </td>
       <td><span class="gender-tag ${t.gender === '女' ? 'gender-female' : 'gender-male'}">${escapeHtml(t.gender)}</span></td>
-      <td>${chips || '<span class="head-none">—</span>'}</td>
+      <td>${subjCell}</td>
       <td>${escapeHtml(t.title || '—')}</td>
       <td class="pos-cell">${posCell}</td>
       <td><span class="st-tag ${stCls}">${escapeHtml(st)}</span></td>
@@ -598,9 +732,11 @@ function openModal(t) {
   $('#fIdCard').value = t ? (t.idCard || '') : '';
   $('#fName').value = t ? t.name : '';
   $('#fGender').value = t ? t.gender : '男';
-  // 任教学科 chip 多选
-  renderSubjectChips(splitSubjects(t && t.subject));
-  bindSubjectChipInput();
+  // 任教学科：标签写作「学科（年级）」，直接取自档案的 subjects 明细
+  // （服务端读取时已规范化：旧档案自动补出明细，年级留空；下拉选项由下方「任教年级」联动重建）
+  const currentGrades = (t && Array.isArray(t.grades)) ? t.grades : [];
+  renderSubjectChips(window.teaSubjectItems(t));
+  bindSubjectSelect();
   // 职称：历史档案可能是「教务 / 宿管」等旧值，下拉里没有则临时补一个选项，避免误清空
   setSelectValue('#fTitle', t ? t.title : '');
   // 行政职位：按该职位所属部门预置级联，再回填职位（保留历史值）；无职位时沿用档案已存的所属部门
@@ -624,8 +760,7 @@ function openModal(t) {
   $('#fEmergencyName').value = t ? (t.emergencyName || '') : '';
   $('#fEmergencyPhone').value = t ? (t.emergencyPhone || '') : '';
   $('#fRemark').value = t ? t.remark : '';
-  // 任教年级复选框组
-  const currentGrades = (t && Array.isArray(t.grades)) ? t.grades : [];
+  // 任教年级复选框组（勾选后联动重建上方任教学科下拉）
   renderGradeChecks(currentGrades);
   $('#modalMask').classList.add('show');
   setTimeout(() => $('#fName').focus(), 100);
@@ -644,9 +779,7 @@ async function saveTeacher(e) {
   e.preventDefault();
   const id = $('#fId').value;
   // 收集任教年级（勾选的复选框 value）
-  const checkedGrades = Array.from(document.querySelectorAll('#fGrades input[type="checkbox"]:checked'))
-    .map(cb => String(cb.value || '').trim())
-    .filter(Boolean);
+  const checkedGrades = selectedGrades();
   // 所属部门随行政职位联动：优先取级联中选中的部门，其次取该职位在组织架构登记的部门，最后保留档案原值
   const posDeptVal = String(($('#fPosDept') || {}).value || '').trim();
   const posVal = String(($('#fPosition') || {}).value || '').trim();
@@ -658,6 +791,7 @@ async function saveTeacher(e) {
     name: $('#fName').value.trim(),
     gender: $('#fGender').value,
     subject: getSubjectChips().join('、'),
+    subjects: getSubjectItems(),   // 学科 + 任教年级明细（列表与编辑回填按「学科（年级）」展示）
     title: $('#fTitle').value,
     position: $('#fPosition').value.trim(),
     department: posDeptVal || posDeptName(posHit) || (oldTea && oldTea.department) || '',
@@ -985,6 +1119,11 @@ function bindEvents() {
     refreshPositionList(posDeptEl.value);
     updatePermHint(teachers.find(x => x.id === $('#fId').value));
   });
+  // 任教年级勾选变化 → 联动重建「任教学科」下拉（取所选年级课程计划的并集）
+  const gradeBox = document.getElementById('fGrades');
+  if (gradeBox) gradeBox.addEventListener('change', (e) => {
+    if (e.target && e.target.type === 'checkbox') refreshSubjectOptions();
+  });
   const hrWatch = () => updateHrPermWarn(teachers.find(x => x.id === $('#hTeacher').value));
   $('#hDept').addEventListener('input', hrWatch);
   $('#hDept').addEventListener('change', hrWatch);
@@ -1002,15 +1141,12 @@ function bindEvents() {
   };
 
   window.addEventListener('cb-site-ready', () => {
-    if (window.SUBJECTS && window.SUBJECTS.length) {
-      const dl = $('#subjectList');
-      if (dl) dl.innerHTML = '';
-    }
+    refreshSubjectOptions(); // 科目（课程计划）变化后重建任教学科下拉
     loadTeachers();
   });
 }
 
-window.cbEmbedRefresh = function () { loadClasses().then(loadGrades).then(loadTeachers); };
+window.cbEmbedRefresh = function () { loadClasses().then(loadGrades).then(loadCoursePlans).then(loadTeachers); };
 
 loadPerms()
   .then(loadDept)
@@ -1018,6 +1154,7 @@ loadPerms()
   .then(() => { fillPosDeptSelect(); refreshPositionList($('#fPosDept') ? $('#fPosDept').value : ''); })
   .then(loadClasses)
   .then(() => loadGrades())
+  .then(loadCoursePlans)
   .then(() => {
     bindEvents();
     loadTeachers();
