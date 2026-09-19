@@ -2786,6 +2786,30 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
 .filter-chip button { border: 0; background: transparent; color: #6366f1; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
 .filter-chip button:hover { color: #312e81; }
 
+/* ===== 列表「列设置」下拉（教师管理 / 后勤职工 / 学生档案共用，见 /js/cols.js）===== */
+.col-menu { padding: 8px; min-width: 176px; }
+.col-head { display: flex; gap: 6px; margin-bottom: 6px; padding-bottom: 8px; border-bottom: 1px solid var(--border, #e5e7eb); }
+.col-btn {
+  flex: 1; padding: 5px 8px; border-radius: 7px; cursor: pointer;
+  background: #fff; border: 1px solid var(--border, #e5e7eb); color: #64748b;
+  font-size: 12px; transition: all .15s;
+}
+.col-btn:hover { color: var(--primary); border-color: var(--primary); background: #eef2ff; }
+.col-list { max-height: 48vh; overflow: auto; display: flex; flex-direction: column; gap: 1px; }
+.col-item {
+  display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+  border-radius: 6px; font-size: 13px; color: var(--text); cursor: pointer; user-select: none;
+}
+.col-item:hover { background: #f1f5f9; }
+.col-item input { margin: 0; cursor: pointer; accent-color: var(--primary); }
+.col-item.locked { color: var(--text-light); cursor: default; }
+.col-item.locked input { cursor: default; }
+/* 照片列（可选，默认隐藏）：列表开启时按小图展示 */
+.cell-photo {
+  width: 34px; height: 34px; border-radius: 50%; object-fit: cover; display: block;
+  background: #e2e8f0;
+}
+
 /* ===== 照片上传 / 摄像头拍照（教师、学生、后勤职工共用，见 /js/photo.js）===== */
 .photo-field { display: flex; align-items: center; gap: 14px; }
 .photo-preview {

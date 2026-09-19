@@ -344,12 +344,80 @@ function renderStats() {
   $('#statHealth').textContent = dueOf('healthDays');
   $('#statOut').textContent = outsourced;
 }
+// ===== 列表列设置（「列设置」下拉：表头 / 行 / 列显隐共用一份配置） =====
+let lgCols = null;   // 列设置实例（/js/cols.js），初始化见 bindEvents
+// 照片列 off:true = 默认隐藏，只有在列设置里勾选后才渲染图片
+function lgColDefs() {
+  return [
+    { key: 'name', label: '职工', width: 'min-width:170px' },
+    { key: 'gender', label: '性别' },
+    { key: 'post', label: '岗位', width: 'min-width:130px' },
+    { key: 'dept', label: '部门 / 单位', width: 'min-width:140px' },
+    { key: 'employType', label: '用工性质' },
+    { key: 'shift', label: '班次' },
+    { key: 'area', label: '负责区域', width: 'min-width:130px' },
+    { key: 'phone', label: '联系电话' },
+    { key: 'joinDate', label: '入职日期' },
+    { key: 'contractEnd', label: '合同到期' },
+    { key: 'healthCertEnd', label: '健康证到期' },
+    { key: 'status', label: '在职状态' },
+    { key: 'photo', label: '照片', off: true },
+    { key: 'actions', label: '操作', width: 'width:110px' }
+  ];
+}
+function renderLgHeader(cols) {
+  const head = $('#lgThead');
+  if (!head) return;
+  head.innerHTML = '<tr>' + cols.map(c => '<th' + (c.width ? ' style="' + c.width + '"' : '') + '>'
+    + escapeHtml(c.label) + '</th>').join('') + '</tr>';
+}
+// 单元格渲染：表头与行按同一份列配置生成，增删列不会错位
+function lgCellHtml(s, k) {
+  if (k === 'name') {
+    const sub = [s.staffNo ? '工号 ' + s.staffNo : '未编工号', s.idCard ? maskIdCard(s.idCard) : ''].filter(Boolean).join(' · ');
+    return `<td>
+      <span class="lg-name">${escapeHtml(s.name || '—')}</span>
+      <span class="lg-sub">${escapeHtml(sub)}</span>
+    </td>`;
+  }
+  if (k === 'photo') {
+    return '<td>' + ((window.PhotoField && window.PhotoField.isSrc(s.photo))
+      ? `<img class="cell-photo" src="${escapeHtml(s.photo)}" alt="" />`
+      : '<span class="head-none">—</span>') + '</td>';
+  }
+  if (k === 'gender') return `<td><span class="gender-tag ${s.gender === '女' ? 'gender-female' : 'gender-male'}">${escapeHtml(s.gender || '男')}</span></td>`;
+  if (k === 'post') return `<td>${s.post ? escapeHtml(s.post) : '<span class="head-none">—</span>'}</td>`;
+  if (k === 'dept') {
+    const deptCell = (s.department || '—') + (s.vendor ? '<span class="lg-cell-sub">外包：' + escapeHtml(s.vendor) + '</span>' : '');
+    return `<td>${deptCell}</td>`;
+  }
+  if (k === 'employType') return `<td>${escapeHtml(s.employType || '—')}</td>`;
+  if (k === 'shift') return `<td>${escapeHtml(s.shift || '—')}</td>`;
+  if (k === 'area') return `<td>${escapeHtml(s.area || '—')}</td>`;
+  if (k === 'phone') return `<td class="lg-phone">${escapeHtml(s.phone || '—')}</td>`;
+  if (k === 'joinDate') return `<td class="lg-date">${escapeHtml(s.joinDate || '—')}</td>`;
+  if (k === 'contractEnd') return `<td>${dueCell(s.contractEnd, s.contractDays)}</td>`;
+  if (k === 'healthCertEnd') return `<td>${dueCell(s.healthCertEnd, s.healthDays)}</td>`;
+  if (k === 'status') return `<td><span class="st-tag ${statusClass(s.status)}">${escapeHtml(s.status || '在职')}</span></td>`;
+  if (k === 'actions') {
+    return `<td>
+      <div class="row-actions">
+        <button type="button" class="btn-sm more-btn" data-act="more" title="编辑 / 删除">操作${IC_CARET}</button>
+      </div>
+    </td>`;
+  }
+  return '<td></td>';
+}
+
 function renderTable() {
   const list = filtered();
   updateTreeChip(list.length);
   const body = $('#lgBody');
+  // 列设置：表头与行按同一份可见列渲染（照片列默认隐藏）
+  const cols = lgCols ? lgCols.visible() : lgColDefs().filter(c => !c.off);
+  renderLgHeader(cols);
   if (!list.length) {
-    body.innerHTML = '<tr><td colspan="13" class="empty-tip">' +
+    body.innerHTML = '<tr><td colspan="' + cols.length + '" class="empty-tip">' +
       (!staff.length ? '暂无后勤职工档案，点击右上角「添加职工」开始'
         : (treeSel.kind === 'all' ? '没有符合条件的职工，换个关键词或调整筛选试试'
           : '该部门 / 岗位下没有符合条件的职工，点击左侧「全部职工」查看全部')) +
@@ -358,41 +426,9 @@ function renderTable() {
   }
   body.innerHTML = list.map(s => {
     const off = OFF_DUTY.indexOf(s.status) !== -1;
-    const sub = [s.staffNo ? '工号 ' + s.staffNo : '未编工号', s.idCard ? maskIdCard(s.idCard) : ''].filter(Boolean).join(' · ');
-    const deptCell = (s.department || '—') + (s.vendor ? '<span class="lg-cell-sub">外包：' + escapeHtml(s.vendor) + '</span>' : '');
-    // 头像：有照片显示照片，否则退回首字色块
-    const gen = s.gender === '女' ? 'f' : 'm';
-    const first = (s.name || '').trim().charAt(0) || '职';
-    const avatar = (window.PhotoField && window.PhotoField.isSrc(s.photo))
-      ? `<span class="lg-avatar"><img src="${escapeHtml(s.photo)}" alt="" /></span>`
-      : `<span class="lg-avatar ${gen}">${escapeHtml(first)}</span>`;
-    return `<tr data-id="${escapeHtml(s.id)}"${off ? ' class="lg-off"' : ''}>
-      <td>
-        <div class="lg-cell">
-          ${avatar}
-          <div>
-            <span class="lg-name">${escapeHtml(s.name || '—')}</span>
-            <span class="lg-sub">${escapeHtml(sub)}</span>
-          </div>
-        </div>
-      </td>
-      <td><span class="gender-tag ${s.gender === '女' ? 'gender-female' : 'gender-male'}">${escapeHtml(s.gender || '男')}</span></td>
-      <td>${s.post ? escapeHtml(s.post) : '<span class="head-none">—</span>'}</td>
-      <td>${deptCell}</td>
-      <td>${escapeHtml(s.employType || '—')}</td>
-      <td>${escapeHtml(s.shift || '—')}</td>
-      <td>${escapeHtml(s.area || '—')}</td>
-      <td class="lg-phone">${escapeHtml(s.phone || '—')}</td>
-      <td class="lg-date">${escapeHtml(s.joinDate || '—')}</td>
-      <td>${dueCell(s.contractEnd, s.contractDays)}</td>
-      <td>${dueCell(s.healthCertEnd, s.healthDays)}</td>
-      <td><span class="st-tag ${statusClass(s.status)}">${escapeHtml(s.status || '在职')}</span></td>
-      <td>
-        <div class="row-actions">
-          <button type="button" class="btn-sm more-btn" data-act="more" title="编辑 / 删除">操作${IC_CARET}</button>
-        </div>
-      </td>
-    </tr>`;
+    return `<tr data-id="${escapeHtml(s.id)}"${off ? ' class="lg-off"' : ''}>`
+      + cols.map(c => lgCellHtml(s, c.key)).join('')
+      + '</tr>';
   }).join('');
 }
 function render() {
@@ -613,6 +649,17 @@ function bindEvents() {
       preview: '#fPhotoPreview', pick: '#fPhotoPick', cam: '#fPhotoCam',
       clear: '#fPhotoClear', input: '#fPhotoFile'
     });
+  }
+  // 列表列设置：照片列默认隐藏，勾选后才渲染（职工列与操作列固定显示）
+  if (window.Cols) {
+    lgCols = window.Cols.create({
+      storeKey: 'sms_logistics_cols_v1',
+      defs: lgColDefs,
+      core: ['name', 'gender', 'post', 'dept', 'status', 'phone', 'actions'],
+      locked: ['name', 'actions'],
+      onChange: () => renderTable()
+    });
+    lgCols.bindDropdown($('#btnLgCols'), $('#lgColDropdown'), $('#lgColMenu'));
   }
   $('#btnAdd').onclick = () => openModal(null);
   $('#btnExport').onclick = exportCsv;

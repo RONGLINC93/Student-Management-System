@@ -572,6 +572,97 @@ function renderPosFilter() {
   if (cur && Array.from(set).indexOf(cur) !== -1) sel.value = cur;
 }
 
+// ===== 列表列设置（「列设置」下拉：表头 / 行 / 列显隐共用一份配置） =====
+// 照片列 off:true = 默认隐藏，只有在列设置里勾选后才渲染图片（省流量与渲染开销）
+let teaCols = null;   // 列表列设置（/js/cols.js），初始化见 bindEvents
+function teaColDefs() {
+  return [
+    { key: 'name', label: '教师' },
+    { key: 'gender', label: '性别' },
+    { key: 'subjects', label: '任教学科' },
+    { key: 'title', label: '职称' },
+    { key: 'position', label: '职务' },
+    { key: 'status', label: '在职状态' },
+    { key: 'phone', label: '联系电话' },
+    { key: 'grades', label: '任教年级' },
+    { key: 'head', label: '班主任（班级）' },
+    { key: 'photo', label: '照片', off: true },
+    { key: 'actions', label: '操作' }
+  ];
+}
+function renderTeaHeader(cols) {
+  const head = $('#teaThead');
+  if (!head) return;
+  head.innerHTML = '<tr>' + cols.map(c => '<th>' + escapeHtml(c.label) + '</th>').join('') + '</tr>';
+}
+// 单元格渲染：表头与行按同一份列配置生成，增删列不会错位
+function teaCellHtml(t, k) {
+  if (k === 'name') {
+    return `<td>
+      <span class="teacher-name">${escapeHtml(t.name)}</span>
+      <span class="teacher-sub">${t.teacherNo ? '工号 ' + escapeHtml(t.teacherNo) : '未编工号'}${t.idCard ? ' · ' + escapeHtml(maskIdCard(t.idCard)) : ' · 未登记身份证'}${t.hometown ? ' · ' + escapeHtml(t.hometown) : ''}</span>
+    </td>`;
+  }
+  if (k === 'photo') {
+    return '<td>' + ((window.PhotoField && window.PhotoField.isSrc(t.photo))
+      ? `<img class="cell-photo" src="${escapeHtml(t.photo)}" alt="" />`
+      : '<span class="head-none">—</span>') + '</td>';
+  }
+  if (k === 'gender') {
+    return `<td><span class="gender-tag ${t.gender === '女' ? 'gender-female' : 'gender-male'}">${escapeHtml(t.gender)}</span></td>`;
+  }
+  if (k === 'subjects') {
+    // 学科所属年级已不在该教师任教年级中（取消勾选后未同步清理）→ 标黄提示，不静默删除
+    const tGrades = Array.isArray(t.grades) ? t.grades : [];
+    const chips = window.teaSubjectItems(t).map(x => {
+      const off = !!x.grade && tGrades.length > 0 && tGrades.indexOf(x.grade) === -1;
+      const txt = x.grade ? x.name + '（' + x.grade + '）' : x.name;
+      return `<span class="subj-chip${off ? ' off' : ''}"${off ? ' title="「' + escapeHtml(x.grade) + '」已不在该教师的任教年级中"' : ''}>${escapeHtml(txt)}</span>`;
+    }).join('');
+    return `<td>${chips ? `<div class="subj-chips">${chips}</div>` : '<span class="head-none">—</span>'}</td>`;
+  }
+  if (k === 'title') return `<td>${escapeHtml(t.title || '—')}</td>`;
+  if (k === 'position') {
+    const sub = t.department || t.joinYear
+      ? `<div class="dept-sub">${escapeHtml([t.department, t.joinYear ? t.joinYear + ' 年入职' : ''].filter(Boolean).join(' · '))}</div>`
+      : '';
+    const permBadge = t.perm && t.perm.matched
+      ? `<span class="perm-badge${(!t.perm.modules || !t.perm.modules.length) ? ' unconf' : ''}" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(t.perm.matched)}</span>`
+      : (matchPerm(t.department)
+        ? `<span class="perm-badge" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(matchPerm(t.department).name)}</span>`
+        : '');
+    const posCell = t.position
+      ? `<div>${escapeHtml(t.position)}${permBadge}</div>${sub}`
+      : (sub ? `<div class="head-none">未设职务</div>${sub}` : '<span class="head-none">—</span>');
+    return `<td class="pos-cell">${posCell}</td>`;
+  }
+  if (k === 'status') {
+    const st = t.status || '在职';
+    const stCls = isOffDuty(t) ? 'st-off' : (st === '在职' ? 'st-on' : 'st-warn');
+    return `<td><span class="st-tag ${stCls}">${escapeHtml(st)}</span></td>`;
+  }
+  if (k === 'phone') return `<td class="t-phone">${escapeHtml(t.phone || '—')}</td>`;
+  if (k === 'grades') {
+    const grades = Array.isArray(t.grades) ? t.grades : [];
+    return `<td>${grades.length
+      ? grades.map(g => `<span class="grade-chip">${escapeHtml(g)}</span>`).join('')
+      : '<span class="grade-empty">未指定</span>'}</td>`;
+  }
+  if (k === 'head') {
+    return `<td>${t.classId && t.className
+      ? `<span class="head-tag">${IC_HEAD}${escapeHtml(t.className)}</span>`
+      : '<span class="head-none">未担任</span>'}</td>`;
+  }
+  if (k === 'actions') {
+    return `<td>
+      <div class="row-actions">
+        <button type="button" class="btn-sm more-btn" data-act="more" title="编辑 / 人事异动 / 班主任 / 删除">操作${IC_CARET}</button>
+      </div>
+    </td>`;
+  }
+  return '<td></td>';
+}
+
 function renderTable() {
   const kw = ($('#searchInput').value || '').trim().toLowerCase();
   const gender = $('#genderFilter').value;
@@ -607,8 +698,12 @@ function renderTable() {
   $('#statHead').textContent = teachers.filter(t => !!t.classId).length;
   updateTreeChip(list.length);
 
+  // 列设置：表头与行按同一份可见列渲染（照片列默认隐藏）
+  const cols = teaCols ? teaCols.visible() : teaColDefs().filter(c => !c.off);
+  renderTeaHeader(cols);
+
   if (!list.length) {
-    $('#tBody').innerHTML = '<tr><td colspan="10" class="empty-tip">'
+    $('#tBody').innerHTML = '<tr><td colspan="' + cols.length + '" class="empty-tip">'
       + (treeSel.kind === 'all'
         ? '暂无符合条件的教师，点击右上角「添加教师」开始'
         : '当前年级 / 班级下没有符合条件的教师，点击左侧「全部教师」查看全部')
@@ -616,66 +711,9 @@ function renderTable() {
     return;
   }
 
-  $('#tBody').innerHTML = list.map(t => {
-    const gen = t.gender === '女' ? 'f' : 'm';
-    const first = (t.name || '').trim().charAt(0) || '师';
-    // 教师头像：有照片用照片，否则退回首字色块
-    const avatar = (window.PhotoField && window.PhotoField.isSrc(t.photo))
-      ? `<img class="teacher-avatar photo" src="${escapeHtml(t.photo)}" alt="" />`
-      : `<span class="teacher-avatar ${gen}">${escapeHtml(first)}</span>`;
-    // 学科所属年级已不在该教师任教年级中（如取消勾选后未同步清理）→ 标黄提示，不静默删除
-    const tGrades = Array.isArray(t.grades) ? t.grades : [];
-    const chips = window.teaSubjectItems(t).map(x => {
-      const off = !!x.grade && tGrades.length > 0 && tGrades.indexOf(x.grade) === -1;
-      const txt = x.grade ? x.name + '（' + x.grade + '）' : x.name;
-      return `<span class="subj-chip${off ? ' off' : ''}"${off ? ' title="「' + escapeHtml(x.grade) + '」已不在该教师的任教年级中"' : ''}>${escapeHtml(txt)}</span>`;
-    }).join('');
-    const subjCell = chips ? `<div class="subj-chips">${chips}</div>` : '<span class="head-none">—</span>';
-    const headCell = t.classId && t.className
-      ? `<span class="head-tag">${IC_HEAD}${escapeHtml(t.className)}</span>`
-      : '<span class="head-none">未担任</span>';
-    const grades = Array.isArray(t.grades) ? t.grades : [];
-    const gradeCell = grades.length
-      ? grades.map(g => `<span class="grade-chip">${escapeHtml(g)}</span>`).join('')
-      : '<span class="grade-empty">未指定</span>';
-    const st = t.status || '在职';
-    const stCls = isOffDuty(t) ? 'st-off' : (st === '在职' ? 'st-on' : 'st-warn');
-    const sub = t.department || t.joinYear
-      ? `<div class="dept-sub">${escapeHtml([t.department, t.joinYear ? t.joinYear + ' 年入职' : ''].filter(Boolean).join(' · '))}</div>`
-      : '';
-    const permBadge = t.perm && t.perm.matched
-      ? `<span class="perm-badge${(!t.perm.modules || !t.perm.modules.length) ? ' unconf' : ''}" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(t.perm.matched)}</span>`
-      : (matchPerm(t.department)
-        ? `<span class="perm-badge" title="后台权限：${escapeHtml(teacherPermDesc(t))}">${escapeHtml(matchPerm(t.department).name)}</span>`
-        : '');
-    const posCell = t.position
-      ? `<div>${escapeHtml(t.position)}${permBadge}</div>${sub}`
-      : (sub ? `<div class="head-none">未设职务</div>${sub}` : '<span class="head-none">—</span>');
-    return `<tr data-id="${escapeHtml(t.id)}">
-      <td>
-        <div class="teacher-cell">
-          ${avatar}
-          <div class="teacher-meta">
-            <span class="teacher-name">${escapeHtml(t.name)}</span>
-            <span class="teacher-sub">${t.teacherNo ? '工号 ' + escapeHtml(t.teacherNo) : '未编工号'}${t.idCard ? ' · ' + escapeHtml(maskIdCard(t.idCard)) : ' · 未登记身份证'}${t.hometown ? ' · ' + escapeHtml(t.hometown) : ''}</span>
-          </div>
-        </div>
-      </td>
-      <td><span class="gender-tag ${t.gender === '女' ? 'gender-female' : 'gender-male'}">${escapeHtml(t.gender)}</span></td>
-      <td>${subjCell}</td>
-      <td>${escapeHtml(t.title || '—')}</td>
-      <td class="pos-cell">${posCell}</td>
-      <td><span class="st-tag ${stCls}">${escapeHtml(st)}</span></td>
-      <td class="t-phone">${escapeHtml(t.phone || '—')}</td>
-      <td>${gradeCell}</td>
-      <td>${headCell}</td>
-      <td>
-        <div class="row-actions">
-          <button type="button" class="btn-sm more-btn" data-act="more" title="编辑 / 人事异动 / 班主任 / 删除">操作${IC_CARET}</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
+  $('#tBody').innerHTML = list.map(t => `<tr data-id="${escapeHtml(t.id)}">`
+    + cols.map(c => teaCellHtml(t, c.key)).join('')
+    + '</tr>').join('');
 }
 
 async function loadTeachers() {
@@ -1103,6 +1141,17 @@ function bindEvents() {
       preview: '#fPhotoPreview', pick: '#fPhotoPick', cam: '#fPhotoCam',
       clear: '#fPhotoClear', input: '#fPhotoInput'
     });
+  }
+  // 列表列设置：照片列默认隐藏，勾选后才渲染（教师列与操作列固定显示）
+  if (window.Cols) {
+    teaCols = window.Cols.create({
+      storeKey: 'sms_teachers_cols_v1',
+      defs: teaColDefs,
+      core: ['name', 'gender', 'subjects', 'title', 'position', 'status', 'phone', 'grades', 'head', 'actions'],
+      locked: ['name', 'actions'],
+      onChange: () => renderTable()
+    });
+    teaCols.bindDropdown($('#btnTeaCols'), $('#teaColDropdown'), $('#teaColMenu'));
   }
   $('#searchInput').oninput = renderTable;
   $('#genderFilter').onchange = renderTable;
