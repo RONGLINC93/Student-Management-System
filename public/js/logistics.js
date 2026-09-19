@@ -26,6 +26,9 @@ let posCache = [];
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
+// 职工照片：上传 / 摄像头拍照由公共模块 /js/photo.js 提供（教师、学生档案共用同一套交互）
+let photoField = null;
+
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
@@ -357,10 +360,21 @@ function renderTable() {
     const off = OFF_DUTY.indexOf(s.status) !== -1;
     const sub = [s.staffNo ? '工号 ' + s.staffNo : '未编工号', s.idCard ? maskIdCard(s.idCard) : ''].filter(Boolean).join(' · ');
     const deptCell = (s.department || '—') + (s.vendor ? '<span class="lg-cell-sub">外包：' + escapeHtml(s.vendor) + '</span>' : '');
+    // 头像：有照片显示照片，否则退回首字色块
+    const gen = s.gender === '女' ? 'f' : 'm';
+    const first = (s.name || '').trim().charAt(0) || '职';
+    const avatar = (window.PhotoField && window.PhotoField.isSrc(s.photo))
+      ? `<span class="lg-avatar"><img src="${escapeHtml(s.photo)}" alt="" /></span>`
+      : `<span class="lg-avatar ${gen}">${escapeHtml(first)}</span>`;
     return `<tr data-id="${escapeHtml(s.id)}"${off ? ' class="lg-off"' : ''}>
       <td>
-        <span class="lg-name">${escapeHtml(s.name || '—')}</span>
-        <span class="lg-sub">${escapeHtml(sub)}</span>
+        <div class="lg-cell">
+          ${avatar}
+          <div>
+            <span class="lg-name">${escapeHtml(s.name || '—')}</span>
+            <span class="lg-sub">${escapeHtml(sub)}</span>
+          </div>
+        </div>
       </td>
       <td><span class="gender-tag ${s.gender === '女' ? 'gender-female' : 'gender-male'}">${escapeHtml(s.gender || '男')}</span></td>
       <td>${s.post ? escapeHtml(s.post) : '<span class="head-none">—</span>'}</td>
@@ -434,6 +448,7 @@ function openModal(rec) {
   fillDeptSelect();
   $('#modalTitle').textContent = rec ? '编辑后勤职工 · ' + (rec.name || '') : '添加后勤职工';
   $('#fId').value = rec ? (rec.id || '') : '';
+  if (photoField) photoField.set(rec ? (rec.photo || '') : '');   // 照片：编辑时回填，新增时清空
   $('#fName').value = rec ? (rec.name || '') : '';
   $('#fStaffNo').value = rec ? (rec.staffNo || '') : '';
   $('#fGender').value = rec ? (rec.gender || '男') : '男';
@@ -489,6 +504,7 @@ async function saveRec(e) {
   e.preventDefault();
   const id = $('#fId').value;
   const payload = {
+    photo: photoField ? photoField.get() : '',   // 照片（弹窗内上传 / 拍照后的 data:image；空串表示移除）
     staffNo: $('#fStaffNo').value.trim(),
     name: $('#fName').value.trim(),
     gender: $('#fGender').value,
@@ -591,6 +607,13 @@ function openRowMenu(rec, anchor) {
 
 // ===== 事件绑定 =====
 function bindEvents() {
+  // 职工照片：上传 / 摄像头拍照（公共模块 /js/photo.js，教师、学生档案共用同一套交互）
+  if (window.PhotoField) {
+    photoField = window.PhotoField.create({
+      preview: '#fPhotoPreview', pick: '#fPhotoPick', cam: '#fPhotoCam',
+      clear: '#fPhotoClear', input: '#fPhotoFile'
+    });
+  }
   $('#btnAdd').onclick = () => openModal(null);
   $('#btnExport').onclick = exportCsv;
   $('#modalClose').onclick = closeModal;

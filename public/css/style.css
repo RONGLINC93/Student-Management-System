@@ -2786,3 +2786,36 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
 .filter-chip button { border: 0; background: transparent; color: #6366f1; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
 .filter-chip button:hover { color: #312e81; }
 
+/* ===== 照片上传 / 摄像头拍照（教师、学生、后勤职工共用，见 /js/photo.js）===== */
+.photo-field { display: flex; align-items: center; gap: 14px; }
+.photo-preview {
+  flex: 0 0 84px; width: 84px; height: 84px; border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--border); background: #f8fafc;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--text-light); text-align: center; line-height: 1.5;
+}
+.photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-ops { flex: 1 1 auto; min-width: 0; }
+.photo-ops .btn-sm + .btn-sm { margin-left: 6px; }
+.photo-ops .btn-sm:disabled { opacity: .5; cursor: default; }
+.photo-tip { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--text-light); }
+/* 摄像头取景弹窗（DOM 由 photo.js 注入） */
+#pfCamMask .modal { max-width: 520px; }
+.cam-stage {
+  position: relative; width: 100%; max-width: 320px; margin: 0 auto;
+  aspect-ratio: 1 / 1; border-radius: 12px; overflow: hidden; background: #0f172a;
+}
+.cam-stage video { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 圆形取景提示：头像按圆形裁切展示，取景时给出构图参考 */
+.cam-stage::after {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 82%; height: 82%; border-radius: 50%; border: 2px dashed rgba(255,255,255,.7);
+  pointer-events: none;
+}
+/* 摄像头不可用 / 打开失败时的提示（覆盖在取景框上） */
+.cam-empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: 18px; text-align: center; font-size: 13px; line-height: 1.7; color: #e2e8f0; background: #0f172a;
+}
+.cam-select { display: block; margin: 10px auto 0; max-width: 320px; }
+

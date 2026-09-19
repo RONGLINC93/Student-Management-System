@@ -110,26 +110,69 @@
     .pwd-eye { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-light); cursor: pointer; user-select: none; }
     .pwd-eye input { accent-color: var(--primary, #4f6df5); cursor: pointer; margin: 0; }
     .hr-tip { margin: 4px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--text-light); background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
-    /* 可管理模块复选框阵列 */
-    .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; margin-top: 4px; }
-    .perm-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; user-select: none; font-size: 13px; }
-    .perm-item:hover { border-color: var(--primary, #4f6df5); }
     /* 组织架构权限区 */
     .perm-overview { font-size: 13px; color: var(--text); margin: 2px 0 10px; }
     .perm-overview b { color: var(--primary); }
     .perm-empty { padding: 18px; text-align: center; color: var(--text-light); font-size: 13px; border: 1px dashed var(--border); border-radius: 8px; }
-    .perm-dept-name { font-weight: 600; font-size: 13.5px; }
-    .perm-dept-name small { font-weight: 400; color: var(--text-light); margin-left: 6px; }
-    .perm-inherit { color: var(--primary); opacity: .75; font-weight: 400; margin-left: 6px; }
-    .perm-item input { accent-color: var(--primary, #4f6df5); cursor: pointer; }
-    /* 部门权限卡片 */
-    .perm-role {
-      border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #fff;
-    }
-    .perm-role-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .perm-role-mods { margin-top: 8px; }
-    .perm-role-tip { font-size: 12px; color: var(--text-light); margin-top: 6px; line-height: 1.6; }
-    .perm-role-tip b { color: #b45309; }
+    /* 工具条：搜索 / 展开折叠 / 图例 */
+    .perm-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 10px; }
+    .perm-search { position: relative; flex: 0 0 auto; display: flex; align-items: center; }
+    .perm-search input { width: 190px; padding-right: 26px; }
+    .perm-search-clear { position: absolute; right: 4px; border: 0; background: transparent; color: var(--text-light); cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; border-radius: 50%; }
+    .perm-search-clear:hover { background: rgba(127,127,127,.12); color: var(--text); }
+    .perm-legend { margin-left: auto; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-light); flex-wrap: wrap; }
+    .perm-legend i { display: inline-flex; width: 16px; height: 16px; border-radius: 4px; vertical-align: -3px; margin-right: 4px; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-style: normal; }
+    .perm-legend .pm-lg-on { background: var(--primary, #4f6df5); }
+    .perm-legend .pm-lg-inh { background: #cbd5e1; }
+    .perm-legend .pm-lg-off { background: #fff; border: 1px solid var(--border); }
+    /* 部门 × 模块 矩阵表 */
+    .pm-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: auto; max-height: 62vh; background: #fff; }
+    table.perm-matrix { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
+    .perm-matrix th, .perm-matrix td { padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .perm-matrix thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; font-weight: 600; font-size: 12px; color: var(--text); }
+    .perm-matrix tbody tr:hover td { background: #f8fafc; }
+    .perm-matrix .pm-deptcol { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 232px; text-align: left; }
+    .perm-matrix thead .pm-deptcol { z-index: 4; background: #f8fafc; }
+    .perm-matrix tbody tr:hover .pm-deptcol { background: #f8fafc; }
+    .pm-modcol { cursor: pointer; user-select: none; text-align: center; min-width: 46px; }
+    .pm-modcol:hover { color: var(--primary, #4f6df5); }
+    .pm-modcol small { display: block; font-weight: 400; font-size: 10.5px; color: var(--text-light); }
+    .pm-countcol { text-align: center; min-width: 88px; }
+    .pm-cell { text-align: center; cursor: pointer; user-select: none; }
+    .pm-cell .pm-box { display: inline-flex; width: 19px; height: 19px; border-radius: 5px; border: 1px solid var(--border); align-items: center; justify-content: center; font-size: 12px; line-height: 1; color: #fff; background: #fff; }
+    .pm-cell.on .pm-box { background: var(--primary, #4f6df5); border-color: var(--primary, #4f6df5); }
+    .pm-cell.inh .pm-box { background: #cbd5e1; border-color: #cbd5e1; }
+    .pm-cell.off:hover .pm-box { border-color: var(--primary, #4f6df5); }
+    .pm-cell.inh { cursor: not-allowed; }
+    .pm-cell.locked { opacity: .85; }
+    /* 部门名单元格 */
+    .pm-dep { display: flex; align-items: center; gap: 6px; }
+    .pm-caret { flex: 0 0 auto; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-light); cursor: pointer; border-radius: 4px; font-size: 10px; }
+    .pm-caret:hover { background: rgba(127,127,127,.12); color: var(--text); }
+    .pm-caret.leaf { visibility: hidden; }
+    .pm-depname { font-weight: 600; font-size: 13px; }
+    .pm-depname small { font-weight: 400; color: var(--text-light); margin-left: 5px; }
+    .pm-depcount { font-size: 11.5px; color: var(--text-light); background: #f1f5f9; border-radius: 20px; padding: 1px 7px; }
+    .pm-ops { margin-top: 3px; padding-left: 22px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .pm-op { border: 0; background: transparent; color: var(--text-light); font-size: 11.5px; cursor: pointer; padding: 0; }
+    .pm-op:hover { color: var(--primary, #4f6df5); text-decoration: underline; }
+    .pm-tpl { font-size: 11.5px; padding: 1px 4px; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--text-light); cursor: pointer; max-width: 92px; }
+    .pm-count b { font-size: 13px; }
+    .pm-count small { display: block; font-size: 10.5px; color: var(--primary); }
+    .pm-count.zero b { color: var(--text-light); font-weight: 400; }
+    .pm-hit td { background: #fffbeb !important; }
+    /* 权限诊断预览 */
+    .perm-diag { margin-top: 14px; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: #f8fafc; }
+    .perm-diag-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 600; }
+    .perm-diag-head .badge { font-weight: 400; }
+    .perm-diag-pick { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .perm-diag-pick input, .perm-diag-pick select { font-size: 13px; }
+    .perm-diag-body { margin-top: 10px; font-size: 12.5px; line-height: 1.8; color: var(--text); }
+    .perm-diag-body .pd-none { color: var(--text-light); }
+    .perm-diag-body .pd-chain { color: var(--text-light); }
+    .pd-src { display: inline-block; margin: 0 6px 6px 0; padding: 2px 8px; border-radius: 20px; background: #eef2ff; color: #3730a3; font-size: 11.5px; }
+    .pd-src i { font-style: normal; opacity: .65; }
+    .pd-warn { color: #b45309; }
     /* 学校信息：校徽与表单 */
     .logo-setup { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
     .logo-preview {
@@ -598,7 +641,7 @@
           <div class="acc-zone" id="accZone">
             <div class="acc-empty" id="accEmpty">账号列表加载中…</div>
           </div>
-          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝；其「所属部门」命中「<a href="#deptroles" onclick="switchSec('deptroles');return false;">组织架构权限</a>」清单中的部门条目时即可登录管理后台，并仅可管理该条目勾选的模块（未命中的教师不能进入管理后台，只能在教师端使用）；可管理的模块由所在部门的配置决定，子部门自动继承上级部门已勾选的模块。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），教师账号随教师首次登录「教师入口」自动创建（账号为工号、初始密码为身份证号后 6 位，首次登录强制修改密码），此处均可为其<b>重设密码</b>（管理员指定新密码）或<b>重置密码</b>（一键恢复初始默认密码：学生为学号、教师为身份证号后 6 位，重置后该用户下次登录需重新设置个人密码），但角色不可修改。</p>
+          <p class="acc-tip">「管理员」可操作全部功能与数据；「查看模式」仅可查看各页与大屏，系统设置与所有修改 / 删除操作将被拒绝；其「所属部门」命中「<a href="#deptroles" id="tipLinkDeptPerms">组织架构权限</a>」清单中的部门条目时即可登录管理后台，并仅可管理该条目勾选的模块（未命中的教师不能进入管理后台，只能在教师端使用）；可管理的模块由所在部门的配置决定，子部门自动继承上级部门已勾选的模块。系统始终需保留至少一个管理员账号。学生账号随学生首次登录「学生入口」自动创建（账号、初始密码均为学号，首次登录强制修改密码），教师账号随教师首次登录「教师入口」自动创建（账号为工号、初始密码为身份证号后 6 位，首次登录强制修改密码），此处均可为其<b>重设密码</b>（管理员指定新密码）或<b>重置密码</b>（一键恢复初始默认密码：学生为学号、教师为身份证号后 6 位，重置后该用户下次登录需重新设置个人密码），但角色不可修改。</p>
         </div>
       </section>
 
@@ -614,14 +657,40 @@
           </div>
         </div>
         <div class="set-field">
-          <label class="set-label">组织架构权限清单 <span class="badge">教师/职工按「所属部门」精确匹配条目</span></label>
-          <div class="perm-overview">已授权模块覆盖（各部门及其上级并集）：<b id="ovDept">加载中…</b></div>
+          <label class="set-label">部门 × 模块 授权矩阵 <span class="badge">行=部门，列=模块</span></label>
+          <div class="perm-overview">已授权模块覆盖（各部门并集）：<b id="ovDept">加载中…</b></div>
+          <div class="perm-toolbar">
+            <span class="perm-search">
+              <input type="text" id="pmSearch" placeholder="搜索部门…" autocomplete="off">
+              <button type="button" class="perm-search-clear" id="pmSearchClear" title="清空">×</button>
+            </span>
+            <button type="button" class="btn btn-default btn-sm" id="pmExpandAll">全部展开</button>
+            <button type="button" class="btn btn-default btn-sm" id="pmCollapseAll">全部折叠</button>
+            <span class="perm-legend">
+              <span><i class="pm-lg-on">✓</i>本部门勾选</span>
+              <span><i class="pm-lg-inh">✓</i>上级继承（需在上级取消）</span>
+              <span><i class="pm-lg-off"></i>未授权</span>
+            </span>
+          </div>
           <div id="permDeptRoles"></div>
         </div>
         <div class="set-card-foot" style="margin-top:4px">
           <button class="btn btn-primary btn-sm" id="btnSaveDeptPerms">保存组织架构权限</button>
+          <span class="acc-count" id="pmDirtyTip" hidden>● 有未保存的修改</span>
         </div>
-        <p class="acc-tip">权限由<b>「所属部门」决定</b>：教师档案中的「所属部门」与下方清单里的部门名<b>完全一致</b>时命中该条目，即获得该条目勾选的可管理模块。部门清单来自「人事管理 → 组织架构」（支持层级：如总务处 → 安保处 / 食堂）；此处为每个部门勾选可管理模块。处于下级的部门会<b>自动继承其全部上级部门</b>已勾选的模块（无需重复勾选）。未勾选任何模块的部门，其教师登录后台后全部仅可查看。教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、账号与安全、系统设置本身始终仅限管理员，不开放配置。</p>
+
+        <div class="perm-diag">
+          <div class="perm-diag-head">
+            权限诊断 <span class="badge">查看某人最终生效的模块，以及每一项来自哪个部门</span>
+          </div>
+          <div class="perm-diag-pick">
+            <input type="text" id="pdInput" placeholder="输入教师 / 职工姓名…" autocomplete="off" style="width:200px">
+            <select id="pdSelect" style="max-width:280px"><option value="">— 或从名单选择 —</option></select>
+          </div>
+          <div class="perm-diag-body" id="pdBody">人员名单加载中…</div>
+        </div>
+
+        <p class="acc-tip">权限由<b>「所属部门」决定</b>：教师 / 职工档案中的「所属部门」与矩阵里的部门名<b>完全一致</b>时命中，即获得该行勾选的可管理模块。部门清单来自「人事管理 → 组织架构」（支持层级：如总务处 → 安保处 / 食堂）。<b>深蓝 ✓ 为本部门自己勾选</b>，可点击取消；<b>灰色 ✓ 为继承自上级部门</b>，点击不会改变结果 —— 如需取消请到授予它的上级部门取消。列头可点击整列全选 / 清空；每行部门名下有「全选 / 清空 / 复制上级 / 套用模板 / 应用到子部门」。未勾选任何模块的部门，其教师登录后台后全部仅可查看。教师管理、智能分班、大屏直播、备份 / 审计、服务器管理、账号与安全、系统设置本身始终仅限管理员，不开放配置。</p>
       </section>
 
       <!-- 服务器管理 -->
@@ -788,70 +857,478 @@
       }
 
       // ================= 组织架构权限（后台模块授权的唯一可配置项）=================
-      function initDeptPerms(S) {
-        var host = $el('permDeptRoles');
-        function renderDeptPerms(depts, deptPerms) {
-          var map = {};
-          (deptPerms && deptPerms.depts ? deptPerms.depts : []).forEach(function (d) {
-            map[String(d.name || '').trim().toLowerCase()] = d.modules || [];
+      // 以「部门 × 模块」矩阵配置：行 = 组织架构中的部门（树形，可折叠 / 搜索），列 = 可授权模块。
+      // 深蓝 ✓ = 本部门自己勾选（可点击取消）；灰色 ✓ = 继承自上级部门（需在授予它的上级部门取消）。
+      var PERM_TEMPLATES = [
+        { name: '校领导（全模块）', modules: ['students', 'classes', 'grades', 'exams', 'conduct', 'leaves', 'announcements', 'timetables', 'courses', 'dorms', 'hr', 'logistics'] },
+        { name: '教务员', modules: ['students', 'classes', 'grades', 'exams', 'timetables', 'courses', 'announcements'] },
+        { name: '年级组长', modules: ['students', 'classes', 'grades', 'exams', 'conduct'] },
+        { name: '德育员', modules: ['students', 'conduct', 'leaves', 'announcements'] },
+        { name: '宿管员', modules: ['students', 'dorms', 'conduct'] },
+        { name: '后勤职工', modules: ['logistics'] },
+        { name: '人事干事', modules: ['hr'] },
+        { name: '只读查看', modules: [] }
+      ];
+      // 矩阵列头简称（完整名称走 title 悬浮）
+      var MOD_SHORT = { students: '档案', classes: '班级', grades: '年级', exams: '成绩', conduct: '考勤',
+        leaves: '请假', announcements: '公告', timetables: '课表', courses: '课程', dorms: '宿舍',
+        hr: '人事', logistics: '后勤' };
+      var PM_OFF_DUTY = ['离职', '退休', '离岗', '调离', '停薪留职'];
+      var PM = {
+        depts: [], mods: [], own: {}, byId: {}, kids: {}, collapsed: {},
+        filter: '', dirty: false, count: {}, staff: [], bound: false, diagBound: false, diagIdx: -1,
+        savedEff: {}   // 服务端已保存状态的生效快照，用于统计「本次保存影响了多少人」
+      };
+      var pmHost = null;
+
+      function modShort(m) { return MOD_SHORT[m.key] || String(m.name || '').slice(0, 2); }
+      function modName(key) {
+        var m = PM.mods.filter(function (x) { return x.key === key; })[0];
+        return m ? m.name : key;
+      }
+      function dk(name) { return String(name == null ? '' : name).trim().toLowerCase(); }
+      function ownOf(d) { return PM.own[dk(d && d.name)] || []; }
+      function setOwn(d, arr) { PM.own[dk(d && d.name)] = arr || []; }
+      function parentOf(d) { return (d && d.parentId && PM.byId[d.parentId]) ? PM.byId[d.parentId] : null; }
+      // 由自身向上的完整部门链：[本部门, 上级, 上上级 …]
+      function chainOf(d) {
+        var out = [], cur = d, g = 0;
+        while (cur && g++ < 30) { out.push(cur); cur = parentOf(cur); }
+        return out;
+      }
+      // 继承自上级的模块（不含本部门自己勾选的）
+      function inhSet(d) {
+        var seen = {}, out = [], cur = parentOf(d), g = 0;
+        while (cur && g++ < 30) {
+          ownOf(cur).forEach(function (k) { if (!seen[k]) { seen[k] = 1; out.push(k); } });
+          cur = parentOf(cur);
+        }
+        return out;
+      }
+      // 某个模块是链上哪个部门授予的（用于提示与诊断溯源）
+      function inhFrom(d, key) {
+        var cur = parentOf(d), g = 0;
+        while (cur && g++ < 30) {
+          if (ownOf(cur).indexOf(key) !== -1) return String(cur.name || '');
+          cur = parentOf(cur);
+        }
+        return '';
+      }
+      // 最终生效模块 = 本部门勾选 ∪ 上级继承
+      function effSet(d) {
+        var seen = {}, out = [];
+        inhSet(d).concat(ownOf(d)).forEach(function (k) { if (!seen[k]) { seen[k] = 1; out.push(k); } });
+        return out;
+      }
+      function ownFromSettings(dp) {
+        var m = {};
+        ((dp && dp.depts) || []).forEach(function (d) {
+          m[dk(d.name)] = Array.isArray(d.modules) ? d.modules.slice() : [];
+        });
+        return m;
+      }
+      function setDepts(list) {
+        PM.depts = list || [];
+        PM.byId = {}; PM.kids = { '': [] };
+        PM.depts.forEach(function (d) { if (d.id) PM.byId[d.id] = d; });
+        PM.depts.forEach(function (d) {
+          var pid = d.parentId || '';
+          if (!PM.kids[pid]) PM.kids[pid] = [];
+          PM.kids[pid].push(d);
+        });
+        PM.savedEff = snapshotEff();
+        renderMatrix();
+      }
+      // ---- 行可见性：折叠状态 / 搜索过滤 ----
+      function flatTree() {
+        var out = [];
+        (function walk(list, depth) {
+          (list || []).forEach(function (d) {
+            out.push({ d: d, depth: depth });
+            if (PM.collapsed[d.id]) return;
+            walk(PM.kids[d.id] || [], depth + 1);
           });
-          if (!depts.length) {
-            host.innerHTML = '<div class="perm-empty">暂无部门。请先到「人事管理 → 组织架构」维护部门（含层级），再回来为部门配置可管理模块。</div>';
-            $el('ovDept').textContent = '—';
+        })(PM.kids[''] || [], 0);
+        return out;
+      }
+      function visibleRows() {
+        var f = PM.filter.trim().toLowerCase();
+        if (!f) return flatTree();
+        var keep = {};
+        PM.depts.forEach(function (d) {
+          var nm = String(d.name || '').toLowerCase(), ds = String(d.desc || '').toLowerCase();
+          if (nm.indexOf(f) !== -1 || ds.indexOf(f) !== -1) {
+            var cur = d, g = 0;
+            while (cur && g++ < 30) { keep[cur.id] = true; cur = parentOf(cur); }
+          }
+        });
+        var out = [];
+        (function walk(list, depth) {
+          (list || []).forEach(function (d) {
+            if (!keep[d.id]) return;
+            out.push({ d: d, depth: depth });
+            walk(PM.kids[d.id] || [], depth + 1);
+          });
+        })(PM.kids[''] || [], 0);
+        return out;
+      }
+      // ---- 渲染 ----
+      function rowHtml(it) {
+        var d = it.d, nm = String(d.name || '');
+        var own = ownOf(d), inh = inhSet(d), eff = effSet(d);
+        var kids = PM.kids[d.id] || [];
+        var collapsed = !!PM.collapsed[d.id];
+        var caret = kids.length
+          ? '<span class="pm-caret" data-act="toggle" data-id="' + esc(d.id) + '">' + (collapsed ? '▶' : '▼') + '</span>'
+          : '<span class="pm-caret leaf">•</span>';
+        var cnt = PM.count[nm] || 0;
+        var ind = it.depth * 15;
+        var cells = PM.mods.map(function (m) {
+          var isOwn = own.indexOf(m.key) !== -1;
+          var isInh = inh.indexOf(m.key) !== -1;
+          var cls = isOwn ? 'on' : (isInh ? 'inh' : 'off');
+          var tip = nm + ' · ' + m.name + '：' +
+            (isOwn ? '本部门勾选，点击取消' : (isInh ? '继承自「' + inhFrom(d, m.key) + '」，需到该部门取消' : '未授权，点击授权'));
+          return '<td class="pm-cell ' + cls + '" data-mod="' + esc(m.key) + '" data-dept="' + esc(nm) +
+            '" title="' + esc(tip) + '"><span class="pm-box">' + (cls === 'off' ? '' : '✓') + '</span></td>';
+        }).join('');
+        var tplOpts = '<option value="">套用模板…</option>' + PERM_TEMPLATES.map(function (t) {
+          return '<option value="' + esc(t.name) + '">' + esc(t.name) + '</option>';
+        }).join('');
+        return '<tr data-id="' + esc(d.id) + '">' +
+          '<td class="pm-deptcol">' +
+            '<div class="pm-dep" style="padding-left:' + ind + 'px">' + caret +
+              '<span class="pm-depname">' + esc(nm) + (d.desc ? '<small>' + esc(d.desc) + '</small>' : '') + '</span>' +
+              (cnt ? '<span class="pm-depcount" title="该部门下的教师 / 职工人数">' + cnt + ' 人</span>' : '') +
+            '</div>' +
+            '<div class="pm-ops" style="padding-left:' + (ind + 22) + 'px">' +
+              '<button type="button" class="pm-op" data-act="all">全选</button>' +
+              '<button type="button" class="pm-op" data-act="none">清空</button>' +
+              '<button type="button" class="pm-op" data-act="copy">复制上级</button>' +
+              '<select class="pm-tpl" data-act="tpl">' + tplOpts + '</select>' +
+              '<button type="button" class="pm-op" data-act="spread">应用到子部门</button>' +
+            '</div>' +
+          '</td>' + cells +
+          '<td class="pm-count' + (eff.length ? '' : ' zero') + '"><b>' + eff.length + '</b>' +
+            (inh.length ? '<small>含继承 ' + inh.length + '</small>' : '') + '</td>' +
+          '</tr>';
+      }
+      function renderMatrix() {
+        if (!pmHost) return;
+        if (!PM.depts.length) {
+          pmHost.innerHTML = '<div class="perm-empty">暂无部门。请先到「人事管理 → 组织架构」维护部门（含层级），再回来配置可管理模块。</div>';
+          var ov = $el('ovDept'); if (ov) ov.textContent = '—';
+          return;
+        }
+        var rows = visibleRows();
+        if (!rows.length) {
+          pmHost.innerHTML = '<div class="perm-empty">没有匹配「' + esc(PM.filter) + '」的部门。</div>';
+        } else {
+          pmHost.innerHTML = '<table class="perm-matrix"><thead><tr>' +
+            '<th class="pm-deptcol">部门（' + rows.length + '/' + PM.depts.length + '）</th>' +
+            PM.mods.map(function (m) {
+              return '<th class="pm-modcol" data-mod="' + esc(m.key) + '" title="' + esc(m.name) + '：点击整列全选 / 清空">' + esc(modShort(m)) + '</th>';
+            }).join('') +
+            '<th class="pm-countcol">生效</th></tr></thead><tbody>' +
+            rows.map(rowHtml).join('') + '</tbody></table>';
+        }
+        syncOverview();
+      }
+      function syncOverview() {
+        var all = {}, n = 0, el = $el('ovDept');
+        PM.depts.forEach(function (d) {
+          effSet(d).forEach(function (k) { if (!all[k]) { all[k] = 1; n++; } });
+        });
+        if (el) el.textContent = n ? modNames(Object.keys(all)) : '无（各部门均仅可查看）';
+      }
+      // ---- 交互 ----
+      function pmClosest(el, sel) {
+        while (el && el !== pmHost) {
+          if (el.matches && el.matches(sel)) return el;
+          el = el.parentNode;
+        }
+        return null;
+      }
+      function markDirty() {
+        PM.dirty = true;
+        var t = $el('pmDirtyTip'); if (t) t.hidden = false;
+        var b = $el('btnSaveDeptPerms'); if (b) b.textContent = '保存组织架构权限（有未保存修改）';
+      }
+      function clearDirty() {
+        PM.dirty = false;
+        var t = $el('pmDirtyTip'); if (t) t.hidden = true;
+        var b = $el('btnSaveDeptPerms'); if (b) b.textContent = '保存组织架构权限';
+      }
+      function toggleCollapse(id) {
+        if (PM.collapsed[id]) delete PM.collapsed[id]; else PM.collapsed[id] = true;
+        renderMatrix();
+      }
+      function toggleCell(cell) {
+        var nm = cell.getAttribute('data-dept'), key = cell.getAttribute('data-mod');
+        var d = PM.depts.filter(function (x) { return String(x.name || '') === nm; })[0];
+        if (!d) return;
+        if (ownOf(d).indexOf(key) === -1 && inhSet(d).indexOf(key) !== -1) {
+          toast('「' + modName(key) + '」由上级部门「' + inhFrom(d, key) + '」授予，需到该部门取消', 'err');
+          return;
+        }
+        var arr = ownOf(d).slice(), i = arr.indexOf(key);
+        if (i !== -1) arr.splice(i, 1); else arr.push(key);
+        setOwn(d, arr); markDirty(); renderMatrix();
+      }
+      function toggleColumn(key) {
+        var allOn = PM.depts.length > 0 && PM.depts.every(function (d) { return ownOf(d).indexOf(key) !== -1; });
+        PM.depts.forEach(function (d) {
+          var arr = ownOf(d).slice(), i = arr.indexOf(key);
+          if (allOn) { if (i !== -1) arr.splice(i, 1); }
+          else { if (i === -1) arr.push(key); }
+          setOwn(d, arr);
+        });
+        markDirty(); renderMatrix();
+        toast((allOn ? '已清空模块列：' : '已为全部部门勾选：') + modName(key), 'ok');
+      }
+      function applyTemplate(d, tplName) {
+        var t = PERM_TEMPLATES.filter(function (x) { return x.name === tplName; })[0];
+        if (!t) return;
+        setOwn(d, t.modules.slice());
+        markDirty(); renderMatrix();
+        toast('已为「' + String(d.name || '') + '」套用模板「' + t.name + '」', 'ok');
+      }
+      function onMatrixClick(e) {
+        var t = e.target;
+        var op = pmClosest(t, '[data-act]');
+        if (op) {
+          var act = op.getAttribute('data-act');
+          if (act === 'toggle') { toggleCollapse(op.getAttribute('data-id')); return; }
+          var tr = pmClosest(t, 'tr[data-id]');
+          if (!tr) return;
+          var d = PM.byId[tr.getAttribute('data-id')];
+          if (!d) return;
+          if (act === 'all') { setOwn(d, PM.mods.map(function (m) { return m.key; })); markDirty(); renderMatrix(); return; }
+          if (act === 'none') { setOwn(d, []); markDirty(); renderMatrix(); return; }
+          if (act === 'copy') {
+            var p = parentOf(d);
+            setOwn(d, p ? ownOf(p).slice() : []);
+            markDirty(); renderMatrix();
+            toast(p ? ('已复制上级「' + String(p.name || '') + '」的勾选') : '该部门没有上级，已清空', p ? 'ok' : 'err');
             return;
           }
-          var kidsOf = function (pid) { return depts.filter(function (d) { return (d.parentId || '') === (pid || ''); }); };
-          function node(dep, depth) {
-            var mods = map[String(dep.name || '').trim().toLowerCase()] || [];
-            var nameHtml = esc(dep.name) + (dep.desc ? ' <small>' + esc(dep.desc) + '</small>' : '');
-            var indent = depth ? ' style="margin-left:' + (depth * 22) + 'px"' : '';
-            var children = kidsOf(dep.id);
-            var html = '<div class="perm-role perm-dept" data-name="' + esc(dep.name) + '"' + indent + '>' +
-              '<div class="perm-role-head"><span class="perm-dept-name">' + nameHtml + (depth ? ' <small class="perm-inherit">（继承上级权限）</small>' : '') + '</span></div>' +
-              '<div class="perm-grid perm-role-mods">' +
-                PERM_MODULES.map(function (m) {
-                  var on = mods.indexOf(m.key) !== -1;
-                  return '<label class="perm-item"><input type="checkbox" data-mod="' + m.key + '"' + (on ? ' checked' : '') + '><span>' + m.name + '</span></label>';
-                }).join('') +
-              '</div>' +
-              '<div class="perm-role-tip"></div>' +
-            '</div>';
-            if (children.length) html += children.map(function (c) { return node(c, depth + 1); }).join('');
-            return html;
+          if (act === 'spread') {
+            var own = ownOf(d).slice(), n = 0;
+            (function walk(list) {
+              (list || []).forEach(function (c) { setOwn(c, own.slice()); n++; walk(PM.kids[c.id] || []); });
+            })(PM.kids[d.id] || []);
+            if (!n) { toast('该部门没有下级部门', 'err'); return; }
+            markDirty(); renderMatrix();
+            toast('已应用到 ' + n + ' 个下级部门', 'ok');
+            return;
           }
-          host.innerHTML = kidsOf('').map(function (d) { return node(d, 0); }).join('');
-          syncDeptOverview();
+          return;
         }
-        function collectDeptPerms() {
-          var out = { v: 1, depts: [] };
-          document.querySelectorAll('#permDeptRoles .perm-dept').forEach(function (row) {
-            var name = String(row.dataset.name || '').trim();
-            if (!name) return;
-            var mods = [];
-            row.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { if (cb.checked) mods.push(cb.getAttribute('data-mod')); });
-            out.depts.push({ id: 'dep_perm_' + name, name: name, modules: mods });
-          });
-          return out;
-        }
-        function syncDeptOverview() {
-          var p = collectDeptPerms();
-          var all = {};
-          p.depts.forEach(function (d) { d.modules.forEach(function (k) { all[k] = 1; }); });
-          $el('ovDept').textContent = modNames(Object.keys(all)) || '无（各部门均仅可查看）';
-          document.querySelectorAll('#permDeptRoles .perm-dept').forEach(function (row) {
-            var tip = row.querySelector('.perm-role-tip');
-            var n = row.querySelectorAll('input[type="checkbox"]:checked').length;
-            tip.innerHTML = n ? ('可管理 ' + n + ' 个模块') : '<b>未勾选任何模块</b>，该部门教师登录后台后全部仅可查看';
-          });
-        }
-        host.addEventListener('input', syncDeptOverview);
-        host.addEventListener('change', syncDeptOverview);
-        $el('btnSaveDeptPerms').addEventListener('click', function () {
-          save({ deptPermissions: collectDeptPerms() }, '组织架构权限已保存');
+        var th = pmClosest(t, '.pm-modcol');
+        if (th) { toggleColumn(th.getAttribute('data-mod')); return; }
+        var cell = pmClosest(t, '.pm-cell');
+        if (cell) { toggleCell(cell); return; }
+      }
+      function onMatrixChange(e) {
+        var t = e.target;
+        if (!t.matches || !t.matches('.pm-tpl')) return;
+        var tr = pmClosest(t, 'tr[data-id]');
+        if (!tr) return;
+        var d = PM.byId[tr.getAttribute('data-id')];
+        if (!d) return;
+        var v = t.value; t.value = '';
+        if (v) applyTemplate(d, v);
+      }
+      // ---- 保存 ----
+      function collectDeptPerms() {
+        var out = { v: 1, depts: [] };
+        PM.depts.forEach(function (d) {
+          var nm = String(d.name || '').trim();
+          if (!nm) return;
+          out.depts.push({ id: 'dep_perm_' + nm, name: nm, modules: ownOf(d).slice() });
         });
+        return out;
+      }
+      function snapshotEff() {
+        var out = {};
+        PM.depts.forEach(function (d) { out[String(d.name || '')] = effSet(d).join(','); });
+        return out;
+      }
+      function countAffected(before, after) {
+        var n = 0;
+        PM.staff.forEach(function (s) {
+          var k = String(s.department || '').trim();
+          if (before[k] !== after[k]) n++;
+        });
+        return n;
+      }
+      function savePerms() {
+        // 部门列表未就绪时禁止保存，避免误把已有权限配置清空
+        if (!PM.depts.length) {
+          toast('部门列表尚未加载完成，请稍候再保存', 'err');
+          return;
+        }
+        // 与「服务端已保存的状态」比较，才能真实反映本次保存改变了多少人的权限
+        var before = PM.savedEff || {};
+        return fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deptPermissions: collectDeptPerms() })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.code !== 0) throw new Error(j.msg || '保存失败');
+          clearDirty();
+          PM.own = ownFromSettings(j.data && j.data.deptPermissions);
+          var after = snapshotEff();
+          var n = countAffected(before, after);
+          PM.savedEff = after;
+          fill(j.data || {});
+          if (typeof window.siteLoadSettings === 'function') window.siteLoadSettings();
+          try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'icst-settings', url: location.pathname }, location.origin); } catch (e) {}
+          toast(n ? ('组织架构权限已保存，本次影响 ' + n + ' 名教师 / 职工的后台权限') : '组织架构权限已保存', 'ok');
+        }).catch(function (e) { toast(e.message || '保存失败', 'err'); });
+      }
+      // ---- 权限诊断 ----
+      function fillDiagSelect() {
+        var sel = $el('pdSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— 或从名单选择（' + PM.staff.length + ' 人）—</option>' +
+          PM.staff.map(function (s, i) {
+            return '<option value="' + i + '">' + esc(s.name) + '（' + esc(s.kind) +
+              (s.department ? ' · ' + esc(s.department) : ' · 无部门') + '）</option>';
+          }).join('');
+      }
+      function renderDiag() {
+        var body = $el('pdBody');
+        if (!body) return;
+        if (!PM.staff.length) { body.innerHTML = '<span class="pd-none">人员名单加载中…</span>'; return; }
+        var s = PM.staff[PM.diagIdx];
+        if (!s) {
+          body.innerHTML = '<span class="pd-none">输入姓名或从右侧名单选择一人，即可查看其最终生效的后台模块及每一项来源。</span>';
+          return;
+        }
+        var dept = s.department;
+        var html = '<div><b>' + esc(s.name) + '</b> · ' + esc(s.kind) +
+          (s.status ? ' · ' + esc(s.status) : '') + ' · 所属部门：' +
+          (dept ? '<b>' + esc(dept) + '</b>' : '<span class="pd-warn">未设置</span>') + '</div>';
+        if (PM_OFF_DUTY.indexOf(s.status) !== -1) {
+          html += '<div class="pd-warn">该人员已离岗，不具后台登录与写权限。</div>';
+          body.innerHTML = html; return;
+        }
+        if (!dept) {
+          html += '<div class="pd-warn">未填写「所属部门」，不能登录管理后台（仅可使用教师端）。</div>';
+          body.innerHTML = html; return;
+        }
+        var node = PM.depts.filter(function (d) { return String(d.name || '') === dept; })[0];
+        if (!node) {
+          html += '<div class="pd-warn">所属部门「' + esc(dept) + '」在组织架构中不存在，无法命中任何权限配置（请检查部门名是否与组织架构完全一致）。</div>';
+          body.innerHTML = html; return;
+        }
+        var chain = chainOf(node).map(function (d) { return String(d.name || ''); });
+        var eff = effSet(node);
+        html += '<div class="pd-chain">命中部门链：' + esc(chain.join(' → ')) + '</div>';
+        if (!eff.length) {
+          html += '<div class="pd-warn">最终生效：无可管理模块（可登录后台，但全部模块仅可查看）。</div>';
+          body.innerHTML = html; return;
+        }
+        html += '<div>最终生效 ' + eff.length + ' 个模块：' + esc(modNames(eff)) + '</div>' +
+          '<div style="margin-top:4px">' +
+          PM.mods.filter(function (m) { return eff.indexOf(m.key) !== -1; }).map(function (m) {
+            var src = ownOf(node).indexOf(m.key) !== -1
+              ? String(node.name || '') + '（本部门）'
+              : inhFrom(node, m.key) + '（继承）';
+            return '<span class="pd-src">' + esc(m.name) + ' <i>← ' + esc(src) + '</i></span>';
+          }).join('') + '</div>';
+        body.innerHTML = html;
+      }
+      function initPermDiag() {
+        if (PM.diagBound) return;
+        PM.diagBound = true;
+        var inp = $el('pdInput'), sel = $el('pdSelect');
+        if (inp) inp.addEventListener('input', function () {
+          var v = String(this.value || '').trim(), idx = -1;
+          if (v) {
+            PM.staff.forEach(function (s, i) { if (idx === -1 && String(s.name || '') === v) idx = i; });
+          }
+          PM.diagIdx = idx;
+          renderDiag();
+        });
+        if (sel) sel.addEventListener('change', function () {
+          PM.diagIdx = this.value === '' ? -1 : Number(this.value);
+          var s = PM.staff[PM.diagIdx];
+          if (inp) inp.value = s ? String(s.name || '') : '';
+          renderDiag();
+        });
+        function addList(j, kind) {
+          var list = (j && j.code === 0 && Array.isArray(j.data)) ? j.data : [];
+          list.forEach(function (t) {
+            PM.staff.push({
+              name: String(t.name || '').trim(),
+              department: String(t.department || '').trim(),
+              kind: kind,
+              status: String(t.status || '').trim()
+            });
+          });
+        }
+        Promise.all([
+          fetch('/api/teachers').then(function (r) { return r.json(); }).catch(function () { return null; }),
+          fetch('/api/logistics').then(function (r) { return r.json(); }).catch(function () { return null; })
+        ]).then(function (rs) {
+          PM.staff = [];
+          addList(rs[0], '教师');
+          addList(rs[1], '职工');
+          PM.staff = PM.staff.filter(function (s) { return !!s.name; })
+            .sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'zh'); });
+          PM.count = {};
+          PM.staff.forEach(function (s) {
+            if (!s.department) return;
+            PM.count[s.department] = (PM.count[s.department] || 0) + 1;
+          });
+          fillDiagSelect();
+          renderMatrix();
+          renderDiag();
+        });
+      }
+      function bindPermEvents() {
+        if (PM.bound) return;
+        PM.bound = true;
+        pmHost.addEventListener('click', onMatrixClick);
+        pmHost.addEventListener('change', onMatrixChange);
+        var s = $el('pmSearch');
+        if (s) s.addEventListener('input', function () { PM.filter = this.value; renderMatrix(); });
+        var sc = $el('pmSearchClear');
+        if (sc) sc.addEventListener('click', function () { PM.filter = ''; if (s) s.value = ''; renderMatrix(); });
+        var ea = $el('pmExpandAll');
+        if (ea) ea.addEventListener('click', function () { PM.collapsed = {}; renderMatrix(); });
+        var ca = $el('pmCollapseAll');
+        if (ca) ca.addEventListener('click', function () {
+          PM.collapsed = {};
+          PM.depts.forEach(function (d) { if ((PM.kids[d.id] || []).length) PM.collapsed[d.id] = true; });
+          renderMatrix();
+        });
+        var bs = $el('btnSaveDeptPerms');
+        if (bs) bs.addEventListener('click', savePerms);
+        window.addEventListener('beforeunload', function (e) {
+          if (!PM.dirty) return;
+          e.preventDefault();
+          e.returnValue = '';
+        });
+        initPermDiag();
+      }
+      function initDeptPerms(S) {
+        pmHost = $el('permDeptRoles');
+        if (!pmHost) return;
+        PM.own = ownFromSettings(S && S.deptPermissions);
+        if (!PM.mods.length) PM.mods = PERM_MODULES.slice();
+        bindPermEvents();
         fetch('/api/departments').then(function (r) { return r.json(); }).then(function (j) {
-          renderDeptPerms((j && j.code === 0 && Array.isArray(j.data)) ? j.data : [], S.deptPermissions);
-        }).catch(function () { renderDeptPerms([], S.deptPermissions); });
+          setDepts((j && j.code === 0 && Array.isArray(j.data)) ? j.data : []);
+        }).catch(function () { setDepts([]); });
+        fetch('/api/dept-perms').then(function (r) { return r.json(); }).then(function (j) {
+          if (j && j.code === 0 && Array.isArray(j.data.modules) && j.data.modules.length) {
+            PM.mods = j.data.modules.map(function (m) { return { key: m.key, name: m.name }; });
+            renderMatrix();
+          }
+        }).catch(function () { /* 沿用前端内置清单 */ });
       }
 
       // ================= 可管理模块清单与工具函数（「组织架构权限」使用）=================
@@ -871,7 +1348,9 @@
         { key: 'logistics',     name: '后勤/职工管理' }
       ];
       function modNames(keys) {
-        var names = PERM_MODULES.filter(function (m) { return keys.indexOf(m.key) !== -1; }).map(function (m) { return m.name; });
+        // 优先用服务端下发的模块清单，未就绪时回退前端内置清单
+        var src = (PM.mods && PM.mods.length) ? PM.mods : PERM_MODULES;
+        var names = src.filter(function (m) { return (keys || []).indexOf(m.key) !== -1; }).map(function (m) { return m.name; });
         return names.length ? names.join('、') : '无（全部模块仅可查看）';
       }
       function esc(s) {
@@ -1167,9 +1646,21 @@
       // 原「职位权限」分组已弃用（权限统一由「组织架构权限」按部门配置），不再保留 roles
       var NAV_KEYS = ['info', 'rules', 'data', 'audit', 'account', 'deptroles', 'server'];
       var curSec = NAV_KEYS[0];   // 当前分组（刷新时据此重载对应列表）
-      function switchSec(key) {
+      var SEC_STORE_KEY = 'icst_settings_sec';
+      // 记住上次停留的分组，下次打开系统设置时自动回到该分组
+      function rememberSec(key) {
+        try { localStorage.setItem(SEC_STORE_KEY, key); } catch (e) {}
+      }
+      function rememberedSec() {
+        try {
+          var v = localStorage.getItem(SEC_STORE_KEY);
+          return (v && NAV_KEYS.indexOf(v) !== -1) ? v : '';
+        } catch (e) { return ''; }
+      }
+      function doSwitchSec(key) {
         if (NAV_KEYS.indexOf(key) === -1) key = NAV_KEYS[0];
         curSec = key;
+        rememberSec(key);
         var items = document.querySelectorAll('.set-nav-item');
         for (var i = 0; i < items.length; i++) {
           items[i].className = 'set-nav-item' + (items[i].getAttribute('data-key') === key ? ' active' : '');
@@ -1186,6 +1677,18 @@
         if (key === 'data' && !backupListLoaded) loadBackupList();
         return key;
       }
+      // 组织架构权限有未保存修改时，切走前确认，避免误丢改动
+      function switchSec(key) {
+        if (PM.dirty && key !== curSec) {
+          return ask('组织架构权限有未保存的修改，离开将丢失这些改动。确认离开吗？', '未保存的修改', '放弃修改', true)
+            .then(function (ok) {
+              if (!ok) return curSec;
+              clearDirty();
+              return doSwitchSec(key);
+            });
+        }
+        return doSwitchSec(key);
+      }
       (function () {
         var items = document.querySelectorAll('.set-nav-item');
         for (var i = 0; i < items.length; i++) {
@@ -1196,9 +1699,21 @@
             try { location.hash = k; } catch (e2) {}
           });
         }
-        // 支持 #rules / #data / #audit / #account / #server 直达指定分组
+        // 账号区提示里的「组织架构权限」链接（内联 onclick 取不到 IIFE 内的函数，改为在此绑定）
+        var tipLink = $el('tipLinkDeptPerms');
+        if (tipLink) tipLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          switchSec('deptroles');
+          try { location.hash = 'deptroles'; } catch (e3) {}
+        });
+        // 支持 #rules / #data / #audit / #account / #server 直达指定分组；无锚点时回到上次停留的分组
         var m = /#(info|rules|data|audit|account|deptroles|server)/.exec(location.hash || '');
-        switchSec(m ? m[1] : 'info');
+        switchSec(m ? m[1] : (rememberedSec() || 'info'));
+        // 地址栏锚点变化（前进 / 后退 / 手动改 hash）时同步分组
+        window.addEventListener('hashchange', function () {
+          var mm = /#(info|rules|data|audit|account|deptroles|server)/.exec(location.hash || '');
+          if (mm && mm[1] !== curSec) switchSec(mm[1]);
+        });
       })();
 
       // ================= 自动备份（服务器本地） =================

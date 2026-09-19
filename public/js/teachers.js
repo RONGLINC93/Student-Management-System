@@ -58,6 +58,9 @@ function maskIdCard(no) {
   return s.slice(0, 4) + '**********' + s.slice(-4);
 }
 
+// 教师照片：上传 / 摄像头拍照由公共模块 /js/photo.js 提供（学生档案、后勤职工共用同一套交互）
+let photoField = null;
+
 // ===== 组织架构权限（所属部门 → 后台权限）=====
 async function loadPerms() {
   try {
@@ -616,6 +619,10 @@ function renderTable() {
   $('#tBody').innerHTML = list.map(t => {
     const gen = t.gender === '女' ? 'f' : 'm';
     const first = (t.name || '').trim().charAt(0) || '师';
+    // 教师头像：有照片用照片，否则退回首字色块
+    const avatar = (window.PhotoField && window.PhotoField.isSrc(t.photo))
+      ? `<img class="teacher-avatar photo" src="${escapeHtml(t.photo)}" alt="" />`
+      : `<span class="teacher-avatar ${gen}">${escapeHtml(first)}</span>`;
     // 学科所属年级已不在该教师任教年级中（如取消勾选后未同步清理）→ 标黄提示，不静默删除
     const tGrades = Array.isArray(t.grades) ? t.grades : [];
     const chips = window.teaSubjectItems(t).map(x => {
@@ -647,7 +654,7 @@ function renderTable() {
     return `<tr data-id="${escapeHtml(t.id)}">
       <td>
         <div class="teacher-cell">
-          <span class="teacher-avatar ${gen}">${escapeHtml(first)}</span>
+          ${avatar}
           <div class="teacher-meta">
             <span class="teacher-name">${escapeHtml(t.name)}</span>
             <span class="teacher-sub">${t.teacherNo ? '工号 ' + escapeHtml(t.teacherNo) : '未编工号'}${t.idCard ? ' · ' + escapeHtml(maskIdCard(t.idCard)) : ' · 未登记身份证'}${t.hometown ? ' · ' + escapeHtml(t.hometown) : ''}</span>
@@ -732,6 +739,7 @@ function openModal(t) {
   $('#fIdCard').value = t ? (t.idCard || '') : '';
   $('#fName').value = t ? t.name : '';
   $('#fGender').value = t ? t.gender : '男';
+  if (photoField) photoField.set(t ? t.photo : '');   // 照片：编辑时回填，新增时清空
   // 任教学科：标签写作「学科（年级）」，直接取自档案的 subjects 明细
   // （服务端读取时已规范化：旧档案自动补出明细，年级留空；下拉选项由下方「任教年级」联动重建）
   const currentGrades = (t && Array.isArray(t.grades)) ? t.grades : [];
@@ -788,6 +796,7 @@ async function saveTeacher(e) {
   const data = {
     teacherNo: $('#fTeacherNo').value.trim(),
     idCard: $('#fIdCard').value.trim(),
+    photo: photoField ? photoField.get() : '',   // 教师照片（弹窗内上传 / 拍照后的 data:image；空串表示移除）
     name: $('#fName').value.trim(),
     gender: $('#fGender').value,
     subject: getSubjectChips().join('、'),
@@ -1088,6 +1097,13 @@ function bindEvents() {
   $('#modalClose').onclick = closeModal;
   $('#modalCancel').onclick = closeModal;
   $('#teacherForm').onsubmit = saveTeacher;
+  // 教师照片：上传 / 摄像头拍照（公共模块 /js/photo.js，学生档案、后勤职工共用同一套交互）
+  if (window.PhotoField) {
+    photoField = window.PhotoField.create({
+      preview: '#fPhotoPreview', pick: '#fPhotoPick', cam: '#fPhotoCam',
+      clear: '#fPhotoClear', input: '#fPhotoInput'
+    });
+  }
   $('#searchInput').oninput = renderTable;
   $('#genderFilter').onchange = renderTable;
   $('#statusFilter').onchange = renderTable;

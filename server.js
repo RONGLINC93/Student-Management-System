@@ -522,7 +522,7 @@ function normalizeStudent(raw) {
   out.name = String(out.name || '');
   out.gender = out.gender === '女' ? '女' : '男';
   out.studentId = String(out.studentId || '').trim();
-  out.photo = String(out.photo || '');
+  out.photo = normalizePhoto(o.photo);   // 照片：data:image（上传 / 拍照）或图片链接
   // 学籍状态（active 在籍 / leave 休学 / quit 退学 / transfer 转出 / graduate 毕业）与异动流水
   out.status = ['active', 'leave', 'quit', 'transfer', 'graduate'].indexOf(o.status) !== -1 ? o.status : 'active';
   out.history = Array.isArray(o.history) ? o.history.map(h => ({
@@ -553,7 +553,9 @@ function normalizeStudent(raw) {
 function pickArch(body) {
   const raw = {};
   ARCH_FIELDS.forEach(f => {
-    if (body[f] !== undefined) raw[f] = body[f];
+    if (body[f] === undefined) return;
+    // 照片单独清洗（只接受 data:image 或图片链接），避免把 javascript: 之类的脏值写进档案
+    raw[f] = f === 'photo' ? normalizePhoto(body[f]) : body[f];
   });
   return raw;
 }
@@ -1105,6 +1107,7 @@ function normalizeLogistics(raw) {
     area: String(o.area || '').trim().slice(0, 60),             // 负责区域（A 栋宿舍 / 食堂一楼 …）
     phone: String(o.phone || '').trim().slice(0, 20),
     idCard: String(o.idCard || '').trim().toUpperCase().replace(/[^0-9X]/g, '').slice(0, 18),
+    photo: normalizePhoto(o.photo),                             // 照片（data:image 或图片链接，列表与档案显示头像）
     joinDate: normalizeDateStr(o.joinDate),                     // 入职日期
     contractEnd: normalizeDateStr(o.contractEnd),               // 合同到期日
     healthCertEnd: normalizeDateStr(o.healthCertEnd),           // 健康证到期日
@@ -1179,6 +1182,20 @@ function teacherSubjectText(t, grade) {
 }
 
 // 教师档案规范化
+// 教师照片：仅接受 data:image 开头的图片数据（前端已居中裁剪并压缩为正方形 JPEG），
+// 空串 = 移除照片；上限 500KB（字符数，与校徽同口径），避免超大 base64 撑爆数据文件
+function normalizePhoto(v) {
+  const s = typeof v === 'string' ? v.trim() : '';
+  if (!s) return '';
+  // 上传 / 拍照：data:image 的 base64（前端已居中裁剪压缩，上限 500KB 字符）
+  if (s.indexOf('data:image/') === 0) return s.length <= 500000 ? s : '';
+  // 外部图片链接（历史档案中直接填的 URL）：仅接受 http(s) 与站内相对路径
+  if (/^https?:\/\//i.test(s) || s.charAt(0) === '/') return s.length <= 2000 ? s : '';
+  // 无协议的裸路径（如 upload/xx.jpg）：仅接受常见图片扩展名，避免塞入脚本等脏值
+  if (!/\s/.test(s) && /\.(jpe?g|png|gif|webp|bmp)$/i.test(s)) return s.length <= 2000 ? s : '';
+  return '';
+}
+
 function normalizeTeacher(raw) {
   const o = (raw && typeof raw === 'object') ? raw : {};
   // 任教年级：兼容数组 / 逗号串 / 旧字段
@@ -1205,6 +1222,7 @@ function normalizeTeacher(raw) {
     phone: String(o.phone || '').trim(),
     joinYear: String(o.joinYear || '').trim(),
     idCard: String(o.idCard || '').trim().toUpperCase().replace(/[^0-9X]/g, '').slice(0, 18), // 身份证号（教师端初始密码 = 后 6 位）
+    photo: normalizePhoto(o.photo),                             // 教师照片（data:image base64，列表与档案显示头像）
     ethnic: String(o.ethnic || '').trim().slice(0, 20),         // 民族
     hometown: String(o.hometown || '').trim().slice(0, 50),     // 籍贯
     political: String(o.political || '').trim().slice(0, 20),   // 政治面貌

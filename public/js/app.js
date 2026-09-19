@@ -40,6 +40,9 @@ let sortDir = 1;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
+// 学生照片：上传 / 摄像头拍照由公共模块 /js/photo.js 提供（教师、后勤职工共用同一套交互）
+let photoField = null;
+
 // 学籍档案扩展字段 id -> 档案 key
 const ARCH_FIELDS = [
   ['fArchNo', 'archNo'], ['fIdCard', 'idCard'], ['fBirthday', 'birthday'], ['fNation', 'nation'],
@@ -778,7 +781,7 @@ function openModal(stu) {
   $('#fGrade').value = stu ? stu.grade : (gradesList[0] || '');
   $('#fGrade').disabled = inClass;
   $('#fGrade').title = inClass ? '已分班学生的年级由所属班级决定，如需调整请先退回未分班' : '';
-  $('#fPhoto').value = stu ? stu.photo : '';
+  if (photoField) photoField.set(stu ? (stu.photo || '') : '');   // 照片：编辑时回填，新增时清空
   $('#fName').value = stu ? stu.name : '';
   $('#fGender').value = stu ? stu.gender : '男';
   // 科目动态输入
@@ -820,7 +823,7 @@ async function saveStudent(e) {
   });
   const data = {
     studentId: $('#fStudentId').value.trim(),
-    photo: $('#fPhoto').value.trim(),
+    photo: photoField ? photoField.get() : '',
     name: $('#fName').value.trim(),
     gender: $('#fGender').value,
     scores,
@@ -1722,6 +1725,13 @@ function renderColMenu() {
 
 // ===== 事件绑定 =====
 function bindEvents() {
+  // 学生照片：上传 / 摄像头拍照（公共模块 /js/photo.js，教师、后勤职工共用同一套交互）
+  if (window.PhotoField) {
+    photoField = window.PhotoField.create({
+      preview: '#fPhotoPreview', pick: '#fPhotoPick', cam: '#fPhotoCam',
+      clear: '#fPhotoClear', input: '#fPhotoFile'
+    });
+  }
   $('#btnAdd').onclick = () => openModal(null);
   $('#btnDownloadTpl').onclick = downloadTemplate;
   $('#btnImportFile').onclick = () => $('#importFileInput').click();

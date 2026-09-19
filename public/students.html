@@ -470,8 +470,17 @@
         <input type="hidden" id="fId" />
         <div id="stuDormBox" class="stu-dorm-box" hidden></div>
         <div class="form-row">
-          <label class="form-label">照片URL</label>
-          <input type="text" id="fPhoto" placeholder="留空使用默认头像" />
+          <label class="form-label">照片</label>
+          <div class="photo-field">
+            <div class="photo-preview" id="fPhotoPreview"><span>暂无照片</span></div>
+            <div class="photo-ops">
+              <input type="file" id="fPhotoFile" accept="image/*" hidden />
+              <button type="button" class="btn btn-outline btn-sm" id="fPhotoPick">选择照片</button>
+              <button type="button" class="btn btn-outline btn-sm" id="fPhotoCam">摄像头拍照</button>
+              <button type="button" class="btn btn-outline btn-sm" id="fPhotoClear" disabled>移除照片</button>
+              <p class="photo-tip">支持 JPG / PNG / WebP 等图片（≤8MB），自动居中裁剪为正方形并压缩；列表、宿舍与分班卡片均显示该照片。</p>
+            </div>
+          </div>
         </div>
         <div class="form-grid">
           <div class="form-row">
@@ -740,6 +749,7 @@
   <script src="/js/site.js"></script>
   <script src="/js/embed.js"></script>
   <script src="/js/rowmenu.js"></script>
+  <script src="/js/photo.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

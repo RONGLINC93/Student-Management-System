@@ -1,5 +1,4 @@
 # 依赖与日志
-node_modules
 npm-debug.log*
 
 # 数据与密钥（运行时通过卷挂载，不打包进镜像）
