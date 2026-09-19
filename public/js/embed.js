@@ -91,6 +91,10 @@
     if (!ev.data) return;
     if (ev.data.type === 'icst-active') refresh(false);
     else if (ev.data.type === 'icst-refresh') refresh(true);
+    // 父窗口要求重新执行页内深链（如人事管理「查看」重复查看同一人，地址未变不重载页面）
+    else if (ev.data.type === 'icst-deeplink') {
+      try { if (typeof window.cbEmbedDeepLink === 'function') window.cbEmbedDeepLink(); } catch (e) {}
+    }
   });
 
   // 页面加载完成后通知父窗口，父窗口随即下发“激活”刷新指令

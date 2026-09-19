@@ -1104,11 +1104,13 @@
     if ((key === 'settings' || key === 'allocate') && window.AUTH && window.AUTH.role !== 'admin') return;
     var exist = getTab(key);
     if (exist) {
-      // 子页面携带 URL（如宿舍深链 ?room=..）跳转时，重载已有标签页以应用新地址
+      // 子页面携带 URL（如宿舍深链 ?room=..、人事管理 ?teacher=.. / ?staff=..）跳转时，重载已有标签页以应用新地址；
+      // 地址与当前完全相同时（重复查看同一条）不重载，改为让页内重新执行深链，否则详情页不会再弹出
       if (urlOpt) {
         try {
           var target = new URL(urlOpt, location.origin).href;
           if (exist.frame.src !== target) exist.frame.src = target;
+          else sendTo(exist, 'icst-deeplink');
         } catch (e) {}
       }
       activate(key);

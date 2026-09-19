@@ -128,6 +128,43 @@
     }
     .trow.drop-before::after { top: -2px; }
     .trow.drop-after::after { bottom: -2px; }
+
+    /* ===== 人员名单 / 异动台账 切换 ===== */
+    .hr-pane[hidden] { display: none; }
+    .hr-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+    .hr-tab {
+      border: 0; background: transparent; cursor: pointer; position: relative;
+      padding: 9px 16px; font-size: 14px; font-weight: 500; color: var(--text-light);
+      border-radius: 8px 8px 0 0; transition: color .15s, background .15s;
+    }
+    .hr-tab:hover { color: var(--text); background: #f1f5f9; }
+    .hr-tab.active { color: var(--primary); font-weight: 600; background: #eef2ff; }
+    .hr-tab.active::after {
+      content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
+      background: var(--primary); border-radius: 2px;
+    }
+
+    /* ===== 人员名单（点击左侧组织架构 → 筛选教师 + 后勤职工）===== */
+    .mem-title { font-size: 14.5px; font-weight: 700; color: var(--text); }
+    .mem-count { font-size: 13px; color: var(--text-light); }
+    .mem-table { width: 100%; min-width: 860px; border-collapse: collapse; }
+    .mem-table thead th {
+      position: sticky; top: 0; z-index: 3;
+      background: #f8fafc; padding: 11px 14px; text-align: left;
+      font-size: 12.5px; letter-spacing: .3px; color: var(--text-light); font-weight: 600;
+      white-space: nowrap; border-bottom: 1px solid var(--border);
+    }
+    .mem-table tbody td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13.5px; }
+    .mem-table tbody tr:last-child td { border-bottom: none; }
+    .mem-table tbody tr:hover td { background: #f8faff; }
+    .mem-table tbody tr.mem-off td { color: var(--text-light); }
+    .kind-tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; white-space: nowrap; border: 1px solid transparent; }
+    .kind-teacher { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
+    .kind-staff { background: #ecfeff; border-color: #a5f3fc; color: #0e7490; }
+    @media (max-width: 900px) {
+      .mem-table thead th { padding: 9px 12px; }
+      .mem-table tbody td { padding: 8px 12px; }
+    }
   </style>
 </head>
 <body>
@@ -170,11 +207,57 @@
             <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加部门
           </button>
         </div>
-        <p class="hr-tip">顶层为学校名称，其下按部门层级维护（支持多级：总务处 → 安保处 / 食堂）。每行右侧「⋯」可添加子部门 / 编辑 / 删除，也可<b>添加职位</b>——职位会作为该部门下的子项展示，并供后勤职工登记时「具体岗位」联动。<b>拖动部门行</b>可调整位置：拖到另一行的<b>中间</b>成为其子部门，拖到行<b>上 / 下边缘</b>调整同级先后，松手即保存。改完部门点「保存组织架构」。</p>
+        <p class="hr-tip">顶层为学校名称，其下按部门层级维护（支持多级：总务处 → 安保处 / 食堂）。<b>点击部门 / 职位行</b>即可在右侧「人员名单」中筛选该部门（含下属部门）或该职位的教师与后勤职工，点首层学校名恢复全部。每行右侧「⋯」可添加子部门 / 编辑 / 删除，也可<b>添加职位</b>——职位会作为该部门下的子项展示，并供后勤职工登记时「具体岗位」联动。<b>拖动部门行</b>可调整位置：拖到另一行的<b>中间</b>成为其子部门，拖到行<b>上 / 下边缘</b>调整同级先后，松手即保存。改完部门点「保存组织架构」。</p>
         <div id="deptTree" class="org-tree"></div>
 
       </aside>
       <div class="hr-main">
+    <!-- 两个列表切换：人员名单（按组织架构筛选）/ 异动台账 -->
+    <div class="hr-tabs" role="tablist">
+      <button type="button" class="hr-tab active" data-tab="member" role="tab" aria-selected="true">人员名单</button>
+      <button type="button" class="hr-tab" data-tab="record" role="tab" aria-selected="false">异动台账</button>
+    </div>
+
+    <!-- 人员名单：点击左侧组织架构节点筛选教师 + 后勤职工 -->
+    <div class="hr-pane" id="paneMember" role="tabpanel">
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <input type="text" id="memKw" class="search-input" placeholder="搜索姓名 / 工号 / 部门 / 岗位..." />
+        <select id="memKind" class="grade-filter">
+          <option value="">教师 + 后勤职工</option>
+          <option value="teacher">仅教师</option>
+          <option value="staff">仅后勤职工</option>
+        </select>
+        <select id="memStatus" class="grade-filter">
+          <option value="">全部在职状态</option>
+          <option value="在职">在职</option>
+          <option value="借调">借调</option>
+          <option value="离职">离职</option>
+          <option value="退休">退休</option>
+        </select>
+        <span class="filter-chip" id="memChip" hidden><span id="memChipText"></span><button type="button" id="memChipClear" title="清除组织架构筛选">&times;</button></span>
+      </div>
+      <div class="toolbar-right">
+        <span class="mem-count" id="memCount"></span>
+      </div>
+    </section>
+
+    <section class="table-wrap">
+      <div class="table-scroll">
+        <table class="mem-table">
+          <thead>
+            <tr>
+              <th style="min-width:150px">姓名</th><th>身份</th><th>部门</th>
+              <th style="min-width:180px">岗位 / 职务</th><th>联系方式</th><th>入职</th><th>状态</th><th style="width:110px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="memBody"><tr><td colspan="8" class="empty-tip">加载中...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    </div><!-- /paneMember -->
+
+    <div class="hr-pane" id="paneRecord" role="tabpanel" hidden>
     <section class="stats">
       <div class="stat-card"><div class="stat-num" id="statAll">0</div><div class="stat-label">异动记录</div></div>
       <div class="stat-card"><div class="stat-num" id="statYear">0</div><div class="stat-label">本年异动</div></div>
@@ -224,6 +307,7 @@
         </table>
       </div>
     </section>
+    </div><!-- /paneRecord -->
       </div>
     </div>
   </main>

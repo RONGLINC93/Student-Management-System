@@ -395,11 +395,30 @@ async function loadList() {
     staff = (json && json.code === 0 && Array.isArray(json.data)) ? json.data : [];
     render();
     refreshDatalists();
+    applyStaffDeepLink();
   } catch (e) {
     $('#lgBody').innerHTML = '<tr><td colspan="13" class="empty-tip">加载失败，请刷新重试</td></tr>';
     if (window.toast) window.toast('读取后勤职工档案失败', 'error');
   }
 }
+// 深链：人事管理「人员名单 → 查看」跳转（?staff=id）时直接打开该职工详情
+let staffDeepLinkDone = false;
+let staffDeepLinkBack = false;   // 该详情是否由人事管理深链打开（关闭时回跳）
+function applyStaffDeepLink() {
+  if (staffDeepLinkDone) return;
+  const id = new URLSearchParams(location.search).get('staff');
+  if (!id) return;
+  const s = staff.find(x => String(x.id) === String(id));
+  if (!s) return;
+  staffDeepLinkDone = true;
+  staffDeepLinkBack = true;   // 关闭详情后回跳人事管理
+  openModal(s);
+}
+// 页签已打开且地址未变时（重复查看同一人），由工作台下发指令重新执行深链
+window.cbEmbedDeepLink = function () {
+  staffDeepLinkDone = false;
+  applyStaffDeepLink();
+};
 // 外包单位 / 负责区域联想：取现有档案中已填过的值，减少重复录入
 function refreshDatalists() {
   const uniq = key => {
@@ -418,7 +437,15 @@ function openModal(rec) {
   $('#fName').value = rec ? (rec.name || '') : '';
   $('#fStaffNo').value = rec ? (rec.staffNo || '') : '';
   $('#fGender').value = rec ? (rec.gender || '男') : '男';
-  $('#fDepartment').value = rec ? (rec.department || '') : '';
+  // 所属部门：回填已存值；若该部门已改名 / 删除（不在下拉里），追加为选项以保留原值
+  const deptSel = $('#fDepartment');
+  const deptVal = rec ? (rec.department || '') : '';
+  if (deptVal && ![].some.call(deptSel.options, o => o.value === deptVal)) {
+    const dopt = document.createElement('option');
+    dopt.value = deptVal; dopt.textContent = deptVal;
+    deptSel.appendChild(dopt);
+  }
+  deptSel.value = deptVal;
   // 职位：按所选部门联动填充，再回填已存岗位（不在列表中的追加为选项以保留原值）
   fillPostSelect();
   const postSel = $('#fPost');
@@ -450,6 +477,12 @@ function openModal(rec) {
 }
 function closeModal() {
   $('#modalMask').classList.remove('show');
+  // 由人事管理「查看」深链打开的详情：关闭后回到人事管理（页签已开则直接切回）
+  if (staffDeepLinkBack) {
+    staffDeepLinkBack = false;
+    if (typeof window.goPage === 'function') window.goPage('/hr.html');
+    else location.href = '/hr.html';
+  }
 }
 
 async function saveRec(e) {
@@ -599,10 +632,12 @@ window.cbEmbedRefresh = function () { loadList(); };
 function init() {
   initOptions();
   bindEvents();
-  loadList();
-  // 部门树依赖组织架构数据，拉到部门后再渲染一次
-  loadDept().then(() => { fillDeptSelect(); renderDeptTree(); });
-  loadPositions();
+  // 先拉部门 / 职位再拉档案：人事管理「查看」深链打开详情时，部门 / 职位联动才不会是空的
+  Promise.all([loadDept(), loadPositions()]).then(() => {
+    fillDeptSelect();
+    renderDeptTree();
+    loadList();
+  });
 }
 init();
 // 登录态就绪后按「组织架构权限」重渲染一次（未授权时隐藏写操作入口）

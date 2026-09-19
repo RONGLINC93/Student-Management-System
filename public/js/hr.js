@@ -66,6 +66,19 @@ function statusClass(st) {
   return st === '在职' ? 'st-on' : 'st-warn';
 }
 
+// 切换「人员名单 / 异动台账」；key = member（人员名单）| record（异动台账）
+function switchTab(key) {
+  const k = key === 'record' ? 'record' : 'member';
+  const pm = $('#paneMember'), pr = $('#paneRecord');
+  if (pm) pm.hidden = k !== 'member';
+  if (pr) pr.hidden = k !== 'record';
+  document.querySelectorAll('.hr-tab').forEach(btn => {
+    const on = btn.dataset.tab === k;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
 async function loadPerms() {
   try {
     const res = await fetch(PERM_API);
@@ -307,6 +320,7 @@ async function saveRec(e) {
     closeModal();
     await loadHR();
     await loadTeachers();
+    renderDeptTree();   // 教师所属部门 / 职务可能已变，同步组织架构人数与人员名单
   } catch (err) {
     toast('保存失败：' + err.message, 'error');
   } finally {
@@ -362,6 +376,29 @@ function exportCsv() {
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
   $('#btnExport').onclick = exportCsv;
+  // 人员名单 / 异动台账 切换
+  document.querySelectorAll('.hr-tab').forEach(btn => {
+    btn.onclick = () => switchTab(btn.dataset.tab);
+  });
+  // 人员名单：关键字 / 身份 / 在职状态筛选，chip 上的 × 清除组织架构筛选
+  const memKw = $('#memKw'), memKind = $('#memKind'), memStatus = $('#memStatus');
+  if (memKw) memKw.oninput = renderMemberList;
+  if (memKind) memKind.onchange = renderMemberList;
+  if (memStatus) memStatus.onchange = renderMemberList;
+  // 人员名单「查看」：跳到对应管理页并打开该人员详情（教师 → 教师管理，后勤职工 → 后勤管理）
+  $('#memBody').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-mview]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-mview') || '';
+    const kind = btn.getAttribute('data-mkind') || 'teacher';
+    const url = (kind === 'staff' ? '/logistics.html?staff=' : '/teachers.html?teacher=') + encodeURIComponent(id);
+    if (typeof window.goPage === 'function') window.goPage(url);
+    else location.href = url;
+  });
+  if ($('#memChipClear')) $('#memChipClear').onclick = () => {
+    memSel = { kind: 'all', value: '', dept: '' };
+    renderDeptTree();
+  };
   $('#modalClose').onclick = closeModal;
   $('#modalCancel').onclick = closeModal;
   $('#hrForm').onsubmit = saveRec;
@@ -456,11 +493,15 @@ function bindEvents() {
       else if (pact === 'del') delPos(pid);
       return;
     }
-    // 点击行：选中高亮
+    // 点击行：选中高亮 + 按该节点筛选人员（折叠 / 展开只认行前的三角形）
     const rw = e.target.closest('.trow');
     if (rw) {
-      document.querySelectorAll('#deptTree .trow.selected').forEach(el => el.classList.remove('selected'));
-      rw.classList.add('selected');
+      const kind = rw.dataset.kind || '';
+      if (kind) {
+        memSel = { kind, value: rw.dataset.value || '', dept: rw.dataset.dept || '' };
+        switchTab('member');   // 点了组织架构就切到人员名单，让筛选结果可见
+      }
+      renderDeptTree();   // 刷新选中态 / 人数，并同步右侧人员名单
     }
   });
   document.addEventListener('click', (e) => {
@@ -476,12 +517,16 @@ function bindEvents() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#posModal') && $('#posModal').classList.contains('show')) closePosModal(); });
 }
 
-window.cbEmbedRefresh = function () { loadTeachers().then(loadHR); loadPositions().then(renderDeptTree); };
+window.cbEmbedRefresh = function () {
+  loadTeachers().then(loadHR);
+  loadPositions().then(renderDeptTree);
+  loadStaff().then(renderMemberList);
+};
 
 loadPerms().then(loadTeachers).then(() => {
   bindEvents();
   loadHR().then(applyWriteScope);
-  Promise.all([loadDept(), loadLeaders(), getSchoolName()]).then(renderDeptTree);
+  Promise.all([loadDept(), loadStaff(), loadLeaders(), getSchoolName()]).then(renderDeptTree);
   loadPositions().then(renderDeptTree);
 });
 
@@ -489,8 +534,11 @@ loadPerms().then(loadTeachers).then(() => {
 const DEPT_API = '/api/departments';
 let deptCache = [];        // 当前部门列表（扁平，含 parentId / leader*）
 let leaderOptions = [];    // 负责人候选：教师 + 后勤职工 {id, type, name, sub}
+let staffCache = [];       // 后勤职工（/api/logistics），与 teachers 共同组成「人员名单」
 let schoolNameCache = '学生管理系统';  // 组织架构树首层根名称（取自系统设置 schoolName）
 const deptCollapsed = new Set();       // 已折叠的节点 id（含虚拟根 '__root__'）
+// 左侧组织架构点击后的筛选：all（全部）/ dept（部门，含下属部门）/ pos（部门下职位）/ none（未分配部门）
+let memSel = { kind: 'all', value: '', dept: '' };
 function escAttr(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
@@ -501,20 +549,24 @@ async function loadDept() {
     deptCache = (json && json.code === 0 && Array.isArray(json.data)) ? json.data : [];
   } catch (e) { deptCache = []; }
 }
+// 拉取后勤职工：组织架构点击后的「人员名单」与部门负责人候选都依赖它
+async function loadStaff() {
+  try {
+    const res = await fetch(LOG_API);
+    const json = await res.json();
+    staffCache = (json && json.code === 0 && Array.isArray(json.data)) ? json.data : [];
+  } catch (e) { staffCache = []; }
+}
 // 拉取负责人候选：教师（/api/teachers）+ 后勤职工（/api/logistics）
 async function loadLeaders() {
   leaderOptions = [];
   try {
-    const [t, l] = await Promise.all([
-      fetch(TEA_API).then(r => r.json()),
-      fetch(LOG_API).then(r => r.json())
-    ]);
+    if (!staffCache.length) await loadStaff();
+    const t = await fetch(TEA_API).then(r => r.json());
     if (t && t.code === 0 && Array.isArray(t.data)) {
       t.data.forEach(x => leaderOptions.push({ id: x.id, type: 'teacher', name: x.name || '', sub: x.department || (x.position || '教师') }));
     }
-    if (l && l.code === 0 && Array.isArray(l.data)) {
-      l.data.forEach(x => leaderOptions.push({ id: x.id, type: 'logistics', name: x.name || '', sub: (x.category || '后勤') + (x.post ? '·' + x.post : '') }));
-    }
+    staffCache.forEach(x => leaderOptions.push({ id: x.id, type: 'logistics', name: x.name || '', sub: (x.category || '后勤') + (x.post ? '·' + x.post : '') }));
   } catch (e) { /* 候选失败不影响主流程 */ }
 }
 function deptNameById(id) { const d = deptCache.find(x => x.id === id); return d ? d.name : ''; }
@@ -542,17 +594,125 @@ const TREE_ICONS = {
   school: '<svg class="tico school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>',
   more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>'
 };
+// ===== 人员名单（教师 + 后勤职工）：按左侧组织架构节点筛选 =====
+let descMemo = {};         // 部门名 → 全部下属部门名（按当前 deptCache 缓存，树重建时清空）
+// 某部门（按名称）的全部下属部门名，用于「部门含下属部门」筛选与人数统计
+function deptDescendantNames(name) {
+  if (descMemo[name]) return descMemo[name];
+  const out = [];
+  const hit = deptCache.find(d => String(d.name || '').trim() === name);
+  if (!hit) { descMemo[name] = out; return out; }
+  (function walk(pid) {
+    deptCache.filter(d => String(d.parentId || '') === pid).forEach(d => {
+      out.push(String(d.name || '').trim());
+      walk(d.id);
+    });
+  })(hit.id);
+  descMemo[name] = out;
+  return out;
+}
+// 统一人员视图：教师（teachers）+ 后勤职工（staffCache）
+function memberRows() {
+  const rows = [];
+  teachers.forEach(t => rows.push({
+    kind: 'teacher', id: t.id, name: t.name || '', no: t.teacherNo || '',
+    dept: String(t.department || '').trim(), post: String(t.position || '').trim(),
+    sub: [t.title, t.subject].filter(Boolean).join(' · '),
+    phone: t.phone || '', join: String(t.joinYear || '').trim(), status: t.status || '在职'
+  }));
+  staffCache.forEach(s => rows.push({
+    kind: 'staff', id: s.id, name: s.name || '', no: s.staffNo || '',
+    dept: String(s.department || '').trim(), post: String(s.post || '').trim(),
+    sub: [s.employType, s.vendor ? '外包：' + s.vendor : '', s.area].filter(Boolean).join(' · '),
+    phone: s.phone || '', join: String(s.joinDate || '').slice(0, 4), status: s.status || '在职'
+  }));
+  return rows;
+}
+function matchMember(m, sel) {
+  if (!sel || sel.kind === 'all') return true;
+  if (sel.kind === 'none') return !m.dept;
+  if (sel.kind === 'dept') {
+    if (!m.dept) return false;
+    return m.dept === sel.value || deptDescendantNames(sel.value).indexOf(m.dept) !== -1;
+  }
+  if (sel.kind === 'pos') return m.dept === sel.dept && m.post === sel.value;
+  return true;
+}
+// 当前筛选下的名单（含工具栏关键字 / 身份 / 在职状态）
+function memberList() {
+  const kw = String(($('#memKw') && $('#memKw').value) || '').trim().toLowerCase();
+  const kind = $('#memKind') ? $('#memKind').value : '';
+  const st = $('#memStatus') ? $('#memStatus').value : '';
+  let list = memberRows().filter(m => matchMember(m, memSel));
+  if (kind) list = list.filter(m => m.kind === kind);
+  if (st) list = list.filter(m => m.status === st);
+  if (kw) {
+    list = list.filter(m => [m.name, m.no, m.dept, m.post, m.sub, m.phone]
+      .some(v => String(v || '').toLowerCase().indexOf(kw) !== -1));
+  }
+  list.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'teacher' ? -1 : 1)
+    || String(a.name || '').localeCompare(String(b.name || ''), 'zh'));
+  return list;
+}
+function renderMemberList() {
+  const body = $('#memBody');
+  if (!body) return;
+  const list = memberList();
+  // 筛选提示 chip（显示当前部门 / 职位与命中人数，可一键清除）
+  const chip = $('#memChip'), txt = $('#memChipText');
+  let label = '';
+  if (memSel.kind === 'dept') label = '部门：' + memSel.value;
+  else if (memSel.kind === 'pos') label = '职位：' + memSel.value + '（' + memSel.dept + '）';
+  else if (memSel.kind === 'none') label = '未分配部门';
+  if (chip) {
+    chip.hidden = !label;
+    if (txt) txt.textContent = label ? label + ' · ' + list.length + ' 人' : '';
+  }
+  const cnt = $('#memCount');
+  if (cnt) cnt.textContent = '共 ' + list.length + ' 人';
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="8" class="empty-tip">当前筛选下没有人员</td></tr>';
+    return;
+  }
+  body.innerHTML = list.map(m => {
+    const off = OFF_DUTY.indexOf(m.status) !== -1;
+    return `<tr${off ? ' class="mem-off"' : ''}>
+      <td>
+        <span class="hr-name">${escapeHtml(m.name || '—')}${m.no ? ' <span class="hr-cell-sub">' + escapeHtml(m.no) + '</span>' : ''}</span>
+      </td>
+      <td><span class="kind-tag ${m.kind === 'teacher' ? 'kind-teacher' : 'kind-staff'}">${m.kind === 'teacher' ? '教师' : '后勤职工'}</span></td>
+      <td>${m.dept ? escapeHtml(m.dept) : '<span class="hr-cell-sub">未分配</span>'}</td>
+      <td>${m.post ? escapeHtml(m.post) : '—'}${m.sub ? '<span class="hr-cell-sub">' + escapeHtml(m.sub) + '</span>' : ''}</td>
+      <td>${escapeHtml(m.phone || '—')}</td>
+      <td class="hr-date">${escapeHtml(m.join || '—')}</td>
+      <td><span class="st-tag ${statusClass(m.status)}">${escapeHtml(m.status || '在职')}</span></td>
+      <td>
+        <div class="row-actions">
+          <button type="button" class="btn-sm btn-view" data-mview="${escapeHtml(m.id)}" data-mkind="${m.kind}" title="查看详细信息">查看</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
 function renderDeptTree() {
   const host = $('#deptTree');
   if (!host) return;
+  descMemo = {};                       // 部门结构可能已变，清空下属部门缓存
   const writable = canWrite();
   // 同级按自定义顺序 sort 排列（未设置顺序的排在最后，按名称兜底）
   const sortKeyOf = d => (d && d.sort != null ? Number(d.sort) : Number.MAX_SAFE_INTEGER);
   const kidsOf = pid => deptCache.filter(d => (d.parentId || '') === pid)
     .sort((a, b) => sortKeyOf(a) - sortKeyOf(b) || String(a.name || '').localeCompare(String(b.name || ''), 'zh'));
   const roots = kidsOf('');
+  const memAll = memberRows();                                  // 人员名单（教师 + 后勤职工），用于人数统计
+  const memberCount = sel => memAll.filter(m => matchMember(m, sel)).length;
+  // 当前节点是否为筛选中的节点（用于行高亮）
+  const isMemSel = (kind, value, dept) => memSel.kind === kind
+    && String(memSel.value || '') === String(value || '')
+    && String(memSel.dept || '') === String(dept || '');
 
-  function row(icon, name, meta, menu, hasKids, collapsed, nodeId, deptId) {
+  function row(icon, name, meta, menu, hasKids, collapsed, nodeId, deptId, sel, attrs) {
     const toggle = hasKids
       ? '<button type="button" class="ttoggle' + (collapsed ? ' collapsed' : '') + '" data-toggle="' + escAttr(nodeId) + '"></button>'
       : '<span class="ttoggle leaf"></span>';
@@ -560,7 +720,7 @@ function renderDeptTree() {
     const dragAttr = (writable && deptId)
       ? ' draggable="true" data-dept="' + escAttr(deptId) + '" title="按住拖动可调整层级与顺序"'
       : '';
-    return '<div class="trow"' + dragAttr + '>' + toggle + icon +
+    return '<div class="trow' + (sel ? ' selected' : '') + '"' + dragAttr + (attrs || '') + '>' + toggle + icon +
       '<span class="tname">' + escAttr(name) + '</span>' +
       (meta ? '<span class="tmeta">' + escAttr(meta) + '</span>' : '') +
       (menu || '') +
@@ -574,8 +734,8 @@ function renderDeptTree() {
       ).join('') + '</div>' +
     '</span>';
   }
-  // 部门下的职位行（作为该部门子项展示）
-  function posRow(p) {
+  // 部门下的职位行（作为该部门子项展示；点击即按「部门 + 职位」筛选人员）
+  function posRow(p, deptName) {
     const actions = writable
       ? '<span class="tmenu-wrap"><button type="button" class="tmenu-btn" title="操作">' + TREE_ICONS.more + '</button>' +
         '<div class="tmenu" hidden>' +
@@ -583,19 +743,24 @@ function renderDeptTree() {
           '<button type="button" data-pact="del" data-id="' + escAttr(p.id) + '">删除</button>' +
         '</div></span>'
       : '';
-    return '<div class="trow tpos">' +
+    const pName = String(p.name || '').trim();
+    const meta = [p.desc || '', memberCount({ kind: 'pos', dept: deptName, value: pName }) + ' 人'].filter(Boolean).join(' · ');
+    return '<div class="trow tpos' + (isMemSel('pos', pName, deptName) ? ' selected' : '') + '"'
+      + ' data-kind="pos" data-value="' + escAttr(pName) + '" data-dept="' + escAttr(deptName) + '"'
+      + ' title="查看「' + escAttr(deptName + ' · ' + pName) + '」的在岗人员">' +
       '<span class="ttoggle leaf"></span>' +
       '<span class="tpos-badge">职位</span>' +
       '<span class="tname">' + escAttr(p.name) + '</span>' +
-      (p.desc ? '<span class="tmeta">' + escAttr(p.desc) + '</span>' : '') +
+      (meta ? '<span class="tmeta">' + escAttr(meta) + '</span>' : '') +
       actions +
     '</div>';
   }
   function node(d) {
     const children = kidsOf(d.id);
     const collapsed = deptCollapsed.has(d.id);
-    const posRows = posCache.filter(p => (p.departmentId || '') === d.id || (p.department || '') === d.name)
-      .map(p => posRow(p)).join('');
+    const deptName = String(d.name || '').trim();
+    const posRows = posCache.filter(p => (p.departmentId || '') === d.id || (p.department || '') === deptName)
+      .map(p => posRow(p, deptName)).join('');
     const menu = writable ? menuHtml([
       { act: 'addpos', id: d.id, label: '添加职位' },
       { act: 'add', id: d.id, label: '添加子部门' },
@@ -603,20 +768,33 @@ function renderDeptTree() {
       { act: 'del', id: d.id, label: '删除' }
     ]) : '';
     const hasKids = children.length > 0 || !!posRows;
+    const deptMeta = [d.leaderName || '', memberCount({ kind: 'dept', value: deptName }) + ' 人'].filter(Boolean).join(' · ');
     let html = '<div class="tnode' + (collapsed ? ' collapsed' : '') + '">' +
-      row(children.length ? TREE_ICONS.building : TREE_ICONS.staff, d.name, d.leaderName || '', menu, hasKids, collapsed, d.id, d.id);
+      row(children.length ? TREE_ICONS.building : TREE_ICONS.staff, d.name, deptMeta, menu, hasKids, collapsed, d.id, d.id,
+        isMemSel('dept', deptName, ''),
+        ' data-kind="dept" data-value="' + escAttr(deptName) + '" title="查看「' + escAttr(deptName) + '」及下属部门的人员"');
     if (children.length) html += '<div class="tchildren">' + children.map(node).join('') + '</div>';
     if (posRows) html += '<div class="tpositions">' + posRows + '</div>';
     html += '</div>';
     return html;
   }
 
-  // 首层根：学校名称（虚拟节点，其下挂所有顶级部门）
+  // 首层根：学校名称（虚拟节点，其下挂所有顶级部门；点击 = 显示全部人员）
   const rootCollapsed = deptCollapsed.has('__root__');
   const rootMenu = writable ? menuHtml([{ act: 'add', id: '', label: '添加部门' }]) : '';
-  let html = '<div class="tnode tnode-root">' +
-    row(TREE_ICONS.school, schoolNameCache, '共 ' + deptCache.length + ' 个部门', rootMenu, roots.length > 0, rootCollapsed, '__root__', '') +
-    (roots.length ? '<div class="tchildren">' + roots.map(node).join('') + '</div>' : '') +
+  // 未分配部门：教师 / 职工未填所属部门时也挂出来，避免无处查找
+  const unassignedRow = '<div class="tnode">' +
+    row(TREE_ICONS.staff, '未分配部门', memberCount({ kind: 'none' }) + ' 人', '', false, false, '', '',
+      isMemSel('none', '', ''),
+      ' data-kind="none" data-value="" title="尚未归属部门的教师 / 后勤职工"') +
+    '</div>';
+  let html = '<div class="tnode tnode-root' + (rootCollapsed ? ' collapsed' : '') + '">' +
+    row(TREE_ICONS.school, schoolNameCache,
+      '共 ' + deptCache.length + ' 个部门 · ' + memberCount({ kind: 'all' }) + ' 人',
+      rootMenu, true, rootCollapsed, '__root__', '',
+      isMemSel('all', '', ''),
+      ' data-kind="all" data-value="" title="显示全部教师与后勤职工"') +
+    '<div class="tchildren">' + unassignedRow + roots.map(node).join('') + '</div>' +
     '</div>';
   if (!deptCache.length) {
     html += writable
@@ -624,6 +802,7 @@ function renderDeptTree() {
       : '<div class="hr-tip" style="margin-top:8px">暂无部门数据。</div>';
   }
   host.innerHTML = html;
+  renderMemberList();   // 人数与选中态变化后同步右侧人员名单
 }
 
 // ===== 拖拽调整部门位置（改变上级 / 同级顺序），松手即保存 =====
@@ -775,6 +954,7 @@ async function delDept(id) {
   const cnt = sub.length;
   if (!window.confirm('确定删除部门「' + name + '」' + (cnt > 1 ? '及其下 ' + (cnt - 1) + ' 个子部门' : '') + '？')) return;
   deptCache = deptCache.filter(d => sub.indexOf(d.id) === -1);
+  memSel = { kind: 'all', value: '', dept: '' };   // 部门已删除，筛选复位避免停在空名单上
   renderDeptTree();
   await commitDept();
 }
@@ -793,8 +973,8 @@ async function commitDept() {
     if (json.code !== 0) { toast(json.msg || '保存失败', 'error'); return false; }
     deptCache = json.data || deptCache;
     toast(json.msg || '组织架构已保存', 'success');
-    renderDeptTree();
     await loadTeachers();
+    renderDeptTree();
     return true;
   } catch (e) { toast('保存失败：' + e.message, 'error'); return false; }
   finally { done(); }

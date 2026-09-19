@@ -546,10 +546,29 @@ async function loadTeachers() {
     renderHrTeacherSelect();
     renderTable();
     renderGradeTree(); // 年级树人数随教师档案变化（新增 / 编辑 / 班主任变动后同步）
+    applyTeacherDeepLink();
   } catch (e) {
     toast('加载教师失败：' + e.message, 'error');
   }
 }
+// 深链：人事管理「人员名单 → 查看」跳转（?teacher=id）时直接打开该教师详情
+let teacherDeepLinkDone = false;
+let teacherDeepLinkBack = false;   // 该详情是否由人事管理深链打开（关闭时回跳）
+function applyTeacherDeepLink() {
+  if (teacherDeepLinkDone) return;
+  const id = new URLSearchParams(location.search).get('teacher');
+  if (!id) return;
+  const t = teachers.find(x => String(x.id) === String(id));
+  if (!t) return;
+  teacherDeepLinkDone = true;
+  teacherDeepLinkBack = true;   // 关闭详情后回跳人事管理
+  openModal(t);
+}
+// 页签已打开且地址未变时（重复查看同一人），由工作台下发指令重新执行深链
+window.cbEmbedDeepLink = function () {
+  teacherDeepLinkDone = false;
+  applyTeacherDeepLink();
+};
 
 // 编辑弹窗：按当前填写的所属部门实时提示其后台权限（部门即权限来源）
 function updatePermHint(t) {
@@ -611,7 +630,15 @@ function openModal(t) {
   $('#modalMask').classList.add('show');
   setTimeout(() => $('#fName').focus(), 100);
 }
-function closeModal() { $('#modalMask').classList.remove('show'); }
+function closeModal() {
+  $('#modalMask').classList.remove('show');
+  // 由人事管理「查看」深链打开的详情：关闭后回到人事管理（页签已开则直接切回）
+  if (teacherDeepLinkBack) {
+    teacherDeepLinkBack = false;
+    if (typeof window.goPage === 'function') window.goPage('/hr.html');
+    else location.href = '/hr.html';
+  }
+}
 
 async function saveTeacher(e) {
   e.preventDefault();
