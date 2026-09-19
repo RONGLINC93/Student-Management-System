@@ -155,20 +155,87 @@ function dormCellHtml(s) {
   const r = dorms.find(x => String(x.id) === String(s._roomId));
   if (!r) return '<span class="dim-text">—</span>';
   const sk = dormStateKey(r);
-  const occC = (r.students || []).length;
+  return `<span class="dorm-no dn-${sk}" data-act="dorm-view" title="${escapeHtml(s._dormTxt)}（${DORM_STATE_LBL[sk]}），点击查看房间详情">
+    <span class="dn-bld">${escapeHtml(String(r.building))}</span><b class="dn-no">${escapeHtml(String(r.roomNo))}</b>
+    <i class="dn-dot"></i>
+  </span>`;
+}
+
+// 列表宿舍号点击：在鼠标位置弹出房间信息卡片（不跳转，便于快速查看）
+function showDormInfoPop(e, stu) {
+  const r = dorms.find(x => String(x.id) === String(stu._roomId));
+  if (!r) return;
+  const pop = ensureDormInfoPop();
+  const sk = dormStateKey(r);
   const cap = Number(r.capacity) || 1;
+  const occC = (r.students || []).length;
   const free = Math.max(0, cap - occC);
   const freeLine = sk === 'full' ? '<span class="dm-fulltxt">满房</span>' : `<span class="dm-free">空 ${free} 床</span>`;
-  return `<div class="dorm-mini dm-${sk}" data-act="dorm-view" title="${escapeHtml(s._dormTxt)}（${DORM_STATE_LBL[sk]}），点击查看该房间房态">
-    <div class="dm-head">
-      <span class="dm-bld">${escapeHtml(String(r.building))}</span><b class="dm-no">${escapeHtml(String(r.roomNo))}</b>
-      <span class="dm-st"><i></i>${DORM_STATE_LBL[sk]}</span>
-    </div>
-    ${dormBedsHtml(r, s.id, 'mini')}
-    <div class="dm-foot">${freeLine}
-      <button type="button" class="dm-act" data-act="dorm" title="为「${escapeHtml(s.name)}」更换宿舍">换宿</button>
-    </div>
-  </div>`;
+  pop.dataset.stu = stu.id;
+  pop.innerHTML = `
+    <span class="dorm-mini dm-${sk}" data-act="dorm-view">
+      <button type="button" class="dip-close" data-act="dip-close" title="关闭">×</button>
+      <span class="dm-head">
+        <span class="dm-bld">${escapeHtml(String(r.building))}</span>
+        <span class="dm-no">${escapeHtml(String(r.roomNo))}</span>
+        <span class="dm-st"><i></i>${DORM_STATE_LBL[sk]}</span>
+      </span>
+      ${dormBedsHtml(r, stu.id, 'mini')}
+      <span class="dm-foot">
+        ${freeLine}
+        <span class="dm-acts">
+          <button type="button" class="dm-act" data-act="dip-view" title="在宿舍管理页查看房态">查看</button>
+          <button type="button" class="dm-act" data-act="dorm" title="换宿 / 调整房间">换宿</button>
+        </span>
+      </span>
+    </span>`;
+  pop.hidden = false;
+  // 相对触发元素（宿舍号徽标）定位：优先显示在徽标正下方居中，空间不足则翻到上方
+  const pad = 8;
+  const rect = pop.getBoundingClientRect();
+  const trg = (e && e.target && e.target.closest) ? e.target.closest('.dorm-no') : null;
+  if (trg) {
+    const tr = trg.getBoundingClientRect();
+    let x = tr.left + tr.width / 2 - rect.width / 2;
+    let y = tr.bottom + 8;
+    if (x < pad) x = pad;
+    if (x + rect.width + pad > window.innerWidth) x = window.innerWidth - rect.width - pad;
+    if (y + rect.height + pad > window.innerHeight) {
+      y = tr.top - rect.height - 8;
+      if (y < pad) y = pad;
+    }
+    pop.style.left = x + 'px';
+    pop.style.top = y + 'px';
+  } else {
+    let x = e.clientX, y = e.clientY;
+    if (x + rect.width + pad > window.innerWidth) x = Math.max(pad, window.innerWidth - rect.width - pad);
+    if (y + rect.height + pad > window.innerHeight) y = Math.max(pad, window.innerHeight - rect.height - pad);
+    pop.style.left = x + 'px';
+    pop.style.top = y + 'px';
+  }
+}
+function ensureDormInfoPop() {
+  let pop = document.getElementById('dormInfoPop');
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.id = 'dormInfoPop';
+    pop.className = 'dip-pop';
+    pop.hidden = true;
+    document.body.appendChild(pop);
+    pop.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-act]');
+      if (!b) return;
+      const act = b.dataset.act;
+      const stuId = pop.dataset.stu;
+      const stu = allStudents.find(s => String(s.id) === String(stuId));
+      if (act === 'dip-close') { pop.hidden = true; }
+      else if (act === 'dip-view' && stu) {
+        const r = dorms.find(x => String(x.id) === String(stu._roomId));
+        if (r) { pop.hidden = true; openRoomPage(r.id, stu.id, stu.id, false); }
+      } else if (act === 'dorm' && stu) { pop.hidden = true; openDormDlg(stu); }
+    });
+  }
+  return pop;
 }
 
 // 判断当前是否嵌在工作台（index.html 的 iframe）内
@@ -1254,29 +1321,40 @@ function renderStuDormBox() {
     </span>`;
   }).join('') || '<span class="dim-text">暂无室友</span>';
 
+  const dgClass = cur.gender === 'male' ? 'male' : (cur.gender === 'female' ? 'female' : 'any');
   box.innerHTML = `
-    <div class="sdb-card lv-${sk}">
-      <div class="sdb-top">
-        <span class="sdb-title">住宿信息</span>
-        <span class="dgender g-${cur.gender === 'male' ? 'male' : (cur.gender === 'female' ? 'female' : 'any')}">${DORM_GENDER_LBL[cur.gender] || '混合'}</span>
-        <span class="sdb-state st-${sk}">${DORM_STATE_LBL[sk]}</span>
-      </div>
-      <div class="sdb-room">
-        <div class="sdb-name">
-          <b>${escapeHtml(String(cur.building))}</b><em>${escapeHtml(String(cur.roomNo))}</em>
-          <span class="sdb-bedno">${cap} 人间${meIdx >= 0 ? ' · 你的床位 ' + (meIdx + 1) : ''}</span>
+    <div class="sdb-top">
+      <span class="sdb-title">住宿信息</span>
+      <button type="button" class="sdb-roomno" data-act="sdb-pop" title="点击查看房间详情">
+        <span class="sdb-ico">🏠</span>
+        <b>${escapeHtml(String(cur.building))}</b> ${escapeHtml(String(cur.roomNo))}
+        <span class="sdb-bedno">${cap} 人间${meIdx >= 0 ? ' · 床位 ' + (meIdx + 1) : ''}</span>
+        <span class="caret">▾</span>
+      </button>
+    </div>
+    <div class="sdb-popup" id="sdbPopup" hidden>
+      <div class="sdb-card lv-${sk}">
+        <div class="sdb-top">
+          <span class="dgender g-${dgClass}">${DORM_GENDER_LBL[cur.gender] || '混合'}</span>
+          <span class="sdb-state st-${sk}">${DORM_STATE_LBL[sk]}</span>
         </div>
-        <div>${dormBedsHtml(cur, stu.id, 'mini')}</div>
-        <div class="sdb-occ">已住 ${occC}/${cap} 人${free > 0 ? ` · 空余 ${free} 床` : ' · 已满'}</div>
-      </div>
-      <div>
-        <div class="sdb-roomies-title">同住室友（${occC} 人）</div>
-        <div>${roomiesHtml}</div>
-      </div>
-      <div class="sdb-actions">
-        <button type="button" class="btn btn-default btn-sm" data-act="sdb-view" title="在「宿舍管理」页打开该房间房态">查看房态</button>
-        <button type="button" class="btn btn-outline btn-sm" data-act="sdb-swap" title="为该生选择新房间，原床位自动空出">更换宿舍</button>
-        <button type="button" class="btn btn-leave btn-sm" data-act="sdb-leave">退宿</button>
+        <div class="sdb-room">
+          <div class="sdb-name">
+            <b>${escapeHtml(String(cur.building))}</b><em>${escapeHtml(String(cur.roomNo))}</em>
+            <span class="sdb-bedno">${cap} 人间${meIdx >= 0 ? ' · 你的床位 ' + (meIdx + 1) : ''}</span>
+          </div>
+          <div>${dormBedsHtml(cur, stu.id, 'mini')}</div>
+          <div class="sdb-occ">已住 ${occC}/${cap} 人${free > 0 ? ` · 空余 ${free} 床` : ' · 已满'}</div>
+        </div>
+        <div>
+          <div class="sdb-roomies-title">同住室友（${occC} 人）</div>
+          <div>${roomiesHtml}</div>
+        </div>
+        <div class="sdb-actions">
+          <button type="button" class="btn btn-default btn-sm" data-act="sdb-view" title="在「宿舍管理」页打开该房间房态">查看房态</button>
+          <button type="button" class="btn btn-outline btn-sm" data-act="sdb-swap" title="为该生选择新房间，原床位自动空出">更换宿舍</button>
+          <button type="button" class="btn btn-leave btn-sm" data-act="sdb-leave">退宿</button>
+        </div>
       </div>
     </div>`;
 }
@@ -1895,8 +1973,21 @@ function bindEvents() {
       return;
     }
     if (btn.dataset.act === 'dorm') openDormDlg(stu);
-    if (btn.dataset.act === 'dorm-view' && stu && stu._roomId) openRoomPage(stu._roomId, stu.id, stu.id, false);
+    if (btn.dataset.act === 'dorm-view' && stu && stu._roomId) {
+      e.stopPropagation();
+      const pop = document.getElementById('dormInfoPop');
+      if (pop && !pop.hidden && pop.dataset.stu === stu.id) { pop.hidden = true; return; }
+      showDormInfoPop(e, stu);
+    }
   };
+
+  // 点击列表宿舍信息卡片以外的区域时收起弹窗
+  document.addEventListener('click', (e) => {
+    const pop = document.getElementById('dormInfoPop');
+    if (!pop || pop.hidden) return;
+    if (e.target.closest('#dormInfoPop')) return;
+    pop.hidden = true;
+  });
 
   // ===== 多选 + 批量操作 =====
   $('#studentTbody').addEventListener('change', (e) => {
@@ -1942,12 +2033,19 @@ function bindEvents() {
     stuDormBox.onclick = async (e) => {
       const b = e.target.closest('[data-act]');
       if (!b) return;
+      const act = b.dataset.act;
+      // 点击宿舍号：展开 / 收起房间详情弹窗
+      if (act === 'sdb-pop') {
+        const pop = $('#sdbPopup');
+        if (pop) pop.hidden = !pop.hidden;
+        return;
+      }
       const id = $('#fId').value;
       const stu = id ? (allStudents.find(s => String(s.id) === String(id)) || null) : null;
       if (!stu) return;
-      const act = b.dataset.act;
+      const closePop = () => { const p = $('#sdbPopup'); if (p) p.hidden = true; };
       if (act === 'sdb-assign' || act === 'sdb-swap') {
-        openDormDlg(stu);
+        closePop(); openDormDlg(stu);
       } else if (act === 'sdb-leave') {
         const done = busyBtn(b, '处理中…');
         if (!done) return;
@@ -1956,11 +2054,18 @@ function bindEvents() {
         } finally { done(); }
       } else if (act === 'sdb-view') {
         const r = dormRoomOfStudent(stu);
-        if (r) openRoomPage(r.id, stu.id, stu.id, true);
+        if (r) { closePop(); openRoomPage(r.id, stu.id, stu.id, true); }
       } else if (act === 'sdb-godorm') {
-        openDormTab(stu.id);
+        closePop(); openDormTab(stu.id);
       }
     };
+    // 点击住宿信息区块以外区域时收起弹窗
+    document.addEventListener('click', (e) => {
+      const pop = document.getElementById('sdbPopup');
+      if (!pop || pop.hidden) return;
+      if (e.target.closest('#stuDormBox')) return;
+      pop.hidden = true;
+    });
   }
 
   // 宿舍弹窗
