@@ -30,11 +30,6 @@ function totalScore(s) {
   return r.total;
 }
 
-function photoHtml(s) {
-  if (s.photo) return `<img src="${escapeHtml(s.photo)}" alt="" onerror="this.style.display='none';this.parentElement.textContent='${escapeHtml((s.name||'?').slice(0,1))}'" />`;
-  return escapeHtml((s.name || '?').slice(0, 1));
-}
-
 // 加载年级选项到下拉框
 async function loadGradeOptions() {
   try {
@@ -659,11 +654,10 @@ function openRoster(cls) {
   `;
   const tbody = $('#rosterTbody');
   if (!(cls.students || []).length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-tip">该班级暂无学生，可在班级列表点击「批量入班」从未分班学生一次加入多名学生，或前往「智能分班」自动分配</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-tip">该班级暂无学生，可在班级列表点击「批量入班」从未分班学生一次加入多名学生，或前往「智能分班」自动分配</td></tr>`;
   } else {
     tbody.innerHTML = cls.students.map(s => `
       <tr data-id="${s.id}">
-        <td><div class="avatar">${photoHtml(s)}</div></td>
         <td class="stu-id">${escapeHtml(s.studentId || '—')}</td>
         <td><strong>${escapeHtml(s.name)}</strong></td>
         <td><span class="gender-tag ${s.gender === '男' ? 'gender-male' : 'gender-female'}">${s.gender}</span></td>
@@ -839,7 +833,6 @@ function renderBatchList() {
     return `
       <tr class="batch-row" data-id="${escapeHtml(s.id)}">
         <td><input type="checkbox" class="batch-cbox" data-id="${escapeHtml(s.id)}" ${batchSelected.has(s.id) ? 'checked' : ''} /></td>
-        <td><div class="avatar">${photoHtml(s)}</div></td>
         <td class="stu-id">${escapeHtml(s.studentId || '—')}</td>
         <td><strong>${escapeHtml(s.name)}</strong></td>
         <td><span class="gender-tag ${s.gender === '男' ? 'gender-male' : 'gender-female'}">${escapeHtml(s.gender || '—')}</span></td>

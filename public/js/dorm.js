@@ -307,6 +307,11 @@ function openDetail(roomId) {
 function closeDetail() {
   detailRoomId = '';
   $('#detailMask').classList.remove('show');
+  // 由学生档案「查看房态」深链打开的详情：关闭后回到学生档案（页签已开则直接切回）
+  if (dormDeepLinkBack) {
+    dormDeepLinkBack = false;
+    goBackToStudent();
+  }
 }
 function renderDetail() {
   const room = dorms.find(r => r.id === detailRoomId);
@@ -353,6 +358,24 @@ function renderDetail() {
       </div>`;
   }).join('');
   $('#dtlOccList').innerHTML = rows || '<div class="empty-inline">该房间暂无学生入住</div>';
+}
+
+// 由学生档案「查看房态」深链进入时：标记返回意图（关闭房间详情弹窗时回跳来源页）
+// （参考人事管理「查看」：打开对象详情弹窗，关闭后自动回跳来源页，无需单独的返回按钮）
+let dormDeepLinkBack = false;
+let dormBackStu = '';
+function goBackToStudent() {
+  // 从编辑档案内查看房态进入：返回时带 ?stu= 重开该生编辑档案；否则回到档案列表
+  const base = '/students.html';
+  const url = dormBackStu ? base + '?stu=' + encodeURIComponent(dormBackStu) : base;
+  if (typeof window.goPage === 'function') window.goPage(url);
+  else location.href = url;
+}
+function setupBackToStudent() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('from') !== 'students') return;
+  dormDeepLinkBack = true;
+  dormBackStu = q.get('stu') || '';
 }
 
 // ========== 深链：从学生档案跳转时自动定位房间并高亮学生 ==========
@@ -900,6 +923,11 @@ function bindEvents() {
 }
 
 window.cbEmbedRefresh = function () { loadDorms(); };
+// 页签已打开且地址未变时（重复查看同一房间 / 同一学生房态），由工作台下发指令重新执行深链
+window.cbEmbedDeepLink = function () {
+  applyRoomDeepLink();
+  setupBackToStudent();
+};
 
 // AUTH（含查看模式角色）就绪后刷新申请角标与操作按钮
 window.addEventListener('cb-auth-ready', () => { applyDormWriteUI(); refreshAppsUI(); });
@@ -909,6 +937,7 @@ loadBase().then(() => {
   return loadDorms();
 }).then(() => {
   applyRoomDeepLink();
+  setupBackToStudent();
   applyDormWriteUI();
   refreshAppsUI();
 }).catch(err => { toast(err.message, 'error'); });

@@ -176,16 +176,23 @@ function isEmbedded() {
   try { return window.self !== window.top; } catch (e) { return true; }
 }
 
-// 跳转到宿舍管理：工作台内切选项卡；独立打开页面时进入工作台并定位宿舍选项卡
-function openDormTab() {
-  if (isEmbedded() && typeof goPage === 'function') goPage('/dorm.html');
-  else location.href = '/index.html?mod=dorm';
+// 跳转宿舍管理：工作台内切选项卡；独立打开页面时进入工作台并定位宿舍选项卡
+function openDormTab(stuId) {
+  let qs = '';
+  if (stuId) qs = '?from=students&stu=' + encodeURIComponent(stuId);
+  if (isEmbedded() && typeof goPage === 'function') goPage('/dorm.html' + qs);
+  else location.href = '/index.html?mod=dorm' + qs;
 }
 
-// 跳转到宿舍管理页并自动打开对应房间详情（工作台内=切选项卡，独立页=进工作台深链）
-function openRoomPage(roomId, focusId) {
+// 跳转宿舍管理页并自动打开对应房间详情（类似人事管理「查看」：跳到管理页并打开该对象详情）
+// reopen=true：从「编辑档案」内查看房态，返回时重开该生编辑档案；reopen=false：从列表查看，返回到档案列表
+function openRoomPage(roomId, focusId, stuId, reopen) {
+  // 离开学生档案前先关闭编辑弹窗，使来源回到「档案列表」；从编辑档案进入(reopen)时返回再重开
+  closeModal();
   let qs = 'room=' + encodeURIComponent(roomId);
   if (focusId) qs += '&focus=' + encodeURIComponent(focusId);
+  qs += '&from=students';
+  if (reopen && stuId) qs += '&stu=' + encodeURIComponent(stuId);
   if (isEmbedded() && typeof goPage === 'function') goPage('/dorm.html?' + qs);
   else location.href = '/index.html?mod=dorm&' + qs;
 }
@@ -204,7 +211,7 @@ function photoHtml(s) {
 // ===== 列定义 + 列显隐（表头 / 行 / 列设置共用一份配置） =====
 const COLS_STORE_KEY = 'sms_students_visible_cols_v1';
 // 「精简视图」保留的列（不含各科成绩与特长）
-const CORE_KEYS = ['photo', 'studentId', 'grade', 'className', 'name', 'gender', 'total', 'allocated', 'dorm', 'actions'];
+const CORE_KEYS = ['studentId', 'grade', 'className', 'name', 'gender', 'total', 'allocated', 'dorm', 'actions'];
 
 function columnDefs() {
   const subs = (window.SUBJECTS || []).map(sj => ({ key: 'score:' + sj.key, label: sj.name, sortable: true }));
@@ -237,6 +244,7 @@ function saveColFlags(f) {
 function colVisible(key, flags) {
   if (key === 'name') return true; // 姓名列锁定，保证列表始终可辨识
   if (key === 'check') return true; // 勾选列锁定，批量操作入口不可隐藏
+  if (key === 'photo') return (flags || {})[key] === true; // 照片列默认隐藏，需在「列设置」里勾选后才渲染（省流量 / 渲染开销）
   return (flags || {})[key] !== false;
 }
 function visibleColumns() {
@@ -808,6 +816,14 @@ function openModal(stu) {
 function closeModal() {
   $('#fGrade').disabled = false;
   $('#modalMask').classList.remove('show');
+}
+
+// 从宿舍管理「返回学生档案」深链（?stu=ID）进入时，自动打开对应学生档案
+function maybeOpenFromQuery() {
+  const stuId = new URLSearchParams(location.search).get('stu');
+  if (!stuId) return;
+  const stu = allStudents.find(s => String(s.id) === String(stuId));
+  if (stu) openModal(stu);
 }
 
 async function saveStudent(e) {
@@ -1879,7 +1895,7 @@ function bindEvents() {
       return;
     }
     if (btn.dataset.act === 'dorm') openDormDlg(stu);
-    if (btn.dataset.act === 'dorm-view' && stu && stu._roomId) openRoomPage(stu._roomId, stu.id);
+    if (btn.dataset.act === 'dorm-view' && stu && stu._roomId) openRoomPage(stu._roomId, stu.id, stu.id, false);
   };
 
   // ===== 多选 + 批量操作 =====
@@ -1940,9 +1956,9 @@ function bindEvents() {
         } finally { done(); }
       } else if (act === 'sdb-view') {
         const r = dormRoomOfStudent(stu);
-        if (r) openRoomPage(r.id, stu.id);
+        if (r) openRoomPage(r.id, stu.id, stu.id, true);
       } else if (act === 'sdb-godorm') {
-        openDormTab();
+        openDormTab(stu.id);
       }
     };
   }
@@ -2164,6 +2180,8 @@ renderHeader();
 bindEvents();
 renderColMenu();
 Promise.all([loadGradeOptions(), loadFilters()]).then(() => {
-  loadStudents(); // 内部会加载班级并渲染左侧班级树
+  loadStudents().then(maybeOpenFromQuery).catch(() => {}); // 内部会加载班级并渲染左侧班级树；?stu= 时自动打开档案
 });
 initEnrollTrashUI();
+// 工作台内切回学生档案页签且地址含 ?stu= 时，重新执行深链打开档案
+window.cbEmbedDeepLink = function () { maybeOpenFromQuery(); };
