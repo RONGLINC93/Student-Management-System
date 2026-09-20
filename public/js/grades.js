@@ -139,8 +139,7 @@ function renderGrades() {
           </td>
           <td>
             <div class="row-actions">
-              <button class="btn-sm btn-edit" data-act="edit">编辑</button>
-              <button class="btn-sm btn-del" data-act="del">删除</button>
+              <button type="button" class="btn-sm more-btn" data-act="more" title="编辑 / 删除">操作${ROW_ICONS.caret}</button>
             </div>
           </td>
         </tr>
@@ -451,6 +450,20 @@ async function persistGradeOrder() {
   }
 }
 
+// 行操作下拉菜单（通用组件 /js/rowmenu.js，与教师管理 / 后勤管理一致）
+function openGradeRowMenu(btn, gradeName) {
+  if (!window.RowMenu) return;
+  window.RowMenu.open(btn, {
+    caption: '操作 · ' + gradeName,
+    list: [{ kind: 'edit', label: '编辑年级', icon: ROW_ICONS.edit }],
+    tail: [{ kind: 'del', label: '删除年级', icon: ROW_ICONS.trash, danger: true }],
+    onPick: (ds) => {
+      if (ds.kind === 'edit') openModal(gradeName);
+      else if (ds.kind === 'del') deleteGrade(gradeName);
+    }
+  });
+}
+
 // 事件绑定
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal();
@@ -477,6 +490,12 @@ function bindEvents() {
     const row = btn.closest('tr.data-row');
     if (!row) return;
     const gradeName = row.dataset.grade;
+    // 通用「操作 ▾」下拉菜单（/js/rowmenu.js）：与教师管理 / 后勤管理一致
+    if (btn.dataset.act === 'more') {
+      e.stopPropagation();
+      if (window.RowMenu) openGradeRowMenu(btn, gradeName);
+      return;
+    }
     const act = btn.dataset.act;
     if (act === 'edit') openModal(gradeName);
     if (act === 'del') deleteGrade(gradeName);

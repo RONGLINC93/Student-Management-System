@@ -370,10 +370,7 @@ function renderClasses() {
         </td>
         <td>
           <div class="row-actions">
-            <button class="btn-sm btn-view" data-act="view">花名册</button>
-            <button class="btn-sm btn-assign" data-act="batchadd" title="从未分班学生中多选一次加入本班">批量入班</button>
-            <button class="btn-sm btn-edit" data-act="edit">编辑</button>
-            <button class="btn-sm btn-del" data-act="del">删除</button>
+            <button type="button" class="btn-sm more-btn" data-act="more" title="查看花名册 / 批量入班 / 编辑 / 删除">操作${ROW_ICONS.caret}</button>
           </div>
         </td>
       </tr>
@@ -1048,6 +1045,26 @@ async function persistClassOrder() {
 }
 
 // ===== 事件绑定 =====
+// 行操作下拉菜单（通用组件 /js/rowmenu.js，与教师管理 / 后勤管理一致）
+function openClassRowMenu(btn, cls) {
+  if (!cls || !window.RowMenu) return;
+  window.RowMenu.open(btn, {
+    caption: '操作 · ' + (cls.name || ''),
+    list: [
+      { kind: 'view', label: '查看花名册', icon: ROW_ICONS.head },
+      { kind: 'batchadd', label: '批量入班' },
+      { kind: 'edit', label: '编辑班级', icon: ROW_ICONS.edit }
+    ],
+    tail: [{ kind: 'del', label: '删除班级', icon: ROW_ICONS.trash, danger: true }],
+    onPick: (ds) => {
+      if (ds.kind === 'view') openRoster(cls);
+      else if (ds.kind === 'batchadd') openBatchDlg(cls.id);
+      else if (ds.kind === 'edit') openModal(cls);
+      else if (ds.kind === 'del') deleteClass(cls.id);
+    }
+  });
+}
+
 function bindEvents() {
   $('#btnAdd').onclick = () => openModal(null);
   $('#modalClose').onclick = closeModal;
@@ -1087,6 +1104,13 @@ function bindEvents() {
     if (!row) return;
     const id = row.dataset.id;
     const cls = classes.find(c => c.id === id);
+    if (!cls) return;
+    // 通用「操作 ▾」下拉菜单（/js/rowmenu.js）：与教师管理 / 后勤管理一致
+    if (btn.dataset.act === 'more') {
+      e.stopPropagation();
+      if (window.RowMenu) openClassRowMenu(btn, cls);
+      return;
+    }
     const act = btn.dataset.act;
     if (act === 'edit') openModal(cls);
     if (act === 'del') deleteClass(id);
