@@ -30,7 +30,7 @@
       } catch (e) { return new Set(); }
     },
     save: function (pageKey, set) {
-      try { localStorage.setItem('treestate:' + pageKey, JSON.stringify([].slice.call(set))); } catch (e) {}
+      try { localStorage.setItem('treestate:' + pageKey, JSON.stringify(Array.from(set))); } catch (e) {}
     }
   };
 
