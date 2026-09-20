@@ -10,9 +10,23 @@
   <style>
     /* 窄屏下列表可左右滑动：.table-wrap 全局为 overflow:hidden，需单独放开横向滚动（同「学生档案」页做法） */
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    /* 各列固定像素设宽（table-layout:fixed，固定列约 850px，含进度列 170px 合计约 1020px），
+    /* 各列固定像素设宽（table-layout:fixed，含进度列 170px、学段列 100px 合计约 1160px），
        窄屏时保持整行完整横向滑动 */
-    .grade-table { min-width: 1062px; }
+    .grade-table { min-width: 1162px; }
+    /* 学段分组首级（小学 / 初中 / 高中 / 大学 …）：可折叠 */
+    .stage-group td {
+      background: #eef2f7; font-weight: 700; cursor: pointer; user-select: none;
+      padding: 8px 12px; color: #334155;
+    }
+    .stage-group .sg-toggle {
+      display: inline-block; width: 0; height: 0; margin-right: 8px; vertical-align: middle;
+      border-left: 6px solid #64748b; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+      transition: transform .12s;
+    }
+    .stage-group.collapsed .sg-toggle { transform: rotate(-90deg); }
+    .stage-group .sg-name { font-size: 14px; }
+    .stage-group .sg-count { font-weight: 500; color: #64748b; margin-left: 8px; font-size: 12px; }
+    .grade-table .tb-stage { color: #475569; font-weight: 600; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -90,6 +104,7 @@
           <tr>
             <th class="th-check" style="width: 42px;"><input type="checkbox" id="ckAll" class="row-cbox" title="全选 / 取消全选" /></th>
             <th style="width: 220px;">年级名称</th>
+            <th class="th-center" style="width: 100px;">学段</th>
             <th class="th-center" style="width: 110px;">学生总数</th>
             <th class="th-center" style="width: 120px;">未分班</th>
             <th class="th-center" style="width: 120px;">已分班</th>
@@ -99,7 +114,7 @@
           </tr>
         </thead>
         <tbody id="gradesTbody">
-          <tr><td colspan="8" class="empty-tip">加载中...</td></tr>
+          <tr><td colspan="9" class="empty-tip">加载中...</td></tr>
         </tbody>
       </table>
     </section>
@@ -117,6 +132,17 @@
         <div class="form-row">
           <label class="form-label">年级名称 <span class="req">*</span></label>
           <input type="text" id="fName" required placeholder="请输入年级名称" />
+        </div>
+        <div class="form-row">
+          <label class="form-label">学段</label>
+          <input type="text" id="fStage" list="stageList" placeholder="如：小学 / 初中 / 高中 / 大学" />
+          <datalist id="stageList">
+            <option value="小学"></option>
+            <option value="初中"></option>
+            <option value="高中"></option>
+            <option value="大学"></option>
+            <option value="其他"></option>
+          </datalist>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" id="modalCancel">取消</button>

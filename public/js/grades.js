@@ -7,6 +7,8 @@ let allStudents = [];
 let allClasses = [];
 let allStudentsWithAllocated = []; // 包含已分班学生的完整列表
 let selectedGrades = new Set();   // 批量删除：已勾选的年级名称
+let gradeStageMap = {};            // 年级名称 → 学段
+let collapsedStages = new Set();   // 已折叠（收起年级列表）的学段分组
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -30,6 +32,9 @@ async function loadData() {
     const clsJson = await clsRes.json();
 
     grades = gradesJson.data || [];
+    const items = gradesJson.items || [];
+    gradeStageMap = {};
+    items.forEach(it => { if (it && it.name) gradeStageMap[it.name] = (it.stage || '').trim(); });
     allStudents = stuJson.data || [];
     allClasses = clsJson.data || [];
 
@@ -59,7 +64,10 @@ function updateStats() {
   $('#statClasses').textContent = allClasses.length;
 }
 
-// 渲染年级列表
+// 学段分组顺序（其余自定义学段排在其后，按名称排序）
+const STAGE_ORDER = ['小学', '初中', '高中', '大学', '其他', '未设置'];
+
+// 渲染年级列表（按学段分组，首级为学段）
 function renderGrades() {
   const tbody = $('#gradesTbody');
   // 清掉已不存在的勾选（年级可能已在别处被删除/改名）
@@ -71,7 +79,7 @@ function renderGrades() {
   if (!grades.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-tip">
+        <td colspan="9" class="empty-tip">
           <p style="margin:0 0 4px;font-size:15px;font-weight:600;">暂无年级</p>
           <small>点击右上角「添加年级」创建年级</small>
         </td>
@@ -81,41 +89,65 @@ function renderGrades() {
     return;
   }
 
-  tbody.innerHTML = grades.map(g => {
-    const unallocated = allStudents.filter(s => s.grade === g).length;
-    const allocated = allClasses.filter(c => c.grade === g).reduce((sum, c) => sum + (c.students || []).length, 0);
-    const total = unallocated + allocated;
-    const classCount = allClasses.filter(c => c.grade === g).length;
-    const pct = total ? Math.min(100, Math.round(allocated / total * 100)) : 0;
+  // 按学段分组（保持 grades 全局顺序）
+  const groups = new Map();
+  grades.forEach(g => {
+    const st = gradeStageMap[g] || '未设置';
+    if (!groups.has(st)) groups.set(st, []);
+    groups.get(st).push(g);
+  });
+  const stages = [...groups.keys()].sort((a, b) => {
+    const ia = STAGE_ORDER.indexOf(a), ib = STAGE_ORDER.indexOf(b);
+    const wa = ia === -1 ? 999 : ia, wb = ib === -1 ? 999 : ib;
+    return wa !== wb ? wa - wb : a.localeCompare(b, 'zh');
+  });
 
-    return `
-      <tr class="data-row" data-grade="${escapeHtml(g)}" draggable="true" title="拖拽行可调整顺序">
-        <td class="td-check"><input type="checkbox" class="row-cbox" data-grade="${escapeHtml(g)}" title="勾选后可批量删除"${selectedGrades.has(g) ? ' checked' : ''} /></td>
-        <td>
-          <div class="tb-name">
-            <span class="tb-icon tb-icon-grade" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg></span>
-            <span class="tb-name-main" title="${escapeHtml(g)}">${escapeHtml(g)}</span>
-          </div>
-        </td>
-        <td class="tb-num">${total}</td>
-        <td><span class="st-tag st-unalloc">${unallocated}</span></td>
-        <td><span class="st-tag st-alloc">${allocated}</span></td>
-        <td class="tb-cls">${classCount}</td>
-        <td>
-          <div class="gp-wrap">
-            <div class="gp-bar"><div class="gp-bar-fill" style="width:${pct}%"></div></div>
-            <span class="gp-text">${allocated}/${total}</span>
-          </div>
-        </td>
-        <td>
-          <div class="row-actions">
-            <button class="btn-sm btn-edit" data-act="edit">编辑</button>
-            <button class="btn-sm btn-del" data-act="del">删除</button>
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  let html = '';
+  stages.forEach(st => {
+    const collapsed = collapsedStages.has(st);
+    const names = groups.get(st);
+    html += `<tr class="stage-group${collapsed ? ' collapsed' : ''}" data-stage="${escapeHtml(st)}">`
+      + `<td colspan="9"><span class="sg-toggle"></span><span class="sg-name">${escapeHtml(st)}</span>`
+      + `<span class="sg-count">${names.length} 个年级</span></td></tr>`;
+    if (collapsed) return;
+    html += names.map(g => {
+      const unallocated = allStudents.filter(s => s.grade === g).length;
+      const allocated = allClasses.filter(c => c.grade === g).reduce((sum, c) => sum + (c.students || []).length, 0);
+      const total = unallocated + allocated;
+      const classCount = allClasses.filter(c => c.grade === g).length;
+      const pct = total ? Math.min(100, Math.round(allocated / total * 100)) : 0;
+      const stageText = gradeStageMap[g] || '—';
+      return `
+        <tr class="data-row" data-grade="${escapeHtml(g)}" draggable="true" title="拖拽行可调整顺序">
+          <td class="td-check"><input type="checkbox" class="row-cbox" data-grade="${escapeHtml(g)}" title="勾选后可批量删除"${selectedGrades.has(g) ? ' checked' : ''} /></td>
+          <td>
+            <div class="tb-name">
+              <span class="tb-icon tb-icon-grade" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg></span>
+              <span class="tb-name-main" title="${escapeHtml(g)}">${escapeHtml(g)}</span>
+            </div>
+          </td>
+          <td class="tb-stage">${escapeHtml(stageText)}</td>
+          <td class="tb-num">${total}</td>
+          <td><span class="st-tag st-unalloc">${unallocated}</span></td>
+          <td><span class="st-tag st-alloc">${allocated}</span></td>
+          <td class="tb-cls">${classCount}</td>
+          <td>
+            <div class="gp-wrap">
+              <div class="gp-bar"><div class="gp-bar-fill" style="width:${pct}%"></div></div>
+              <span class="gp-text">${allocated}/${total}</span>
+            </div>
+          </td>
+          <td>
+            <div class="row-actions">
+              <button class="btn-sm btn-edit" data-act="edit">编辑</button>
+              <button class="btn-sm btn-del" data-act="del">删除</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  });
+  tbody.innerHTML = html;
   syncBatchUI();
 }
 
@@ -124,6 +156,7 @@ function openModal(gradeName = '') {
   $('#modalTitle').textContent = gradeName ? '编辑年级' : '添加年级';
   $('#fOldName').value = gradeName;
   $('#fName').value = gradeName;
+  $('#fStage').value = gradeStageMap[gradeName] || '';
   $('#modalMask').classList.add('show');
   setTimeout(() => $('#fName').focus(), 100);
 }
@@ -137,6 +170,7 @@ async function saveGrade(e) {
   e.preventDefault();
   const oldName = $('#fOldName').value;
   const newName = $('#fName').value.trim();
+  const stage = $('#fStage').value.trim();
 
   if (!newName) {
     toast('请输入年级名称', 'error');
@@ -152,7 +186,7 @@ async function saveGrade(e) {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName })
+      body: JSON.stringify({ name: newName, stage })
     });
 
     const json = await res.json();
@@ -372,6 +406,14 @@ function bindEvents() {
   $('#btnBatchDel').onclick = batchDeleteGrades;
 
   $('#gradesTbody').onclick = (e) => {
+    const grp = e.target.closest('.stage-group');
+    if (grp) {
+      const st = grp.dataset.stage;
+      if (collapsedStages.has(st)) collapsedStages.delete(st);
+      else collapsedStages.add(st);
+      renderGrades();
+      return;
+    }
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
     const row = btn.closest('tr.data-row');

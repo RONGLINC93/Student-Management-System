@@ -17,7 +17,7 @@
     /* ===== 左侧「年级 / 班级」侧栏 + 右侧内容区（树样式见 /css/style.css） ===== */
     .cls-layout { display: flex; gap: 18px; align-items: flex-start; }
     .cls-sidebar {
-      flex: 0 0 250px; position: sticky; top: 18px; align-self: flex-start;
+      flex: 0 0 280px; position: sticky; top: 18px; align-self: flex-start;
       background: #fff; border: 1px solid var(--border, #e5e7eb); border-radius: 12px;
       padding: 14px; max-height: calc(100vh - 45px); overflow: auto; overscroll-behavior: contain;
     }
@@ -73,10 +73,10 @@
       <!-- 左侧：年级导航树 -->
       <aside class="cls-sidebar">
         <div class="sidebar-head">
-          <h3 class="sidebar-title">年级</h3>
+          <h3 class="sidebar-title">学段 / 年级</h3>
           <button type="button" class="btn btn-outline btn-sm" id="btnTreeAll">全部班级</button>
         </div>
-        <p class="sidebar-tip">点击<b>年级</b>只看该年级的班级，再点一次恢复全部。</p>
+        <p class="sidebar-tip">左侧按<b>学段 → 年级</b>分层；点击<b>学段</b>或<b>年级</b>只看对应班级，再点一次恢复全部；箭头可展开 / 收起。</p>
         <div id="classTree" class="grade-tree"></div>
       </aside>
 

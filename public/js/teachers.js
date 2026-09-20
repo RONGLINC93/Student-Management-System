@@ -8,6 +8,7 @@ const PERM_API = '/api/dept-perms';
 let teachers = [];
 let classList = [];
 let gradeList = [];
+let gradeStage = {};        // 年级名称 → 学段（来自 /api/grades 的 items）
 // 各年级课程计划（课程管理维护）：年级名 → 该年级课程名数组，供「任教年级 → 任教学科」联动
 let coursePlanMap = {};
 let coursePlanOk = false;
@@ -42,7 +43,8 @@ const IC_HR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 const G_ICONS = {
   school: '<svg class="gico school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>',
   grade: '<svg class="gico grade" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 14l9 5 9-5"/></svg>',
-  cls: '<svg class="gico cls" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M16 10h.01"/><path d="M16 14h.01"/></svg>'
+  cls: '<svg class="gico cls" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M16 10h.01"/><path d="M16 14h.01"/></svg>',
+  stage: '<svg class="gico stage" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>'
 };
 
 function escapeHtml(s) {
@@ -313,6 +315,8 @@ async function loadGrades() {
     const res = await fetch(GRADES_API);
     const json = await res.json();
     gradeList = json.data || [];
+    gradeStage = {};
+    (json.items || []).forEach(it => { if (it && it.name) gradeStage[it.name] = (it.stage || '').trim(); });
     renderGradeChecks([]);
   } catch (e) {
     const box = $('#fGrades');
@@ -447,6 +451,7 @@ function renderGradeChecks(checkedNames) {
 function matchTree(t, sel) {
   if (!sel || sel.kind === 'all') return true;
   if (sel.kind === 'none') return !(Array.isArray(t.grades) && t.grades.length);
+  if (sel.kind === 'stage') return Array.isArray(t.grades) && t.grades.some(g => (gradeStage[g] || '未设置') === sel.value);
   if (sel.kind === 'grade') return Array.isArray(t.grades) && t.grades.indexOf(sel.value) !== -1;
   if (sel.kind === 'class') return String(t.classId || '') === String(sel.value || '');
   return true;
@@ -468,7 +473,7 @@ function treeRow(o) {
   const toggle = o.hasKids
     ? '<button type="button" class="gtree-toggle' + (o.collapsed ? ' collapsed' : '') + '" data-toggle="' + escapeHtml(o.nodeId || '') + '" aria-label="展开 / 收起"></button>'
     : '<span class="gtree-toggle leaf"></span>';
-  return '<div class="gtree-row' + (o.selected ? ' selected' : '') + '" data-kind="' + escapeHtml(o.kind) + '" data-value="' + escapeHtml(o.value || '') + '"'
+  return '<div class="gtree-row' + (o.selected ? ' selected' : '') + '" data-kind="' + escapeHtml(o.kind) + '" data-value="' + escapeHtml(o.value || '') + '" style="--d:' + (o.depth | 0) + '"'
     + (o.title ? ' title="' + escapeHtml(o.title) + '"' : '') + '>'
     + toggle + o.icon
     + '<span class="gname">' + escapeHtml(o.name) + '</span>'
@@ -480,41 +485,74 @@ function renderGradeTree() {
   if (!host) return;
   const gnames = gradeNamesOf();
   const isSel = (kind, value) => treeSel.kind === kind && String(treeSel.value || '') === String(value || '');
+  // 学段筛选已失效时回退到全部
+  if (treeSel.kind === 'stage' && !gnames.some(g => (gradeStage[g] || '未设置') === String(treeSel.value)))
+    treeSel = { kind: 'all', value: '' };
   const rootCollapsed = gradeCollapsed.has('__root__');
-  let kids = '<div class="gnode">' + treeRow({
-    icon: G_ICONS.cls, name: '未指定年级', kind: 'none', value: '',
-    meta: teachers.filter(t => matchTree(t, { kind: 'none' })).length + ' 人',
-    selected: isSel('none', ''), title: '任教年级为空的教师'
-  }) + '</div>';
-  gnames.forEach(g => {
-    const cls = classList.filter(c => String((c && c.grade) || '').trim() === g);
-    const collapsed = gradeCollapsed.has('g:' + g);
-    let node = '<div class="gnode' + (collapsed ? ' collapsed' : '') + '">' + treeRow({
-      icon: G_ICONS.grade, name: g, kind: 'grade', value: g,
-      meta: teachers.filter(t => matchTree(t, { kind: 'grade', value: g })).length + ' 人',
-      selected: isSel('grade', g), hasKids: cls.length > 0, collapsed, nodeId: 'g:' + g,
-      title: '只看任教年级包含「' + g + '」的教师'
+
+  // 扁平渲染 + 深度变量 --d：图标对齐成列，折叠箭头按层级左移，名称按层级缩进
+  const rows = [];
+  rows.push(treeRow({
+    icon: G_ICONS.school, name: '全部教师', kind: 'all', value: '', depth: 0,
+    meta: teachers.length + ' 人', selected: isSel('all', ''),
+    hasKids: gnames.length > 0, collapsed: rootCollapsed, nodeId: '__root__', title: '显示全部教师'
+  }));
+  if (!rootCollapsed) {
+    // 未指定年级单独一组（不属于任何年级 / 学段）
+    rows.push(treeRow({
+      icon: G_ICONS.cls, name: '未指定年级', kind: 'none', value: '', depth: 1,
+      meta: teachers.filter(t => matchTree(t, { kind: 'none' })).length + ' 人',
+      selected: isSel('none', ''), title: '任教年级为空的教师'
+    }));
+
+    // 按学段分组：全部教师 → 学段 → 年级 → 班级（班主任）
+    const STAGE_ORDER = ['小学', '初中', '高中', '大学', '其他', '未设置'];
+    const stageGroups = new Map();
+    gnames.forEach(g => {
+      const st = gradeStage[g] || '未设置';
+      if (!stageGroups.has(st)) stageGroups.set(st, []);
+      stageGroups.get(st).push(g);
     });
-    if (cls.length) {
-      node += '<div class="gchildren">' + cls.map(c => {
-        const hn = headNameOfClass(c);
-        return '<div class="gnode">' + treeRow({
-          icon: G_ICONS.cls, name: c.name, kind: 'class', value: String(c.id),
-          meta: hn || '未设班主任', selected: isSel('class', c.id),
-          title: hn ? '班主任：' + hn : '该班暂未设置班主任'
-        }) + '</div>';
-      }).join('') + '</div>';
-    }
-    node += '</div>';
-    kids += node;
-  });
-  host.innerHTML = '<div class="gnode gnode-root' + (rootCollapsed ? ' collapsed' : '') + '">'
-    + treeRow({
-      icon: G_ICONS.school, name: '全部教师', kind: 'all', value: '',
-      meta: teachers.length + ' 人', selected: isSel('all', ''),
-      hasKids: gnames.length > 0, collapsed: rootCollapsed, nodeId: '__root__', title: '显示全部教师'
-    })
-    + '<div class="gchildren">' + kids + '</div></div>'
+    const stages = [...stageGroups.keys()].sort((a, b) => {
+      const ia = STAGE_ORDER.indexOf(a), ib = STAGE_ORDER.indexOf(b);
+      const wa = ia === -1 ? 999 : ia, wb = ib === -1 ? 999 : ib;
+      return wa !== wb ? wa - wb : a.localeCompare(b, 'zh');
+    });
+    stages.forEach(st => {
+      const gradeNames = stageGroups.get(st);
+      const sCollapsed = gradeCollapsed.has('s:' + st);
+      rows.push(treeRow({
+        icon: G_ICONS.stage, name: st, kind: 'stage', value: st, depth: 1,
+        meta: gradeNames.length + ' 个年级',
+        selected: isSel('stage', st), hasKids: true, collapsed: sCollapsed, nodeId: 's:' + st,
+        title: '只看任教年级包含「' + st + '」的教师'
+      }));
+      if (!sCollapsed) {
+        gradeNames.forEach(g => {
+          const cls = classList.filter(c => String((c && c.grade) || '').trim() === g);
+          const gCollapsed = gradeCollapsed.has('g:' + g);
+          rows.push(treeRow({
+            icon: G_ICONS.grade, name: g, kind: 'grade', value: g, depth: 2,
+            meta: teachers.filter(t => matchTree(t, { kind: 'grade', value: g })).length + ' 人',
+            selected: isSel('grade', g), hasKids: cls.length > 0, collapsed: gCollapsed, nodeId: 'g:' + g,
+            title: '只看任教年级包含「' + g + '」的教师'
+          }));
+          if (!gCollapsed) {
+            cls.forEach(c => {
+              const hn = headNameOfClass(c);
+              rows.push(treeRow({
+                icon: G_ICONS.cls, name: c.name, kind: 'class', value: String(c.id), depth: 3,
+                meta: hn || '未设班主任', selected: isSel('class', c.id),
+                title: hn ? '班主任：' + hn : '该班暂未设置班主任'
+              }));
+            });
+          }
+        });
+      }
+    });
+  }
+
+  host.innerHTML = '<div class="gtree">' + rows.join('') + '</div>'
     + (gnames.length ? '' : '<p class="sidebar-tip" style="margin-top:8px">暂无年级，请先在「年级管理」中添加年级。</p>');
 }
 function bindGradeTree() {
@@ -549,7 +587,8 @@ function updateTreeChip(count) {
   // 未筛选时隐藏并清空文本，避免残留上一次的筛选提示
   if (treeSel.kind === 'all') { chip.hidden = true; if (txt) txt.textContent = ''; return; }
   let label = '';
-  if (treeSel.kind === 'none') label = '未指定年级';
+  if (treeSel.kind === 'stage') label = '学段：' + treeSel.value;
+  else if (treeSel.kind === 'none') label = '未指定年级';
   else if (treeSel.kind === 'grade') label = '任教年级：' + treeSel.value;
   else if (treeSel.kind === 'class') {
     const c = classList.find(x => String(x.id) === String(treeSel.value));

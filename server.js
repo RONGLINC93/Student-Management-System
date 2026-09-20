@@ -273,7 +273,7 @@ if (!fs.existsSync(CLASSES_FILE)) {
   fs.writeFileSync(CLASSES_FILE, '[]', 'utf-8');
 }
 if (!fs.existsSync(GRADES_FILE)) {
-  fs.writeFileSync(GRADES_FILE, '["高一", "高二", "高三"]', 'utf-8');
+  fs.writeFileSync(GRADES_FILE, '[{"name":"高一","stage":"高中"},{"name":"高二","stage":"高中"},{"name":"高三","stage":"高中"}]', 'utf-8');
 }
 if (!fs.existsSync(FILTERS_FILE)) {
   fs.writeFileSync(FILTERS_FILE, '{}', 'utf-8');
@@ -379,17 +379,42 @@ function writeClasses(list) {
   atomicWriteJson(CLASSES_FILE, list);
 }
 
-function readGrades() {
-  try {
-    const raw = fs.readFileSync(GRADES_FILE, 'utf-8');
-    return JSON.parse(raw);
-  } catch (e) {
-    return ['高一', '高二', '高三'];
-  }
+// 未显式设置学段时，按常见年级名称自动推断学段（一年级~六年级→小学，初一~初三/七年级~九年级→初中，高一~高三→高中，大一~/大学→大学）
+function inferStageFromName(name) {
+  const n = String(name || '').trim();
+  if (!n) return '';
+  if (/^大[一二三四五六七八九十]/.test(n) || n.includes('大学')) return '大学';
+  if (/^高[一二三]/.test(n) || n.includes('高中')) return '高中';
+  if (/^初[一二三]/.test(n) || /^[七八九]年级/.test(n) || n.includes('初中')) return '初中';
+  if (/^[一二三四五六]年级/.test(n) || /^[1-6]年级/.test(n) || n.includes('小学')) return '小学';
+  return '';
 }
 
-function writeGrades(list) {
-  atomicWriteJson(GRADES_FILE, list);
+// 年级支持「学段」(stage) 分组：存储为 [{ name, stage }] 对象数组；
+// 旧数据（纯字符串数组）仍可兼容；stage 为空时按名称自动推断。
+// readGrades() 始终返回年级名称数组，保证其余模块（学生/班级/课程计划等）不受影响。
+function readGradesFull() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(GRADES_FILE, 'utf-8'));
+    if (Array.isArray(raw)) {
+      return raw
+        .map(g => {
+          const name = (typeof g === 'string' ? String(g) : String((g && g.name) || '')).trim();
+          const stage = (typeof g === 'string' ? '' : String((g && g.stage) || '').trim()) || inferStageFromName(name);
+          return { name, stage };
+        })
+        .filter(g => g.name);
+    }
+  } catch (e) { /* fall through */ }
+  return [{ name: '高一', stage: '高中' }, { name: '高二', stage: '高中' }, { name: '高三', stage: '高中' }];
+}
+
+function readGrades() {
+  return readGradesFull().map(g => g.name);
+}
+
+function writeGradesFull(list) {
+  atomicWriteJson(GRADES_FILE, list || []);
 }
 
 function readFilters() {
@@ -917,7 +942,7 @@ function buildBackupPayload() {
     version: APP_VERSION,
     exportedAt: new Date().toISOString(),
     settings: readSettings(),
-    grades: readGrades(),
+    grades: readGradesFull(),
     filters: readFilters(),
     classes: readClasses(),
     students: readStudents(),
@@ -3759,48 +3784,52 @@ async function handle(req, res) {
   }
 
   // ===== 年级管理 API =====
-  // 获取所有年级
+  // 获取所有年级（data 为名称数组，兼容其余模块；items 含学段信息，供年级管理页分组使用）
   if (pathname === '/api/grades' && req.method === 'GET') {
-    return sendJson(res, 200, { code: 0, data: readGrades() });
+    const full = readGradesFull();
+    return sendJson(res, 200, { code: 0, data: full.map(g => g.name), items: full });
   }
 
   // 年级排序（拖拽排序后持久化）
   if (pathname === '/api/grades/order' && req.method === 'PUT') {
     const body = await readBody(req);
     const order = Array.isArray(body.grades) ? body.grades.map(g => String(g).trim()).filter(Boolean) : [];
-    const grades = readGrades();
-    const valid = order.length === grades.length
+    const full = readGradesFull();
+    const valid = order.length === full.length
       && new Set(order).size === order.length
-      && order.every(g => grades.includes(g));
+      && order.every(n => full.some(g => g.name === n));
     if (!valid) return sendJson(res, 400, { code: 1, msg: '排序数据无效' });
-    writeGrades(order);
+    const map = {}; full.forEach(g => { map[g.name] = g; });
+    writeGradesFull(order.map(n => map[n]));
     return sendJson(res, 200, { code: 0, msg: '排序已保存' });
   }
 
   // 新增年级
   if (pathname === '/api/grades' && req.method === 'POST') {
     const body = await readBody(req);
-    const grades = readGrades();
     const name = (body.name || '').trim();
+    const stage = (body.stage || '').trim();
     if (!name) return sendJson(res, 400, { code: 1, msg: '年级名称不能为空' });
-    if (grades.includes(name)) return sendJson(res, 400, { code: 1, msg: '该年级已存在' });
-    grades.push(name);
-    writeGrades(grades);
+    const full = readGradesFull();
+    if (full.some(g => g.name === name)) return sendJson(res, 400, { code: 1, msg: '该年级已存在' });
+    full.push({ name, stage });
+    writeGradesFull(full);
     return sendJson(res, 200, { code: 0, msg: '已添加', data: name });
   }
 
-  // 修改年级名称
+  // 修改年级名称 / 学段
   if (pathname.startsWith('/api/grades/') && req.method === 'PUT') {
     const oldName = decodeURIComponent(pathname.split('/').pop());
     const body = await readBody(req);
     const newName = (body.name || '').trim();
+    const stage = (body.stage || '').trim();
     if (!newName) return sendJson(res, 400, { code: 1, msg: '年级名称不能为空' });
-    const grades = readGrades();
-    const idx = grades.indexOf(oldName);
+    const full = readGradesFull();
+    const idx = full.findIndex(g => g.name === oldName);
     if (idx === -1) return sendJson(res, 404, { code: 1, msg: '年级不存在' });
-    if (grades.includes(newName) && newName !== oldName) return sendJson(res, 400, { code: 1, msg: '该年级名称已存在' });
-    grades[idx] = newName;
-    writeGrades(grades);
+    if (full.some(g => g.name === newName) && newName !== oldName) return sendJson(res, 400, { code: 1, msg: '该年级名称已存在' });
+    full[idx] = { name: newName, stage };
+    writeGradesFull(full);
     // 更新学生 / 班级 / 考试 / 考勤中的年级字段
     const students = readStudents();
     students.forEach(s => { if (s.grade === oldName) s.grade = newName; });
@@ -3816,8 +3845,8 @@ async function handle(req, res) {
   // 删除年级（要求该年级下已无班级，需先删除班级）
   if (pathname.startsWith('/api/grades/') && req.method === 'DELETE') {
     const name = decodeURIComponent(pathname.split('/').pop());
-    const grades = readGrades();
-    const idx = grades.indexOf(name);
+    const full = readGradesFull();
+    const idx = full.findIndex(g => g.name === name);
     if (idx === -1) return sendJson(res, 404, { code: 1, msg: '年级不存在' });
     // 年级下仍有班级时不允许删除，需先删除这些班级
     const gradeClasses = readClasses().filter(c => c.grade === name);
@@ -3827,8 +3856,8 @@ async function handle(req, res) {
         msg: `「${name}」下还有 ${gradeClasses.length} 个班级，请先在班级管理中删除这些班级后再删除年级`
       });
     }
-    grades.splice(idx, 1);
-    writeGrades(grades);
+    full.splice(idx, 1);
+    writeGradesFull(full);
     // 清空该年级的学生 / 班级 / 考试 / 考勤的年级字段
     const students = readStudents();
     students.forEach(s => { if (s.grade === name) s.grade = ''; });
@@ -3863,8 +3892,8 @@ async function handle(req, res) {
       ? [...new Set(body.names.map(n => String(n).trim()).filter(Boolean))]
       : [];
     if (!names.length) return sendJson(res, 400, { code: 1, msg: '请选择要删除的年级' });
-    const grades = readGrades();
-    const hit = names.filter(n => grades.includes(n));
+    const full = readGradesFull();
+    const hit = names.filter(n => full.some(g => g.name === n));
     if (!hit.length) return sendJson(res, 404, { code: 1, msg: '所选年级均不存在' });
     // 年级下仍有班级时不允许删除，需先删除这些班级
     const classes = readClasses();
@@ -3879,7 +3908,7 @@ async function handle(req, res) {
       });
     }
     const nameSet = new Set(hit);
-    writeGrades(grades.filter(g => !nameSet.has(g)));
+    writeGradesFull(full.filter(g => !nameSet.has(g.name)));
     const students = readStudents();
     students.forEach(s => { if (nameSet.has(s.grade)) s.grade = ''; });
     writeStudents(students);
@@ -4786,7 +4815,7 @@ async function handle(req, res) {
       data: {
         classes: readClasses(),
         students: readStudents(),
-        grades: readGrades(),
+        grades: readGradesFull(),
         live: liveBoard,
         grade: boardGrade
       }
@@ -4948,7 +4977,12 @@ async function handle(req, res) {
       return sendJson(res, 400, { code: 1, msg: '备份文件格式不正确' });
     }
     writeSettings(body.settings && typeof body.settings === 'object' ? sanitizeSettings(body.settings) : readSettings());
-    writeGrades(Array.isArray(body.grades) ? body.grades.map(String).filter(Boolean) : readGrades());
+    writeGradesFull(Array.isArray(body.grades)
+      ? body.grades.map(g => typeof g === 'string'
+          ? { name: g.trim(), stage: '' }
+          : { name: String((g && g.name) || '').trim(), stage: String((g && g.stage) || '').trim() })
+          .filter(g => g.name)
+      : readGradesFull());
     writeFilters(body.filters && typeof body.filters === 'object' ? body.filters : {});
     writeClasses(body.classes.map(c => Object.assign({}, c, { students: Array.isArray(c.students) ? c.students : [] })));
     writeStudents(body.students);

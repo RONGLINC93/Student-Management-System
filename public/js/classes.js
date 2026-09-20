@@ -9,6 +9,7 @@ let teacherList = []; // 教师列表，班主任下拉选项引用该列表
 let poolCount = 0;
 let rosterClassId = ''; // 当前打开花名册的班级 id（导出/退生以 id 精确对应，避免按班级名匹配出错）
 let gradesList = [];
+let gradeStage = {};        // 年级名称 → 学段（来自 /api/grades 的 items）
 let poolStudents = []; // 未分班学生明细（批量入班弹窗候选）
 let batchClass = null;  // 批量入班的目标班级
 let batchSelected = new Set(); // 已勾选的学生 id
@@ -36,6 +37,8 @@ async function loadGradeOptions() {
     const res = await fetch(GRADES_API);
     const json = await res.json();
     gradesList = json.data || [];
+    gradeStage = {};
+    (json.items || []).forEach(it => { if (it && it.name) gradeStage[it.name] = (it.stage || '').trim(); });
 
     // 填充筛选下拉框
     const filterSel = $('#gradeFilter');
@@ -72,11 +75,13 @@ async function loadGradeOptions() {
 // 保存筛选设置到服务端
 async function saveFilters() {
   try {
-    // 年级筛选改由左侧树控制：普通年级存年级名，「未设年级」存 __none__
+    // 年级筛选改由左侧树控制：普通年级存年级名，「未设年级」存 __none__，「学段」存 stage 名
     const g = treeSel.kind === 'grade' ? String(treeSel.value || '')
       : (treeSel.kind === 'none' ? '__none__' : '');
+    const st = treeSel.kind === 'stage' ? String(treeSel.value || '') : '';
     const filters = {
       'classes:grade': g,
+      'classes:stage': st,
       'classes:search': $('#searchInput')?.value || ''
     };
     await fetch(FILTERS_API, {
@@ -96,9 +101,11 @@ async function loadFilters() {
     const json = await res.json();
     const savedFilters = json.data || {};
 
-    // 恢复年级筛选（左侧树）：__none__ 表示「未设年级」
+    // 恢复年级筛选（左侧树）：__none__ 表示「未设年级」，classes:stage 表示选中某学段
     const g = String(savedFilters['classes:grade'] || '');
-    if (g === '__none__') treeSel = { kind: 'none', value: '' };
+    const st = String(savedFilters['classes:stage'] || '');
+    if (st) treeSel = { kind: 'stage', value: st };
+    else if (g === '__none__') treeSel = { kind: 'none', value: '' };
     else if (g) treeSel = { kind: 'grade', value: g };
     else treeSel = { kind: 'all', value: '' };
     const searchInput = $('#searchInput');
@@ -148,14 +155,15 @@ let treeCollapsed = new Set();             // 已折叠的节点（根节点）
 const TREE_SVG = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const TREE_ICON = {
   all: `<svg class="gico school" ${TREE_SVG}><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>`,
-  grade: `<svg class="gico grade" ${TREE_SVG}><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 14l9 5 9-5"/></svg>`
+  grade: `<svg class="gico grade" ${TREE_SVG}><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 14l9 5 9-5"/></svg>`,
+  stage: `<svg class="gico stage" ${TREE_SVG}><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`
 };
 // 一行树节点：折叠箭头 + 图标 + 名称 + 右侧统计
 function treeRowHtml(o) {
   const toggle = o.hasKids
     ? `<button type="button" class="gtree-toggle${o.collapsed ? ' collapsed' : ''}" data-toggle="${escapeHtml(o.nodeId || '')}" aria-label="展开 / 收起"></button>`
     : '<span class="gtree-toggle leaf"></span>';
-  return `<div class="gtree-row${o.selected ? ' selected' : ''}" data-kind="${escapeHtml(o.kind)}" data-value="${escapeHtml(o.value || '')}"${o.title ? ` title="${escapeHtml(o.title)}"` : ''}>`
+  return `<div class="gtree-row${o.selected ? ' selected' : ''}" data-kind="${escapeHtml(o.kind)}" data-value="${escapeHtml(o.value || '')}" style="--d:${o.depth | 0}"${o.title ? ` title="${escapeHtml(o.title)}"` : ''}>`
     + toggle + o.icon
     + `<span class="gname">${escapeHtml(o.name)}</span>`
     + (o.meta ? `<span class="gmeta">${escapeHtml(o.meta)}</span>` : '')
@@ -173,39 +181,69 @@ function matchTreeSel(c) {
   if (treeSel.kind === 'all') return true;
   const g = String(c.grade || '').trim();
   if (treeSel.kind === 'none') return !g;
+  if (treeSel.kind === 'stage') return g && gradeStage[g] === String(treeSel.value || '').trim();
   return g === String(treeSel.value || '').trim();
 }
 function renderTree() {
   const host = $('#classTree');
   if (!host) return;
   const rootCollapsed = treeCollapsed.has('__root__');
-  // 侧栏只到年级一层：全部班级 → 年级（班级数 · 学生数），不再展开具体班级
-  let kids = treeGradeNames().map(g => {
-    const list = classes.filter(c => String(c.grade || '').trim() === g);
-    let stu = 0;
-    list.forEach(c => { stu += (c.students || []).length; });
-    return '<div class="gnode">' + treeRowHtml({
-      icon: TREE_ICON.grade, name: g, kind: 'grade', value: g,
-      meta: `${list.length} 个班 · ${stu} 人`,
-      selected: treeSel.kind === 'grade' && String(treeSel.value) === g,
-      title: `只看「${g}」的班级`
-    }) + '</div>';
-  }).join('');
-  const noGrade = classes.filter(c => !String(c.grade || '').trim());
-  if (noGrade.length) {
-    kids += '<div class="gnode">' + treeRowHtml({
-      icon: TREE_ICON.grade, name: '未设年级', kind: 'none', value: '',
-      meta: `${noGrade.length} 个班`, selected: treeSel.kind === 'none',
-      title: '只看未设置年级的班级'
-    }) + '</div>';
+  // 侧栏按「学段 → 年级」两层组织：全部班级 → 学段（小学/初中/高中/大学…）→ 年级（班级数 · 学生数）
+  // 扁平渲染 + 深度变量 --d：图标固定在同一条竖列，折叠箭头按层级左移体现嵌套，名称按层级缩进
+  const STAGE_ORDER = ['小学', '初中', '高中', '大学', '其他', '未设置'];
+  const stageGroups = new Map(); // 学段 → 年级列表
+  treeGradeNames().forEach(g => {
+    const st = gradeStage[g] || '未设置';
+    if (!stageGroups.has(st)) stageGroups.set(st, []);
+    stageGroups.get(st).push(g);
+  });
+  const stages = [...stageGroups.keys()].sort((a, b) => {
+    const ia = STAGE_ORDER.indexOf(a), ib = STAGE_ORDER.indexOf(b);
+    const wa = ia === -1 ? 999 : ia, wb = ib === -1 ? 999 : ib;
+    return wa !== wb ? wa - wb : a.localeCompare(b, 'zh');
+  });
+
+  const rows = [];
+  rows.push(treeRowHtml({
+    icon: TREE_ICON.all, name: '全部班级', kind: 'all', value: '',
+    meta: classes.length + ' 个班', depth: 0,
+    selected: treeSel.kind === 'all',
+    hasKids: true, collapsed: rootCollapsed, nodeId: '__root__', title: '显示全部班级'
+  }));
+  if (!rootCollapsed) {
+    stages.forEach(st => {
+      const collapsed = treeCollapsed.has('s:' + st);
+      const gradeNames = stageGroups.get(st);
+      rows.push(treeRowHtml({
+        icon: TREE_ICON.stage, name: st, kind: 'stage', value: st,
+        meta: gradeNames.length + ' 个年级', depth: 1,
+        selected: treeSel.kind === 'stage' && String(treeSel.value) === st,
+        hasKids: true, collapsed, nodeId: 's:' + st, title: `只看「${st}」的班级`
+      }));
+      if (!collapsed) {
+        gradeNames.forEach(g => {
+          const list = classes.filter(c => String(c.grade || '').trim() === g);
+          let stu = 0; list.forEach(c => { stu += (c.students || []).length; });
+          rows.push(treeRowHtml({
+            icon: TREE_ICON.grade, name: g, kind: 'grade', value: g,
+            meta: `${list.length} 个班 · ${stu} 人`, depth: 2,
+            selected: treeSel.kind === 'grade' && String(treeSel.value) === g,
+            title: `只看「${g}」的班级`
+          }));
+        });
+      }
+    });
+    // 班级本身未设年级（不属于任何年级 / 学段）的，单列一组
+    const noGrade = classes.filter(c => !String(c.grade || '').trim());
+    if (noGrade.length) {
+      rows.push(treeRowHtml({
+        icon: TREE_ICON.grade, name: '未设年级', kind: 'none', value: '',
+        meta: `${noGrade.length} 个班`, depth: 1, selected: treeSel.kind === 'none',
+        title: '只看未设置年级的班级'
+      }));
+    }
   }
-  host.innerHTML = '<div class="gnode gnode-root' + (rootCollapsed ? ' collapsed' : '') + '">'
-    + treeRowHtml({
-      icon: TREE_ICON.all, name: '全部班级', kind: 'all', value: '',
-      meta: classes.length + ' 个班', selected: treeSel.kind === 'all',
-      hasKids: true, collapsed: rootCollapsed, nodeId: '__root__', title: '显示全部班级'
-    })
-    + '<div class="gchildren">' + kids + '</div></div>'
+  host.innerHTML = '<div class="gtree">' + rows.join('') + '</div>'
     + (classes.length ? '' : '<p class="sidebar-tip" style="margin-top:8px">暂无班级，点击「添加班级」创建。</p>');
 }
 // 侧栏筛选：设置后刷新列表并持久化
@@ -239,6 +277,11 @@ function bindTree() {
       setTreeSel(same ? { kind: 'all', value: '' } : { kind: 'grade', value });
       return;
     }
+    if (kind === 'stage') {
+      const same = treeSel.kind === 'stage' && String(treeSel.value) === value;
+      setTreeSel(same ? { kind: 'all', value: '' } : { kind: 'stage', value });
+      return;
+    }
     if (kind === 'none') {
       setTreeSel(treeSel.kind === 'none' ? { kind: 'all', value: '' } : { kind: 'none', value: '' });
     }
@@ -250,7 +293,9 @@ function updateTreeChip(count) {
   if (!chip) return;
   const txt = $('#treeChipText');
   if (treeSel.kind === 'all') { chip.hidden = true; if (txt) txt.textContent = ''; return; }
-  const label = treeSel.kind === 'none' ? '未设年级' : '年级：' + treeSel.value;
+  const label = treeSel.kind === 'none' ? '未设年级'
+    : treeSel.kind === 'stage' ? '学段：' + treeSel.value
+    : '年级：' + treeSel.value;
   chip.hidden = false;
   if (txt) txt.textContent = label + ' · ' + count + ' 个班';
 }
@@ -259,6 +304,11 @@ function renderClasses() {
   const kw = ($('#searchInput').value || '').trim().toLowerCase();
   // 年级已被删除时自动回退到全部，避免列表一直为空
   if (treeSel.kind === 'grade' && treeGradeNames().indexOf(String(treeSel.value)) === -1) {
+    treeSel = { kind: 'all', value: '' };
+  }
+  // 学段筛选已失效（学段下已无年级，如学段被改名/班级年级变化）时同样回退到全部
+  if (treeSel.kind === 'stage'
+    && !treeGradeNames().some(g => (gradeStage[g] || '未设置') === String(treeSel.value))) {
     treeSel = { kind: 'all', value: '' };
   }
   let list = classes.slice().filter(matchTreeSel);
