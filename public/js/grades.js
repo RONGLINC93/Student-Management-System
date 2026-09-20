@@ -118,7 +118,7 @@ function renderGrades() {
       const pct = total ? Math.min(100, Math.round(allocated / total * 100)) : 0;
       const stageText = gradeStageMap[g] || '—';
       return `
-        <tr class="data-row" data-grade="${escapeHtml(g)}" draggable="true" title="拖拽行可调整顺序">
+        <tr class="data-row" data-grade="${escapeHtml(g)}" data-stage="${escapeHtml(st)}" draggable="true" title="拖拽行可调整顺序；拖到其它学段区域可更改所属学段">
           <td class="td-check"><input type="checkbox" class="row-cbox" data-grade="${escapeHtml(g)}" title="勾选后可批量删除"${selectedGrades.has(g) ? ' checked' : ''} /></td>
           <td>
             <div class="tb-name">
@@ -331,8 +331,19 @@ async function batchDeleteGrades() {
   } finally { done(); }
 }
 
-// ===== 拖拽排序 =====
+// ===== 拖拽排序 / 拖入学段 =====
 let dragEl = null;
+let lastDropWasStage = false;
+
+function highlightStage(stage) {
+  clearStageHighlight();
+  $$('#gradesTbody tr.stage-group').forEach(t => {
+    if (t.dataset.stage === stage) t.classList.add('drop-target');
+  });
+}
+function clearStageHighlight() {
+  $$('#gradesTbody tr.stage-group.drop-target').forEach(t => t.classList.remove('drop-target'));
+}
 
 function bindDragSort() {
   const tbody = $('#gradesTbody');
@@ -350,7 +361,18 @@ function bindDragSort() {
     if (!dragEl) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    const currentStage = gradeStageMap[dragEl.dataset.grade] || '未设置';
+    const grp = e.target.closest('tr.stage-group');
     const row = e.target.closest('tr.data-row');
+    // 目标学段：优先取分组头，否则取所在行的学段（即「拖入学段里」）
+    const targetStage = grp ? grp.dataset.stage : (row ? row.dataset.stage : null);
+    if (targetStage && targetStage !== currentStage) {
+      // 拖到其它学段区域：高亮该学段，drop 时改学段（不做行内重排）
+      highlightStage(targetStage);
+      return;
+    }
+    clearStageHighlight();
+    // 同组内或空白处：行内拖拽调整顺序
     if (!row || row === dragEl) return;
     // 表格布局：以鼠标相对行纵向位置判断插入到上方还是下方
     const rect = row.getBoundingClientRect();
@@ -358,14 +380,50 @@ function bindDragSort() {
     tbody.insertBefore(dragEl, before ? row : row.nextSibling);
   });
 
-  tbody.addEventListener('drop', (e) => e.preventDefault());
+  tbody.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (!dragEl) return;
+    const grp = e.target.closest('tr.stage-group');
+    const row = e.target.closest('tr.data-row');
+    const targetStage = grp ? grp.dataset.stage : (row ? row.dataset.stage : null);
+    const currentStage = gradeStageMap[dragEl.dataset.grade] || '未设置';
+    if (targetStage && targetStage !== currentStage) {
+      lastDropWasStage = true;
+      updateGradeStage(dragEl.dataset.grade, targetStage);
+    }
+    clearStageHighlight();
+  });
 
   tbody.addEventListener('dragend', () => {
     if (!dragEl) return;
     dragEl.classList.remove('dragging');
     dragEl = null;
+    clearStageHighlight();
+    if (lastDropWasStage) { lastDropWasStage = false; return; }
     persistGradeOrder();
   });
+}
+
+// 拖入学段分组：更新该年级的学段（复用修改年级接口，仅改 stage，年级名称不变）
+async function updateGradeStage(grade, stage) {
+  try {
+    const res = await fetch(`${API}/${encodeURIComponent(grade)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: grade, stage })
+    });
+    const json = await res.json();
+    if (json.code !== 0) {
+      toast(json.msg || '学段更新失败', 'error');
+      await loadData();
+      return;
+    }
+    toast(`已将「${grade}」移动到「${stage}」`, 'success');
+    await loadData();
+  } catch (e) {
+    toast('学段更新失败：' + e.message, 'error');
+    await loadData();
+  }
 }
 
 // 保存排序到服务端（顺序有变化才请求）

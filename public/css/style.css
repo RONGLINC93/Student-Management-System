@@ -2772,8 +2772,8 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
 /* 左侧树统一（学生/班级/教师/课程 四页共用容器 #classTree 与 #gradeTree）：
    图标对齐成一条竖列（--d 控制层级），折叠箭头按层级左移，名称按层级缩进 */
 #classTree .gtree-row, #gradeTree .gtree-row { padding-left: calc(54px + var(--d, 0) * 14px); }
-#classTree .gtree-toggle, #gradeTree .gtree-toggle { position: absolute; left: calc(2px + var(--d, 0) * 16px); top: 50%; transform: translateY(-50%); }
-#classTree .gico, #gradeTree .gico { position: absolute; left: 38px; top: 50%; transform: translateY(-50%); flex: none; width: 15px; height: 15px; }
+#classTree .gtree-toggle, #gradeTree .gtree-toggle { position: absolute; left: calc(2px + var(--d, 0) * 12px); top: 50%; transform: translateY(-50%); z-index: 2; }
+#classTree .gico, #gradeTree .gico { position: absolute; left: 38px; top: 50%; transform: translateY(-50%); flex: none; width: 15px; height: 15px; z-index: 1; }
 #classTree .gname, #gradeTree .gname { padding-left: 0; }
 /* 侧栏头部与说明 */
 .sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
