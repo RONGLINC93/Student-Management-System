@@ -250,19 +250,20 @@
     }
 
     tbody.innerHTML = workingCourses.map((c, i) => renderRow(c, i, isW)).join('');
-    tbody.querySelectorAll('.cs-del').forEach(btn => {
-      btn.addEventListener('click', () => {
+    tbody.querySelectorAll('.more-btn[data-act="more"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const idx = Number(btn.dataset.idx);
-        if (isNaN(idx)) return;
-        workingCourses.splice(idx, 1);
-        renderActive();
-      });
-    });
-    tbody.querySelectorAll('.cs-edit').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = Number(btn.dataset.idx);
-        if (isNaN(idx)) return;
-        openEdit(idx);
+        if (isNaN(idx) || !window.RowMenu) return;
+        window.RowMenu.open(btn, {
+          caption: '操作',
+          list: [{ kind: 'edit', label: '编辑课程', icon: ROW_ICONS.edit }],
+          tail: [{ kind: 'del', label: '删除课程', icon: ROW_ICONS.trash, danger: true }],
+          onPick: (ds) => {
+            if (ds.kind === 'edit') openEdit(idx);
+            else if (ds.kind === 'del') { workingCourses.splice(idx, 1); renderActive(); }
+          }
+        });
       });
     });
     // 行内修改：name / hours / remark 实时回写到 workingCourses
@@ -319,8 +320,7 @@
         <td><input class="cs-remark" data-idx="${i}" data-fld="remark" maxlength="100" value="${remark}" placeholder="选填" ${disabled} /></td>
         <td>
           <div class="row-actions">
-            <button class="btn-sm cs-edit" data-idx="${i}" type="button" ${disabled ? 'disabled' : ''}>编辑</button>
-            <button class="btn-sm btn-del cs-del" data-idx="${i}" type="button" ${disabled ? 'disabled' : ''}>删除</button>
+            <button type="button" class="btn-sm more-btn" data-idx="${i}" data-act="more" ${disabled ? 'disabled' : ''} title="编辑 / 删除">操作${ROW_ICONS.caret}</button>
           </div>
         </td>
       </tr>

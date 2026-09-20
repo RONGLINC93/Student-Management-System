@@ -344,9 +344,9 @@ async function loadCoursePlans() {
   refreshSubjectOptions();
 }
 
-// 当前勾选的任教年级（弹窗内复选框）
+// 当前勾选的任教年级（弹窗内复选框；仅统计年级药丸，不含学段总开关）
 function selectedGrades() {
-  return Array.from(document.querySelectorAll('#fGrades input[type="checkbox"]:checked'))
+  return Array.from(document.querySelectorAll('#fGrades .grade-cb:checked'))
     .map(cb => String(cb.value || '').trim())
     .filter(Boolean);
 }
@@ -429,7 +429,27 @@ function refreshSubjectOptions() {
 }
 
 
-// 渲染弹窗内「任教年级」复选框组；checkedNames 为已勾选年级名数组
+// 学段排序（小学 → 初中 → 高中 → 其余按名）；年级 → 学段取自「年级管理」
+const GRADE_STAGE_ORDER = ['小学', '初中', '高中'];
+function gradeStageOf(g) { return (gradeStage[g] || '').trim() || '未设置'; }
+function sortGradesByStage(arr) {
+  const idx = s => { const i = GRADE_STAGE_ORDER.indexOf(s); return i === -1 ? 99 : i; };
+  return (arr || []).slice().sort((a, b) => {
+    const d = idx(gradeStageOf(a)) - idx(gradeStageOf(b));
+    return d !== 0 ? d : String(a).localeCompare(String(b), 'zh-Hans-CN', { numeric: true });
+  });
+}
+function groupGradesByStage(arr) {
+  const m = {};
+  (arr || []).forEach(g => { const s = gradeStageOf(g); (m[s] = m[s] || []).push(g); });
+  const keys = [];
+  GRADE_STAGE_ORDER.forEach(s => { if (m[s]) keys.push(s); });
+  Object.keys(m).filter(s => GRADE_STAGE_ORDER.indexOf(s) === -1).sort().forEach(s => keys.push(s));
+  return keys.map(s => ({ stage: s, grades: m[s] }));
+}
+
+// 渲染弹窗内「任教年级」复选框组；checkedNames 为已勾选年级名数组。
+// 按学段分组，支持整段勾选 / 全选 / 清空，跨多年级批量设置更顺手；数据仍为年级名数组。
 function renderGradeChecks(checkedNames) {
   const box = $('#fGrades');
   if (!box) return;
@@ -439,11 +459,46 @@ function renderGradeChecks(checkedNames) {
     return;
   }
   const set = new Set((checkedNames || []).map(String));
-  box.innerHTML = gradeList.map(g => {
-    const ck = set.has(g) ? ' checked' : '';
-    return `<label><input type="checkbox" value="${escapeHtml(g)}"${ck}/>${escapeHtml(g)}</label>`;
-  }).join('');
+  const groups = groupGradesByStage(gradeList);
+  const pill = g => `<label class="grade-pill"><input type="checkbox" class="grade-cb" value="${escapeHtml(g)}"${set.has(g) ? ' checked' : ''}/>${escapeHtml(g)}</label>`;
+  const block = ({ stage, grades }) => {
+    if (!grades.length) return '';
+    const n = grades.length;
+    const c = grades.filter(g => set.has(g)).length;
+    const all = c === n;
+    return `<div class="grade-group" data-stage="${escapeHtml(stage)}">
+      <div class="grade-group-head">
+        <label class="stage-toggle-wrap">
+          <input type="checkbox" class="stage-toggle"${all ? ' checked' : ''} aria-label="整段勾选 ${escapeHtml(stage)}"/>
+          <span class="stage-name">${escapeHtml(stage)}</span>
+          <span class="stage-count">${c}/${n}</span>
+        </label>
+      </div>
+      <div class="grade-checks-inner">${grades.map(pill).join('')}</div>
+    </div>`;
+  };
+  box.innerHTML =
+    `<div class="grade-toolbar">
+       <button type="button" class="btn btn-sm btn-outline" id="btnGradeAll">全选</button>
+       <button type="button" class="btn btn-sm btn-outline" id="btnGradeClear">清空</button>
+       <span class="grade-toolbar-tip">按学段分组，可整段勾选</span>
+     </div>` + groups.map(block).join('');
+  syncGradeGroupStates();
   refreshSubjectOptions(); // 勾选变化 → 任教学科候选随之联动
+}
+// 同步各学段「整段勾选」的选中 / 半选状态与计数（由年级药丸状态反推总开关）
+function syncGradeGroupStates() {
+  const box = document.getElementById('fGrades');
+  if (!box) return;
+  box.querySelectorAll('.grade-group').forEach(group => {
+    const cbs = group.querySelectorAll('.grade-cb');
+    const total = cbs.length;
+    const checked = Array.from(cbs).filter(c => c.checked).length;
+    const toggle = group.querySelector('.stage-toggle');
+    const count = group.querySelector('.stage-count');
+    if (toggle) { toggle.checked = total > 0 && checked === total; toggle.indeterminate = checked > 0 && checked < total; }
+    if (count) count.textContent = checked + '/' + total;
+  });
 }
 
 // ===== 左侧「任教年级」树：点击节点筛选教师 =====
@@ -684,9 +739,12 @@ function teaCellHtml(t, k) {
   if (k === 'phone') return `<td class="t-phone">${escapeHtml(t.phone || '—')}</td>`;
   if (k === 'grades') {
     const grades = Array.isArray(t.grades) ? t.grades : [];
-    return `<td>${grades.length
-      ? grades.map(g => `<span class="grade-chip">${escapeHtml(g)}</span>`).join('')
-      : '<span class="grade-empty">未指定</span>'}</td>`;
+    if (!grades.length) return '<td><span class="grade-empty">未指定</span></td>';
+    // 按学段聚拢：同段年级成组，段间换行，便于一眼看出任教范围
+    const html = groupGradesByStage(grades).map(({ stage, grades: gs }) =>
+      `<span class="grade-stage">${escapeHtml(stage)}</span>` + gs.map(g => `<span class="grade-chip">${escapeHtml(g)}</span>`).join('')
+    ).join('<span class="grade-sep"></span>');
+    return `<td><div class="grade-chips" title="${escapeHtml(grades.join('、'))}">${html}</div></td>`;
   }
   if (k === 'head') {
     return `<td>${t.classId && t.className
@@ -1226,9 +1284,24 @@ function bindEvents() {
   });
   // 任教年级勾选变化 → 联动重建「任教学科」下拉（取所选年级课程计划的并集）
   const gradeBox = document.getElementById('fGrades');
-  if (gradeBox) gradeBox.addEventListener('change', (e) => {
-    if (e.target && e.target.type === 'checkbox') refreshSubjectOptions();
-  });
+  if (gradeBox) {
+    gradeBox.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!t || t.type !== 'checkbox') return;
+      // 学段总开关：整段勾选 / 取消
+      if (t.classList.contains('stage-toggle')) {
+        const group = t.closest('.grade-group');
+        if (group) group.querySelectorAll('.grade-cb').forEach(cb => { cb.checked = t.checked; });
+      }
+      syncGradeGroupStates();
+      refreshSubjectOptions();
+    });
+    // 工具条：全选 / 清空（跨学段批量设置）
+    const allBtn = document.getElementById('btnGradeAll');
+    const clearBtn = document.getElementById('btnGradeClear');
+    if (allBtn) allBtn.onclick = () => { gradeBox.querySelectorAll('.grade-cb').forEach(cb => { cb.checked = true; }); syncGradeGroupStates(); refreshSubjectOptions(); };
+    if (clearBtn) clearBtn.onclick = () => { gradeBox.querySelectorAll('.grade-cb').forEach(cb => { cb.checked = false; }); syncGradeGroupStates(); refreshSubjectOptions(); };
+  }
   const hrWatch = () => updateHrPermWarn(teachers.find(x => x.id === $('#hTeacher').value));
   $('#hDept').addEventListener('input', hrWatch);
   $('#hDept').addEventListener('change', hrWatch);

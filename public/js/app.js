@@ -256,7 +256,9 @@ function openDormTab(stuId) {
 // reopen=true：从「编辑档案」内查看房态，返回时重开该生编辑档案；reopen=false：从列表查看，返回到档案列表
 function openRoomPage(roomId, focusId, stuId, reopen) {
   // 离开学生档案前先关闭编辑弹窗，使来源回到「档案列表」；从编辑档案进入(reopen)时返回再重开
-  closeModal();
+  // 直接隐藏（不走 closeModal，避免触发请假管理深链的「关闭后返回」）
+  $('#fGrade').disabled = false;
+  $('#modalMask').classList.remove('show');
   let qs = 'room=' + encodeURIComponent(roomId);
   if (focusId) qs += '&focus=' + encodeURIComponent(focusId);
   qs += '&from=students';
@@ -924,6 +926,8 @@ function openModal(stu) {
 function closeModal() {
   $('#fGrade').disabled = false;
   $('#modalMask').classList.remove('show');
+  // 由请假管理深链进入：关闭档案后回跳请假管理（参考宿舍管理「查看房态」返回逻辑）
+  if (stuDeepLinkBack) { stuDeepLinkBack = false; goBackToLeaves(); }
 }
 
 // 从宿舍管理「返回学生档案」深链（?stu=ID）进入时，自动打开对应学生档案
@@ -932,6 +936,19 @@ function maybeOpenFromQuery() {
   if (!stuId) return;
   const stu = allStudents.find(s => String(s.id) === String(stuId));
   if (stu) openModal(stu);
+}
+
+// 由请假管理「点击学生名字」深链进入时：标记返回意图（关闭档案弹窗时回跳请假管理，无需单独返回按钮）
+let stuDeepLinkBack = false;
+function goBackToLeaves() {
+  const url = '/leaves.html';
+  if (typeof window.goPage === 'function') window.goPage(url);
+  else location.href = url;
+}
+function setupBackToLeaves() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('from') !== 'leaves') return;
+  stuDeepLinkBack = true;
 }
 
 async function saveStudent(e) {
@@ -2325,9 +2342,16 @@ function initEnrollTrashUI() {
 renderHeader();
 bindEvents();
 renderColMenu();
+setupBackToLeaves();
 Promise.all([loadGradeOptions(), loadFilters()]).then(() => {
   loadStudents().then(maybeOpenFromQuery).catch(() => {}); // 内部会加载班级并渲染左侧班级树；?stu= 时自动打开档案
 });
 initEnrollTrashUI();
 // 工作台内切回学生档案页签且地址含 ?stu= 时，重新执行深链打开档案
-window.cbEmbedDeepLink = function () { maybeOpenFromQuery(); };
+// 页签已打开且地址未变时（重复点击同一学生名字），由工作台下发 icst-deeplink 重新执行深链；
+// 需重置并重新挂接「关闭后返回请假管理」意图，否则返回标记仍为 false，关闭档案不会跳回请假页
+window.cbEmbedDeepLink = function () {
+  stuDeepLinkBack = false;
+  setupBackToLeaves();
+  maybeOpenFromQuery();
+};

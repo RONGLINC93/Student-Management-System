@@ -87,12 +87,9 @@ function renderList() {
     const ops = [];
     if (isAdmin) {
       if (x.status === 'pending') {
-        ops.push('<button class="btn btn-sm btn-success" data-act="review" data-id="' + x.id + '">审批</button>');
-        ops.push('<button class="btn btn-sm btn-default" data-act="edit" data-id="' + x.id + '">编辑</button>');
-      } else {
-        ops.push('<button class="btn btn-sm btn-default" data-act="review" data-id="' + x.id + '" title="查看">查看</button>');
+        ops.push('<button type="button" class="btn btn-sm btn-success" data-act="review" data-id="' + x.id + '">审批</button>');
       }
-      ops.push('<button class="btn btn-sm btn-danger" data-act="del" data-id="' + x.id + '">删除</button>');
+      ops.push('<button type="button" class="btn-sm more-btn" data-act="more" data-id="' + x.id + '" title="编辑 / 查看 / 删除">操作' + ROW_ICONS.caret + '</button>');
     }
     return `<tr>
       <td><strong>${escL(x.name)}</strong><div class="type-line">${escL(x.no || '')}${x.gender ? ' · ' + escL(x.gender) : ''}</div></td>
@@ -362,10 +359,46 @@ function bindEvents() {
     if (!btn) return;
     const id = btn.dataset.id;
     const x = leaves.find(v => v.id === id);
+    if (btn.dataset.act === 'more') {
+      e.stopPropagation();
+      if (!x || !window.RowMenu) return;
+      const pending = x.status === 'pending';
+      const archItem = { kind: 'stu', label: '档案', icon: ROW_ICONS.arch };
+      window.RowMenu.open(btn, {
+        caption: x.name,
+        list: pending
+          ? [
+              { kind: 'edit', label: '编辑', icon: ROW_ICONS.edit },
+              archItem
+            ]
+          : [
+              { kind: 'view', label: '查看', icon: ROW_ICONS.view },
+              archItem
+            ],
+        tail: [
+          { kind: 'del', label: '删除', icon: ROW_ICONS.trash, danger: true }
+        ],
+        onPick: (ds) => {
+          if (ds.kind === 'stu') openStudentProfile(x.sid);
+          else if (ds.kind === 'view') openReview(x);
+          else if (ds.kind === 'edit') openForm(x);
+          else if (ds.kind === 'del') delLeaf(id);
+        }
+      });
+      return;
+    }
     if (btn.dataset.act === 'review') openReview(x);
     else if (btn.dataset.act === 'edit') openForm(x);
     else if (btn.dataset.act === 'del') delLeaf(id);
   });
+
+// 由请假记录跳转学生档案（?stu=<sid>&from=leaves）：学生档案页关闭后自动回跳请假管理
+function openStudentProfile(sid) {
+  if (!sid) return;
+  const url = '/students.html?stu=' + encodeURIComponent(sid) + '&from=leaves';
+  if (typeof window.goPage === 'function') window.goPage(url);
+  else location.href = url;
+}
 }
 
 (async function init() {

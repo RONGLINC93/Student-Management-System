@@ -37,21 +37,31 @@
     .subj-chip.off { background: #fff7ed; border-color: #fed7aa; color: #b45309; }
     .grade-chip { padding: 2px 8px; border-radius: 6px; font-size: 12px; background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; white-space: nowrap; }
     .grade-empty { color: var(--text-light); font-size: 13px; }
-    /* 任教年级复选框组（弹窗内） */
-    .grade-checks { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
-    .grade-checks label {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 6px 13px; border: 1px solid var(--border); border-radius: 999px;
-      cursor: pointer; font-size: 13px; background: #fff; user-select: none;
-      transition: background .12s, border-color .12s, color .12s;
+    /* 任教年级复选框组（弹窗内）：按学段分组 + 整段 / 全选批量勾选 */
+    .grade-checks { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+    .grade-toolbar { display: flex; align-items: center; gap: 8px; }
+    .grade-toolbar-tip { color: var(--text-light); font-size: 12px; }
+
+    /* 任教年级用系统原生复选框（仅 accent-color 染主色），与全站表单保持一致 */
+    .grade-group { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: #fff; }
+    .grade-group-head { display: flex; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed #eef0f4; }
+    .stage-toggle-wrap { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600; color: #1f2937; margin: 0; }
+    .stage-name { color: #1f2937; }
+    .stage-count { margin-left: 6px; color: var(--text-light); font-size: 12px; font-weight: 400; }
+    .stage-toggle,
+    .grade-cb { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; }
+    .grade-checks-inner { display: flex; gap: 8px 18px; flex-wrap: wrap; }
+    .grade-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13.5px; color: #374151; cursor: pointer; user-select: none;
     }
-    .grade-checks label:hover { border-color: #c7d2fe; }
-    .grade-checks input { margin: 0; cursor: pointer; }
-    .grade-checks label:has(input:checked) {
-      background: #eef2ff; border-color: #a5b4fc; color: #4338ca; font-weight: 600;
-    }
+    .grade-pill:hover { color: #111827; }
     .grade-checks .form-tip { color: var(--text-light); font-size: 12.5px; padding: 6px 0; }
     .grade-checks .empty-tip-inline { color: var(--text-light); font-size: 12.5px; padding: 6px 0; }
+    /* 列表「任教年级」按学段聚拢 */
+    .grade-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+    .grade-stage { font-size: 11px; color: #6366f1; padding: 1px 7px; border: 1px solid #e0e7ff; border-radius: 6px; background: #eef2ff; white-space: nowrap; }
+    .grade-sep { width: 100%; height: 0; }
     /* 任教学科 chip 多选输入框 */
     .chip-input {
       display: flex; flex-wrap: wrap; align-items: center; gap: 6px;

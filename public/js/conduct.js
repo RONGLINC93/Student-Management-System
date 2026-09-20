@@ -142,7 +142,7 @@ async function queryRecords() {
       <td>${esc(x.date)}</td><td>${esc(x.className)}</td><td>${total}</td><td class="st-present">${c.present}</td>
       <td class="st-late">${c.late}</td><td class="st-early">${c.early}</td><td class="st-leave">${c.leave}</td>
       <td class="st-absent">${c.absent}</td><td>${rate}%</td>
-      <td><div class="row-actions"><button class="btn-sm btn-edit" data-act="edit-att">编辑</button><button class="btn-sm btn-del" data-act="del-att">删除</button></div></td>
+      <td><div class="row-actions"><button type="button" class="btn-sm more-btn" data-act="more" title="编辑 / 删除">操作${ROW_ICONS.caret}</button></div></td>
     </tr>`;
   }).join('');
 }
@@ -163,7 +163,7 @@ async function queryConduct() {
     <td>${tmap[x.type] || esc(x.type || '')}</td>
     <td>${esc(x.title)}</td>
     <td class="dim" style="max-width:280px">${esc(x.detail || '—')}</td>
-    <td><div class="row-actions"><button class="btn-sm btn-edit" data-act="edit">编辑</button><button class="btn-sm btn-del" data-act="del">删除</button></div></td>
+    <td><div class="row-actions"><button type="button" class="btn-sm more-btn" data-act="more" title="编辑 / 删除">操作${ROW_ICONS.caret}</button></div></td>
   </tr>`).join('');
 }
 
@@ -251,31 +251,51 @@ function bindEvents() {
     const b = e.target.closest('[data-act]');
     if (!b) return;
     const id = b.closest('tr').dataset.id;
-    if (b.dataset.act === 'del-att') {
-      if (!(await confirmDlg('确定删除该日考勤记录？', { title: '删除考勤', okText: '删除', danger: true }))) return;
-      await jfetch(`${ATT_API}/${id}`, { method: 'DELETE' });
-      toast('已删除', 'success'); queryRecords();
-    } else if (b.dataset.act === 'edit-att') {
-      // 回填到登记页
-      try {
-        const list = await jfetch(ATT_API + '?' + qs({ date: $('#recFrom').value || '', classId: '' }));
-        const rec = list.find(x => x.id === id);
-        if (!rec) return toast('未找到记录', 'error');
-        $('#attDate').value = rec.date;
-        const gOpt = [...$('#attGrade').options].find(o => o.value === rec.grade);
-        if (gOpt) $('#attGrade').value = rec.grade;
-        fillClassSelect('attClass', rec.grade);
-        $('#attClass').value = rec.classId;
-        switchTab('register');
-        await loadRoster();
-        // 覆盖状态
-        const map = {};
-        rec.records.forEach(r => map[r.id] = r.status);
-        $('#attBody').querySelectorAll('.st-att').forEach(s => { if (map[s.dataset.sid]) s.value = map[s.dataset.sid]; });
-        refreshStats();
-      } catch (err) { toast(err.message, 'error'); }
+    if (b.dataset.act === 'more') {
+      e.stopPropagation();
+      if (!window.RowMenu) return;
+      window.RowMenu.open(b, {
+        caption: '操作',
+        list: [
+          { kind: 'edit', label: '编辑考勤', icon: ROW_ICONS.edit },
+          { kind: 'del', label: '删除考勤', icon: ROW_ICONS.trash, danger: true }
+        ],
+        onPick: async (ds) => {
+          if (ds.kind === 'edit') await editAttendance(id);
+          else if (ds.kind === 'del') await delAttendance(id);
+        }
+      });
+      return;
     }
+    if (b.dataset.act === 'del-att') await delAttendance(id);
+    else if (b.dataset.act === 'edit-att') await editAttendance(id);
   };
+
+  // 考勤记录：编辑（回填登记页）/ 删除
+  async function delAttendance(id) {
+    if (!(await confirmDlg('确定删除该日考勤记录？', { title: '删除考勤', okText: '删除', danger: true }))) return;
+    await jfetch(`${ATT_API}/${id}`, { method: 'DELETE' });
+    toast('已删除', 'success'); queryRecords();
+  }
+  async function editAttendance(id) {
+    try {
+      const list = await jfetch(ATT_API + '?' + qs({ date: $('#recFrom').value || '', classId: '' }));
+      const rec = list.find(x => x.id === id);
+      if (!rec) return toast('未找到记录', 'error');
+      $('#attDate').value = rec.date;
+      const gOpt = [...$('#attGrade').options].find(o => o.value === rec.grade);
+      if (gOpt) $('#attGrade').value = rec.grade;
+      fillClassSelect('attClass', rec.grade);
+      $('#attClass').value = rec.classId;
+      switchTab('register');
+      await loadRoster();
+      // 覆盖状态
+      const map = {};
+      rec.records.forEach(r => map[r.id] = r.status);
+      $('#attBody').querySelectorAll('.st-att').forEach(s => { if (map[s.dataset.sid]) s.value = map[s.dataset.sid]; });
+      refreshStats();
+    } catch (err) { toast(err.message, 'error'); }
+  }
 
   // 操行
   document.querySelectorAll('.cd-tabs .cd-tab').forEach(t => t.onclick = () => switchTab(t.dataset.tab));
@@ -286,13 +306,29 @@ function bindEvents() {
     const b = e.target.closest('[data-act]');
     if (!b) return;
     const id = b.closest('tr').dataset.id;
-    if (b.dataset.act === 'edit') {
-      jfetch(COND_API + '?' + qs({})).then(list => {
-        const it = list.find(x => x.id === id);
-        if (it) openCondModal(it);
+    if (b.dataset.act === 'more') {
+      e.stopPropagation();
+      if (!window.RowMenu) return;
+      window.RowMenu.open(b, {
+        caption: '操作',
+        list: [{ kind: 'edit', label: '编辑操行', icon: ROW_ICONS.edit }],
+        tail: [{ kind: 'del', label: '删除操行', icon: ROW_ICONS.trash, danger: true }],
+        onPick: (ds) => {
+          if (ds.kind === 'edit') editConduct(id);
+          else if (ds.kind === 'del') delConduct(id);
+        }
       });
-    } else if (b.dataset.act === 'del') delConduct(id);
+      return;
+    }
+    if (b.dataset.act === 'del') delConduct(id);
+    else if (b.dataset.act === 'edit') editConduct(id);
   };
+  function editConduct(id) {
+    jfetch(COND_API + '?' + qs({})).then(list => {
+      const it = list.find(x => x.id === id);
+      if (it) openCondModal(it);
+    });
+  }
   $('#modalClose').onclick = () => $('#modalMask').classList.remove('show');
   $('#modalCancel').onclick = () => $('#modalMask').classList.remove('show');
   $('#condForm').onsubmit = saveCond;
