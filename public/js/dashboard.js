@@ -65,7 +65,10 @@
   function render(data) {
     var pool = data.students || [];
     var classes = data.classes || [];
-    var gradeList = data.grades || [];
+    // /api/board 的 grades 为 [{ name, stage }] 对象数组，兼容旧版纯字符串数组
+    var gradeList = (data.grades || []).map(function (g) {
+      return (typeof g === 'string' ? g : String((g && g.name) || '')).trim();
+    }).filter(Boolean);
     var live = data.live || null;
     var now = Date.now();
 

@@ -850,7 +850,10 @@ function setFollowUI() {
 function syncGradeOptions() {
   const sel = $('#gradeFilter');
   if (!sel) return;
-  const grades = (boardData.grades || []).slice();
+  // /api/board 的 grades 为 [{ name, stage }] 对象数组，兼容旧版纯字符串数组
+  const grades = (boardData.grades || [])
+    .map(g => (typeof g === 'string' ? g : (g && g.name) || '').trim())
+    .filter(Boolean);
   const sig = grades.join('\u0001');
   if (sig !== gradeListSig) {
     gradeListSig = sig;

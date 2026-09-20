@@ -2281,7 +2281,14 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
   padding: 20px;
   box-shadow: var(--shadow);
   min-width: 0;
+  /* 同行面板等高时，让内部内容纵向分布，避免内容少的面板底部留白突兀 */
+  display: flex;
+  flex-direction: column;
 }
+.dash-panel > .dash-table-wrap,
+.dash-panel > .sbj-list,
+.dash-panel > .cap-list,
+.dash-panel > .spec-list { flex: 1 1 auto; }
 /* 独立整行面板（如“各班人数与容量”）与相邻区块保持 18px 间距 */
 .dash-panel.dash-block { margin-bottom: 18px; }
 .dash-panel-title {
@@ -2302,7 +2309,7 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
 .dash-panel-extra { font-size: 12px; font-weight: 400; color: var(--text-light); margin-left: auto; }
 
 /* 环形图 */
-.dash-ring-row { display: flex; gap: 34px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+.dash-ring-row { display: flex; gap: 34px; justify-content: center; align-items: center; flex-wrap: wrap; flex: 1 1 auto; }
 .dash-ring-box { text-align: center; }
 .dash-ring {
   --p: 0%;
@@ -2411,13 +2418,16 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
 }
 .cap-group-title:first-child { margin-top: 0; }
 .cap-group-title .dim { font-weight: 400; }
+/* 用 Grid 布局：班级名 120~170px、进度条占满剩余空间、人数右对齐；
+   避免 flex-wrap 在中间宽度把进度条挤到下一行、或窄屏 column 模式下
+   flex:1 使进度条被垂直拉伸成大色块（排版错乱） */
 .cap-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(120px, 170px) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
+  gap: 3px 14px;
   padding: 9px 0;
   border-bottom: 1px dashed #f1f5f9;
-  flex-wrap: wrap;
 }
 .cap-row:last-child { border-bottom: none; }
 .cap-name { flex: 0 1 170px; min-width: 120px; display: flex; align-items: center; gap: 8px; }
@@ -2494,9 +2504,9 @@ html.cb-embedded .dash-head .js-to-admin { display: none; }
 @media (max-width: 520px) {
   .dash-grid { grid-template-columns: 1fr; }
   .dash-cards { grid-template-columns: 1fr; }
-  .cap-row { flex-direction: column; align-items: stretch; gap: 6px; }
-  .cap-name { justify-content: space-between; }
-  .cap-num { text-align: left; }
+  /* 窄屏：班级名与人数同行（人数靠右），进度条独占第二行铺满 */
+  .cap-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .cap-bar { grid-column: 1 / -1; }
 }
 
 /* ===== 添加班级：名称留空即按序号批量生成（班级管理） ===== */
