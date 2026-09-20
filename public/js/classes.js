@@ -150,7 +150,7 @@ function updateStats() {
 
 // ===== 左侧「年级 / 班级」导航树 =====
 let treeSel = { kind: 'all', value: '' };  // all / grade / none（none = 未设年级的班级）
-const treeExpanded = TreeState.load('classes');             // 已展开节点（空集合 = 默认全部收起，记忆于 localStorage）
+const treeExpanded = TreeState.load('classes', ['__root__']);             // 已展开节点（默认仅展开根「全部班级」，记忆于 localStorage）
 
 const TREE_SVG = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const TREE_ICON = {

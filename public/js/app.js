@@ -567,7 +567,7 @@ function rowActionsHtml() {
 // 年级来自「年级管理」，班级来自「班级管理」；学生通过 grade / classId 归属
 let classTreeCache = [];                    // 班级列表（id / name / grade）
 let treeSel = { kind: 'all', value: '' };   // all（全部）/ grade（年级）/ class（班级）/ none（未分班）
-const treeExpanded = TreeState.load('students');   // 已展开节点键（空集合 = 默认全部收起，记忆于 localStorage）
+const treeExpanded = TreeState.load('students', ['__root__']);   // 已展开节点键（默认仅展开根「全部学生」，记忆于 localStorage）
 const TREE_ICONS = {
   school: `<svg class="gico school" ${SVG_ATTRS}><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>`,
   grade: `<svg class="gico grade" ${SVG_ATTRS}><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 14l9 5 9-5"/></svg>`,

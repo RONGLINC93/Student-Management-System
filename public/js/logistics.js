@@ -12,7 +12,7 @@ const DEPT_API = '/api/departments';
 // 左侧部门树筛选：kind = all（全部）/ dept（部门，含下属部门）/ post（部门下的岗位）/ none（未分配部门）
 let treeSel = { kind: 'all', value: '', dept: '', post: '' };
 // 部门树折叠状态（键：'__root__' / 'd:部门名'）：模型改为“已展开集合”，空集合 = 默认全部收起并记忆
-const deptExpanded = TreeState.load('logistics');  // 已展开节点键（空集合 = 默认全部收起，记忆于 localStorage）
+const deptExpanded = TreeState.load('logistics', ['__root__']);  // 已展开节点键（默认仅展开根「全部职工」，记忆于 localStorage）
 // 树节点图标：全部职工 / 部门 / 岗位
 const TREE_ICONS = {
   root: '<svg class="gico school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg>',

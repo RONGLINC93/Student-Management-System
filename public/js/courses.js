@@ -23,7 +23,7 @@
   let gradeStage = {};                   // 年级名称 → 学段（来自 /api/grades 的 items）
   let plans = {};                        // { 高一: { courses: [...] } }
   let currentGrade = '';                 // 当前选中的年级
-  const courseExpanded = TreeState.load('courses');   // 已展开节点（含 '__school__' 与 's:学段名'）；空集合 = 默认全部收起，记忆于 localStorage
+  const courseExpanded = TreeState.load('courses', ['__school__']);   // 已展开节点（含 '__school__' 与 's:学段名'）；默认仅展开根（校），记忆于 localStorage
   let workingCourses = [];               // 当前年级的编辑缓冲（未保存改动）
   let subjectsFromSettings = [];         // 全校科目候选（来自各年级课程计划汇总）
 

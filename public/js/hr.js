@@ -537,7 +537,7 @@ let deptCache = [];        // 当前部门列表（扁平，含 parentId / leade
 let leaderOptions = [];    // 负责人候选：教师 + 后勤职工 {id, type, name, sub}
 let staffCache = [];       // 后勤职工（/api/logistics），与 teachers 共同组成「人员名单」
 let schoolNameCache = '学生管理系统';  // 组织架构树首层根名称（取自系统设置 schoolName）
-const deptExpanded = TreeState.load('hr');       // 已展开节点 id（含虚拟根 '__root__'）；空集合 = 默认全部收起，记忆于 localStorage
+const deptExpanded = TreeState.load('hr', ['__root__']);       // 已展开节点 id（含虚拟根 '__root__'）；默认仅展开根，记忆于 localStorage
 // 左侧组织架构点击后的筛选：all（全部）/ dept（部门，含下属部门）/ pos（部门下职位）/ none（未分配部门）
 let memSel = { kind: 'all', value: '', dept: '' };
 function escAttr(s) {

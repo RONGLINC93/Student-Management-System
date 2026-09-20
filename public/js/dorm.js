@@ -112,7 +112,7 @@ async function reload() {
 }
 
 // ========== 左侧「楼栋」导航树 ==========
-const treeExpanded = TreeState.load('dorm');   // 已展开节点（空集合 = 默认全部收起，记忆于 localStorage）
+const treeExpanded = TreeState.load('dorm', ['__root__']);   // 已展开节点（默认仅展开根，记忆于 localStorage）
 
 const TREE_SVG = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const TREE_ICON = {

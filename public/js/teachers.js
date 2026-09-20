@@ -15,7 +15,7 @@ let coursePlanOk = false;
 // 左侧年级树筛选：kind = all（全部）/ grade（任教年级）/ class（班级班主任）/ none（未指定年级）
 let treeSel = { kind: 'all', value: '' };
 // 年级树折叠状态（键：'__root__' / 'g:年级名'）：模型改为“已展开集合”，空集合 = 默认全部收起并记忆
-const gradeExpanded = TreeState.load('teachers');  // 已展开节点键（空集合 = 默认全部收起，记忆于 localStorage）
+const gradeExpanded = TreeState.load('teachers', ['__root__']);  // 已展开节点键（默认仅展开根「全部教师」，记忆于 localStorage）
 // 组织架构权限（部门 → 可管理模块，服务端已按层级算好继承），用于部门提示与人事异动权限预警
 let deptPermMap = {};
 let permModules = [];

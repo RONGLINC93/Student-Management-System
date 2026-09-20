@@ -22,11 +22,15 @@
   // 集合内存放“已展开”的节点键；集合为空 = 默认全部收起。
   // 刷新 / 重开浏览器后仍记住用户展开的节点；每页用各自的 pageKey 互不影响。
   window.TreeState = {
-    load: function (pageKey) {
+    // defaultKeys：无已保存展开状态时默认展开的节点键（如根节点 '__root__' / '__school__'），仅作用于首访，用户操作后以其记忆为准
+    load: function (pageKey, defaultKeys) {
       try {
         var raw = localStorage.getItem('treestate:' + pageKey);
-        var arr = raw ? JSON.parse(raw) : null;
-        return new Set(Array.isArray(arr) ? arr : []);
+        if (raw) {
+          var arr = JSON.parse(raw);
+          return new Set(Array.isArray(arr) ? arr : []);
+        }
+        return new Set(Array.isArray(defaultKeys) ? defaultKeys : []);
       } catch (e) { return new Set(); }
     },
     save: function (pageKey, set) {
