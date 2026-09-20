@@ -112,7 +112,7 @@ async function reload() {
 }
 
 // ========== 左侧「楼栋」导航树 ==========
-let treeCollapsed = new Set();   // 已折叠的节点（根节点）
+const treeExpanded = TreeState.load('dorm');   // 已展开节点（空集合 = 默认全部收起，记忆于 localStorage）
 
 const TREE_SVG = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const TREE_ICON = {
@@ -137,7 +137,7 @@ function buildingNames() {
 function renderDormTree() {
   const host = $('#dormTree');
   if (!host) return;
-  const rootCollapsed = treeCollapsed.has('__root__');
+  const rootCollapsed = !treeExpanded.has('__root__');
   // 侧栏只到楼栋一层：全部房间 → 楼栋（房间数 · 在住/床位），不再展开具体房间
   const kids = buildingNames().map(b => {
     const rooms = dorms.filter(r => r.building === b);
@@ -167,7 +167,8 @@ function bindDormTree() {
     const tg = e.target.closest('.gtree-toggle');
     if (tg && !tg.classList.contains('leaf')) {
       const id = tg.dataset.toggle || '';
-      if (treeCollapsed.has(id)) treeCollapsed.delete(id); else treeCollapsed.add(id);
+      if (treeExpanded.has(id)) treeExpanded.delete(id); else treeExpanded.add(id);
+      TreeState.save('dorm', treeExpanded);
       renderDormTree();
       return;
     }

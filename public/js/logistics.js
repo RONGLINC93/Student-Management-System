@@ -11,8 +11,8 @@ let deptCache = [];
 const DEPT_API = '/api/departments';
 // 左侧部门树筛选：kind = all（全部）/ dept（部门，含下属部门）/ post（部门下的岗位）/ none（未分配部门）
 let treeSel = { kind: 'all', value: '', dept: '', post: '' };
-// 部门树折叠状态（键：'__root__' / 'd:部门名'），默认展开
-const deptCollapsed = new Set();
+// 部门树折叠状态（键：'__root__' / 'd:部门名'）：模型改为“已展开集合”，空集合 = 默认全部收起并记忆
+const deptExpanded = TreeState.load('logistics');  // 已展开节点键（空集合 = 默认全部收起，记忆于 localStorage）
 // 树节点图标：全部职工 / 部门 / 岗位
 const TREE_ICONS = {
   root: '<svg class="gico school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg>',
@@ -209,7 +209,7 @@ function deptNode(d, isSel, countOf) {
   const name = String(d.name || '').trim();
   const kids = deptKidsOf(d.id);
   const posts = postsOfDept(name);
-  const collapsed = deptCollapsed.has('d:' + name);
+  const collapsed = !deptExpanded.has('d:' + name);
   let node = '<div class="gnode' + (collapsed ? ' collapsed' : '') + '">' + treeRow({
     icon: TREE_ICONS.dept, name, kind: 'dept', value: name,
     meta: countOf({ kind: 'dept', value: name }) + ' 人',
@@ -237,7 +237,7 @@ function renderDeptTree() {
     && String(treeSel.value || '') === String(value || '')
     && String(treeSel.dept || '') === String(dept || '');
   const countOf = sel => staff.filter(s => matchTree(s, sel)).length;
-  const rootCollapsed = deptCollapsed.has('__root__');
+  const rootCollapsed = !deptExpanded.has('__root__');
   const extras = extraDeptNames();
   let kids = '<div class="gnode">' + treeRow({
     icon: TREE_ICONS.post, name: '未分配部门', kind: 'none', value: '',
@@ -264,8 +264,9 @@ function bindDeptTree() {
     const tg = e.target.closest('.gtree-toggle');
     if (tg && !tg.classList.contains('leaf')) {
       const id = tg.dataset.toggle || '';
-      if (deptCollapsed.has(id)) deptCollapsed.delete(id);
-      else deptCollapsed.add(id);
+      if (deptExpanded.has(id)) deptExpanded.delete(id);
+      else deptExpanded.add(id);
+      TreeState.save('logistics', deptExpanded);
       renderDeptTree();
       return;
     }

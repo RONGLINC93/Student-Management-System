@@ -443,7 +443,8 @@ function bindEvents() {
     const tg = e.target.closest('.ttoggle[data-toggle]');
     if (tg) {
       const id = tg.getAttribute('data-toggle');
-      if (deptCollapsed.has(id)) deptCollapsed.delete(id); else deptCollapsed.add(id);
+      if (deptExpanded.has(id)) deptExpanded.delete(id); else deptExpanded.add(id);
+      TreeState.save('hr', deptExpanded);
       renderDeptTree();
       return;
     }
@@ -536,7 +537,7 @@ let deptCache = [];        // 当前部门列表（扁平，含 parentId / leade
 let leaderOptions = [];    // 负责人候选：教师 + 后勤职工 {id, type, name, sub}
 let staffCache = [];       // 后勤职工（/api/logistics），与 teachers 共同组成「人员名单」
 let schoolNameCache = '学生管理系统';  // 组织架构树首层根名称（取自系统设置 schoolName）
-const deptCollapsed = new Set();       // 已折叠的节点 id（含虚拟根 '__root__'）
+const deptExpanded = TreeState.load('hr');       // 已展开节点 id（含虚拟根 '__root__'）；空集合 = 默认全部收起，记忆于 localStorage
 // 左侧组织架构点击后的筛选：all（全部）/ dept（部门，含下属部门）/ pos（部门下职位）/ none（未分配部门）
 let memSel = { kind: 'all', value: '', dept: '' };
 function escAttr(s) {
@@ -757,7 +758,7 @@ function renderDeptTree() {
   }
   function node(d) {
     const children = kidsOf(d.id);
-    const collapsed = deptCollapsed.has(d.id);
+    const collapsed = !deptExpanded.has(d.id);
     const deptName = String(d.name || '').trim();
     const posRows = posCache.filter(p => (p.departmentId || '') === d.id || (p.department || '') === deptName)
       .map(p => posRow(p, deptName)).join('');
@@ -780,7 +781,7 @@ function renderDeptTree() {
   }
 
   // 首层根：学校名称（虚拟节点，其下挂所有顶级部门；点击 = 显示全部人员）
-  const rootCollapsed = deptCollapsed.has('__root__');
+  const rootCollapsed = !deptExpanded.has('__root__');
   const rootMenu = writable ? menuHtml([{ act: 'add', id: '', label: '添加部门' }]) : '';
   // 未分配部门：教师 / 职工未填所属部门时也挂出来，避免无处查找
   const unassignedRow = '<div class="tnode">' +
@@ -827,7 +828,7 @@ function moveDept(dragId, targetId, mode) {
   else if (mode === 'after') deptCache.splice(ti + 1, 0, drag);
   else deptCache.push(drag);   // 移入子级时排在该父部门子项末尾
   reindexDeptSort();
-  if (mode === 'into') deptCollapsed.delete(targetId);  // 移入后展开，便于看到结果
+  if (mode === 'into') { deptExpanded.add(targetId); TreeState.save('hr', deptExpanded); }  // 移入后展开，便于看到结果
   renderDeptTree();
   commitDept();
 }

@@ -567,7 +567,7 @@ function rowActionsHtml() {
 // 年级来自「年级管理」，班级来自「班级管理」；学生通过 grade / classId 归属
 let classTreeCache = [];                    // 班级列表（id / name / grade）
 let treeSel = { kind: 'all', value: '' };   // all（全部）/ grade（年级）/ class（班级）/ none（未分班）
-const treeCollapsed = new Set();            // 折叠节点键：'__root__' / 'g:年级名'，默认展开
+const treeExpanded = TreeState.load('students');   // 已展开节点键（空集合 = 默认全部收起，记忆于 localStorage）
 const TREE_ICONS = {
   school: `<svg class="gico school" ${SVG_ATTRS}><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>`,
   grade: `<svg class="gico grade" ${SVG_ATTRS}><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 14l9 5 9-5"/></svg>`,
@@ -617,7 +617,7 @@ function renderClassTree() {
   // 学段筛选已失效（该学段下已无年级）时回退到全部，避免列表空白
   if (treeSel.kind === 'stage' && !gnames.some(g => (gradeStage[g] || '未设置') === String(treeSel.value)))
     treeSel = { kind: 'all', value: '' };
-  const rootCollapsed = treeCollapsed.has('__root__');
+  const rootCollapsed = !treeExpanded.has('__root__');
 
   // 扁平渲染 + 深度变量 --d：图标对齐成列，折叠箭头按层级左移，名称按层级缩进
   const rows = [];
@@ -648,7 +648,7 @@ function renderClassTree() {
     });
     stages.forEach(st => {
       const gradeNames = stageGroups.get(st);
-      const sCollapsed = treeCollapsed.has('s:' + st);
+      const sCollapsed = !treeExpanded.has('s:' + st);
       rows.push(treeRowHtml({
         icon: TREE_ICONS.stage, name: st, kind: 'stage', value: st,
         meta: gradeNames.length + ' 个年级', depth: 1,
@@ -658,7 +658,7 @@ function renderClassTree() {
       if (!sCollapsed) {
         gradeNames.forEach(g => {
           const cls = classTreeCache.filter(c => String((c && c.grade) || '').trim() === g);
-          const gCollapsed = treeCollapsed.has('g:' + g);
+          const gCollapsed = !treeExpanded.has('g:' + g);
           rows.push(treeRowHtml({
             icon: TREE_ICONS.grade, name: g, kind: 'grade', value: g,
             meta: countOf({ kind: 'grade', value: g }) + ' 人', depth: 2,
@@ -688,8 +688,9 @@ function bindClassTree() {
     const tg = e.target.closest('.gtree-toggle');
     if (tg && !tg.classList.contains('leaf')) {
       const id = tg.dataset.toggle || '';
-      if (treeCollapsed.has(id)) treeCollapsed.delete(id);
-      else treeCollapsed.add(id);
+      if (treeExpanded.has(id)) treeExpanded.delete(id);
+      else treeExpanded.add(id);
+      TreeState.save('students', treeExpanded);
       renderClassTree();
       return;
     }

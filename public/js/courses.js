@@ -23,8 +23,7 @@
   let gradeStage = {};                   // 年级名称 → 学段（来自 /api/grades 的 items）
   let plans = {};                        // { 高一: { courses: [...] } }
   let currentGrade = '';                 // 当前选中的年级
-  let schoolCollapsed = false;           // 侧栏「学校名」根节点是否收起（收起则不显示年级列表）
-  let stageCollapsed = new Set();        // 侧栏已收起的学段节点（键 's:学段名'）
+  const courseExpanded = TreeState.load('courses');   // 已展开节点（含 '__school__' 与 's:学段名'）；空集合 = 默认全部收起，记忆于 localStorage
   let workingCourses = [];               // 当前年级的编辑缓冲（未保存改动）
   let subjectsFromSettings = [];         // 全校科目候选（来自各年级课程计划汇总）
 
@@ -123,15 +122,15 @@
     // 扁平渲染 + 深度变量 --d：图标对齐成列，折叠箭头按层级左移，名称按层级缩进
     const rows = [];
     rows.push('<div class="gtree-row" data-kind="root" style="--d:0">'
-      + '<button type="button" class="gtree-toggle' + (schoolCollapsed ? ' collapsed' : '') + '" data-toggle="__school__" aria-label="展开 / 收起"></button>'
+      + '<button type="button" class="gtree-toggle' + (!courseExpanded.has('__school__') ? ' collapsed' : '') + '" data-toggle="__school__" aria-label="展开 / 收起"></button>'
       + '<svg class="gico school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg>'
       + '<span class="gname">' + esc(schoolName) + '</span>'
       + '<span class="gmeta">' + grades.length + ' 个年级</span>'
       + '</div>');
-    if (!schoolCollapsed) {
+    if (courseExpanded.has('__school__')) {
       stages.forEach(st => {
         const gradeNames = stageGroups.get(st);
-        const sCollapsed = stageCollapsed.has('s:' + st);
+        const sCollapsed = !courseExpanded.has('s:' + st);
         rows.push('<div class="gtree-row" data-kind="stage" data-value="' + esc(st) + '" style="--d:1">'
           + '<button type="button" class="gtree-toggle' + (sCollapsed ? ' collapsed' : '') + '" data-toggle="s:' + esc(st) + '" aria-label="展开 / 收起"></button>'
           + '<svg class="gico stage" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>'
@@ -166,9 +165,9 @@
       const tg = e.target.closest('.gtree-toggle');
       if (tg && !tg.classList.contains('leaf')) {
         const id = tg.dataset.toggle || '';
-        if (id === '__school__') schoolCollapsed = !schoolCollapsed;
-        else if (stageCollapsed.has(id)) stageCollapsed.delete(id);
-        else stageCollapsed.add(id);
+        if (courseExpanded.has(id)) courseExpanded.delete(id);
+        else courseExpanded.add(id);
+        TreeState.save('courses', courseExpanded);
         renderGradeBar();
         return;
       }

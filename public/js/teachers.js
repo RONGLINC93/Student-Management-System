@@ -14,8 +14,8 @@ let coursePlanMap = {};
 let coursePlanOk = false;
 // 左侧年级树筛选：kind = all（全部）/ grade（任教年级）/ class（班级班主任）/ none（未指定年级）
 let treeSel = { kind: 'all', value: '' };
-// 年级树折叠状态（键：'__root__' / 'g:年级名'），默认展开
-const gradeCollapsed = new Set();
+// 年级树折叠状态（键：'__root__' / 'g:年级名'）：模型改为“已展开集合”，空集合 = 默认全部收起并记忆
+const gradeExpanded = TreeState.load('teachers');  // 已展开节点键（空集合 = 默认全部收起，记忆于 localStorage）
 // 组织架构权限（部门 → 可管理模块，服务端已按层级算好继承），用于部门提示与人事异动权限预警
 let deptPermMap = {};
 let permModules = [];
@@ -488,7 +488,7 @@ function renderGradeTree() {
   // 学段筛选已失效时回退到全部
   if (treeSel.kind === 'stage' && !gnames.some(g => (gradeStage[g] || '未设置') === String(treeSel.value)))
     treeSel = { kind: 'all', value: '' };
-  const rootCollapsed = gradeCollapsed.has('__root__');
+  const rootCollapsed = !gradeExpanded.has('__root__');
 
   // 扁平渲染 + 深度变量 --d：图标对齐成列，折叠箭头按层级左移，名称按层级缩进
   const rows = [];
@@ -520,7 +520,7 @@ function renderGradeTree() {
     });
     stages.forEach(st => {
       const gradeNames = stageGroups.get(st);
-      const sCollapsed = gradeCollapsed.has('s:' + st);
+      const sCollapsed = !gradeExpanded.has('s:' + st);
       rows.push(treeRow({
         icon: G_ICONS.stage, name: st, kind: 'stage', value: st, depth: 1,
         meta: gradeNames.length + ' 个年级',
@@ -530,7 +530,7 @@ function renderGradeTree() {
       if (!sCollapsed) {
         gradeNames.forEach(g => {
           const cls = classList.filter(c => String((c && c.grade) || '').trim() === g);
-          const gCollapsed = gradeCollapsed.has('g:' + g);
+          const gCollapsed = !gradeExpanded.has('g:' + g);
           rows.push(treeRow({
             icon: G_ICONS.grade, name: g, kind: 'grade', value: g, depth: 2,
             meta: teachers.filter(t => matchTree(t, { kind: 'grade', value: g })).length + ' 人',
@@ -563,8 +563,9 @@ function bindGradeTree() {
     const tg = e.target.closest('.gtree-toggle');
     if (tg && !tg.classList.contains('leaf')) {
       const id = tg.dataset.toggle || '';
-      if (gradeCollapsed.has(id)) gradeCollapsed.delete(id);
-      else gradeCollapsed.add(id);
+      if (gradeExpanded.has(id)) gradeExpanded.delete(id);
+      else gradeExpanded.add(id);
+      TreeState.save('teachers', gradeExpanded);
       renderGradeTree();
       return;
     }

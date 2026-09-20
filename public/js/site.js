@@ -18,6 +18,22 @@
 (function () {
   'use strict';
 
+  // ===== 左侧树展开状态记忆（localStorage）=====
+  // 集合内存放“已展开”的节点键；集合为空 = 默认全部收起。
+  // 刷新 / 重开浏览器后仍记住用户展开的节点；每页用各自的 pageKey 互不影响。
+  window.TreeState = {
+    load: function (pageKey) {
+      try {
+        var raw = localStorage.getItem('treestate:' + pageKey);
+        var arr = raw ? JSON.parse(raw) : null;
+        return new Set(Array.isArray(arr) ? arr : []);
+      } catch (e) { return new Set(); }
+    },
+    save: function (pageKey, set) {
+      try { localStorage.setItem('treestate:' + pageKey, JSON.stringify([].slice.call(set))); } catch (e) {}
+    }
+  };
+
   // ===== 全局 401 统一处理：会话失效时自动回到对应登录页 =====
   // 包装 window.fetch（全站请求均走 fetch）；工作台功能页运行在 iframe 中，
   // 失效时必须让顶层窗口跳转，避免只在 iframe 里显示登录页。

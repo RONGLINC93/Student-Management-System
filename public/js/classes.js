@@ -150,7 +150,7 @@ function updateStats() {
 
 // ===== 左侧「年级 / 班级」导航树 =====
 let treeSel = { kind: 'all', value: '' };  // all / grade / none（none = 未设年级的班级）
-let treeCollapsed = new Set();             // 已折叠的节点（根节点）
+const treeExpanded = TreeState.load('classes');             // 已展开节点（空集合 = 默认全部收起，记忆于 localStorage）
 
 const TREE_SVG = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const TREE_ICON = {
@@ -187,7 +187,7 @@ function matchTreeSel(c) {
 function renderTree() {
   const host = $('#classTree');
   if (!host) return;
-  const rootCollapsed = treeCollapsed.has('__root__');
+  const rootCollapsed = !treeExpanded.has('__root__');
   // 侧栏按「学段 → 年级」两层组织：全部班级 → 学段（小学/初中/高中/大学…）→ 年级（班级数 · 学生数）
   // 扁平渲染 + 深度变量 --d：图标固定在同一条竖列，折叠箭头按层级左移体现嵌套，名称按层级缩进
   const STAGE_ORDER = ['小学', '初中', '高中', '大学', '其他', '未设置'];
@@ -212,7 +212,7 @@ function renderTree() {
   }));
   if (!rootCollapsed) {
     stages.forEach(st => {
-      const collapsed = treeCollapsed.has('s:' + st);
+      const collapsed = !treeExpanded.has('s:' + st);
       const gradeNames = stageGroups.get(st);
       rows.push(treeRowHtml({
         icon: TREE_ICON.stage, name: st, kind: 'stage', value: st,
@@ -261,8 +261,9 @@ function bindTree() {
     const tg = e.target.closest('.gtree-toggle');
     if (tg && !tg.classList.contains('leaf')) {
       const id = tg.dataset.toggle || '';
-      if (treeCollapsed.has(id)) treeCollapsed.delete(id);
-      else treeCollapsed.add(id);
+      if (treeExpanded.has(id)) treeExpanded.delete(id);
+      else treeExpanded.add(id);
+      TreeState.save('classes', treeExpanded);
       renderTree();
       return;
     }
