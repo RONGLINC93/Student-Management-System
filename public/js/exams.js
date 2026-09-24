@@ -36,7 +36,7 @@ function avgOf(list) {
   const s = list.reduce((a, x) => a + (x || 0), 0);
   return s / list.length;
 }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return window.todayLocal(); }
 
 async function api(url, method, body) {
   const res = await fetch(url, {

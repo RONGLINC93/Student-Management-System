@@ -296,7 +296,7 @@ function exportCsv() {
   const csv = '\uFEFF' + [head, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  a.download = '请假记录_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.download = '请假记录_' + window.todayLocal() + '.csv';
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }

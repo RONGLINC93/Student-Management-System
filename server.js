@@ -2008,6 +2008,13 @@ let liveBoard = null; // { ts, grade, phase, classes: [{ id, name, grade, capaci
 // 分班页当前筛选年级（内存态，分班页切换年级时实时广播，大屏开「跟播」据此同步，不依赖直播）
 let boardGrade = '';
 
+// 本地日期字符串 YYYY-MM-DD（用本地年月日，避免 toISOString 的 UTC 偏移在 UTC+8 凌晨差一天）
+function localDateStr(d) {
+  d = d || new Date();
+  const p = n => (n < 10 ? '0' + n : '' + n);
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
 function genId() {
   return 'cls_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
@@ -4298,7 +4305,7 @@ async function handle(req, res) {
       name,
       type: String(body.type || '考试').trim().slice(0, 12),
       grade: String(body.grade || ''),
-      date: String(body.date || new Date().toISOString().slice(0, 10)),
+      date: String(body.date || localDateStr()),
       remark: String(body.remark || '').trim().slice(0, 200),
       createdAt: new Date().toISOString(),
       records: {}
@@ -4502,7 +4509,7 @@ async function handle(req, res) {
       grade: stu ? stu.grade : String(body.grade || ''),
       className: stu && stu.className ? stu.className : '',
       type: CONDUCT_TYPE[body.type] ? body.type : 'comment',
-      date: String(body.date || new Date().toISOString().slice(0, 10)),
+      date: String(body.date || localDateStr()),
       title,
       detail: String(body.detail || '').trim(),
       createdAt: new Date().toISOString()
@@ -4919,7 +4926,7 @@ async function handle(req, res) {
     const body = JSON.stringify(payload, null, 2);
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="sms-backup-' + new Date().toISOString().slice(0, 10) + '.json"'
+      'Content-Disposition': 'attachment; filename="sms-backup-' + localDateStr() + '.json"'
     });
     return res.end(body);
   }

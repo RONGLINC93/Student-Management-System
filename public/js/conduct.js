@@ -16,7 +16,7 @@ const $ = (s) => document.querySelector(s);
 function esc(v) {
   return String(v).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return window.todayLocal(); }
 async function jfetch(url, opt) {
   const res = await fetch(url, opt);
   const j = await res.json();
@@ -382,7 +382,7 @@ async function loadBase() {
   fillGradeSelects();
   fillClassSelect('attClass', '');
   fillClassSelect('recClass', '');
-  $('#recFrom').value = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+  $('#recFrom').value = window.todayLocal(new Date(Date.now() - 7 * 864e5));
   $('#recTo').value = today();
   $('#attDate').value = today();
   $('#cDate').value = today();

@@ -545,6 +545,13 @@
     }
   });
 
+  // 本地日期 YYYY-MM-DD（用本地年月日，避免 toISOString 的 UTC 偏移在 UTC+8 凌晨差一天）
+  window.todayLocal = function (d) {
+    d = d || new Date();
+    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  };
+
   // 启动加载
   window.siteLoadSettings();
   window.siteLoadAuth();

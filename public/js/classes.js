@@ -757,7 +757,7 @@ function exportRoster() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${cls.name}_花名册_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `${cls.name}_花名册_${window.todayLocal()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   toast('导出成功', 'success');
