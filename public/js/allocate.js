@@ -478,10 +478,7 @@ async function startDeal() {
     toast('请先到班级管理创建班级', 'error');
     return;
   }
-  if (students.length < classCount) {
-    toast('学生人数不能少于班级数', 'error');
-    return;
-  }
+  // 学生人数少于班级数时，部分班自动留空，正常分班
   const totalCap = classData.reduce((a, c) => a + (Number(c.capacity) || 50), 0);
   if (students.length > totalCap) {
     toast(`班级总容量不足：待分学生 ${students.length} 人 > 总容量 ${totalCap} 人，请先在班级管理中调大容量或退回部分学生`, 'error');

@@ -10,6 +10,21 @@
 
 ---
 
+## v1.4.16 — 2026-11-11
+
+本版本核心：**分班大屏彻底免登录 + 放开"学生少不能分班"的硬限制**。
+
+### 修复
+
+- **分班大屏 result.html 未登录被踢回登录页**：`public/js/site.js` 的全局 `fetch` 包装器在任意接口返回 401 时自动跳登录页，而 `public/js/result.js` 启动时会调用 `/api/auth/me` 检查登录状态——未登录用户访问大屏时该请求返回 401，随即被拦截器重定向到 `/login.html`。根因修复：`authRedirect()` 新增 `PUBLIC_PAGES` 白名单，`/result.html` 上的 401 不再触发跳转，`result.js` 的 `.catch(() => applyAuthUI(null))` 正常兜底，大屏核心展示不受影响，仅隐藏"去分班"按钮。
+- **智能分班"学生人数不能少于班级数"硬限制不合理**：`public/js/allocate.js` 的 `startDeal()` 在分班前校验 `students.length < classCount` 直接报错拒绝分班，完全没有必要——学生少时部分班自动留空即可，后端 `/api/allocate` 和分班算法本身都没有这个约束。已移除该校验，改为一条说明注释。
+
+### 影响
+
+- `public/js/site.js`：`authRedirect()` 新增公开页面判断，`/result.html` 等页面的 401 不再触发跳转。
+- `public/js/allocate.js`：`startDeal()` 移除 `students.length < classCount` 校验。
+- 服务端无改动，无需迁移数据。
+
 ## v1.4.13 — 2026-09-19
 
 本版本核心：**档案照片化 + 列表列可调 + 任教学科绑定课程计划 + 组织架构权限矩阵化 + 宿舍信息按需展开**。

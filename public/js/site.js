@@ -44,10 +44,13 @@
   // 登录接口本身的 401 表示「账号 / 密码错误」，由各登录页自行提示，不拦截。
   var __origFetch = window.fetch.bind(window);
   var __authRedirecting = false;
+  // 公开页面：大屏 / 分班大屏等，未登录也可访问，401 不触发跳转
+  var PUBLIC_PAGES = ['/result.html'];
   function authRedirect() {
     if (__authRedirecting) return;
     var path = window.location.pathname || '';
     if (path === '/login.html' || path === '/slogin.html') return; // 已在登录页
+    if (PUBLIC_PAGES.indexOf(path) !== -1) return; // 公开页面不拦截
     __authRedirecting = true;
     var studentSide = path.indexOf('/student.html') !== -1;
     var loginUrl = studentSide ? '/slogin.html' : '/login.html';
